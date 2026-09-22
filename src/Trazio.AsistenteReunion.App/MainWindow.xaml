@@ -1,0 +1,305 @@
+<Window x:Class="Trazio.AsistenteReunion.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Trazio.AsistenteReunion.App"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        mc:Ignorable="d"
+        Title="Trazio Asistente Reunión" Height="760" Width="1120" MinHeight="650" MinWidth="960"
+        Background="#F5F7FA" Closing="Window_Closing">
+    <Grid Margin="20">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <StackPanel Margin="0,0,0,16">
+            <TextBlock Text="Trazio Asistente Reunión" FontSize="27" FontWeight="SemiBold" Foreground="#14213D"/>
+            <TextBlock Text="Transcripción privada y local de reuniones para Windows" Foreground="#556070" Margin="0,4,0,0"/>
+        </StackPanel>
+        <TabControl Grid.Row="1" x:Name="MainTabs" SelectionChanged="MainTabs_SelectionChanged">
+            <TabItem Header="Sesión en vivo">
+                <Grid Margin="14">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="390"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="Título de la reunión" FontWeight="SemiBold"/>
+                        <TextBox x:Name="TitleBox" MaxLength="120" ToolTip="Trazio propone un título automático que puedes cambiar antes de iniciar."/>
+                        <TextBlock Text="Puedes iniciar de inmediato con el título automático y cambiarlo después desde el Historial." Foreground="#556070" TextWrapping="Wrap" Margin="4,2,4,4"/>
+                        <TextBlock Text="Perfil local" FontWeight="SemiBold" Margin="0,12,0,0"/>
+                        <TextBlock Text="Se usa solo para identificar tus intervenciones captadas por el micrófono. La configuración queda protegida para tu cuenta de Windows." Foreground="#556070" TextWrapping="Wrap" Margin="4,2,4,4"/>
+                        <TextBlock Text="Nombre visible"/>
+                        <TextBox x:Name="LocalDisplayNameBox" ToolTip="Nombre predeterminado para tus intervenciones captadas por el micrófono"/>
+                        <TextBlock Text="Organización (opcional)" Margin="0,6,0,0"/>
+                        <TextBox x:Name="LocalOrganizationBox" ToolTip="Organización opcional del perfil local"/>
+                        <CheckBox x:Name="ConfirmLocalProfileCheck" Content="Confirmo este nombre visible" Margin="5,6,5,2"/>
+                        <Button x:Name="SaveLocalProfileButton" Content="Guardar perfil" HorizontalAlignment="Left" Click="SaveLocalProfile_Click" ToolTip="Guarda el perfil confirmado sin iniciar una reunión."/>
+                        <TextBlock Text="Tu nombre en esta reunión (opcional)" Margin="0,6,0,0"/>
+                        <TextBox x:Name="MeetingDisplayNameOverrideBox" ToolTip="Cambia solo cómo se identifican tus intervenciones en esta reunión."/>
+                        <TextBlock Text="No es el título: solo reemplaza temporalmente tu nombre visible del perfil." Foreground="#556070" TextWrapping="Wrap" Margin="4,2,4,4"/>
+                        <CheckBox x:Name="MicrophoneCheck" Content="Capturar micrófono" IsChecked="True" Margin="5,12,5,2"/>
+                        <ComboBox x:Name="MicrophoneBox" DisplayMemberPath="Name" SelectedValuePath="Id"/>
+                        <ProgressBar x:Name="MicrophoneLevel" Height="8" Minimum="0" Maximum="1" Margin="4,0,4,8"/>
+                        <TextBlock x:Name="MicrophoneDiagnostic" Text="Micrófono: esperando audio" Foreground="#556070" TextWrapping="Wrap" Margin="4,0,4,6"/>
+                        <CheckBox x:Name="OutputCheck" Content="Capturar audio del equipo" IsChecked="True" Margin="5,6,5,2"/>
+                        <ComboBox x:Name="OutputBox" DisplayMemberPath="Name" SelectedValuePath="Id"/>
+                        <ProgressBar x:Name="OutputLevel" Height="8" Minimum="0" Maximum="1" Margin="4,0,4,8"/>
+                        <TextBlock x:Name="OutputDiagnostic" Text="Audio del equipo: esperando" Foreground="#556070" TextWrapping="Wrap" Margin="4,0,4,6"/>
+                        <CheckBox x:Name="KeepAudioCheck" Content="El audio cifrado siempre se guarda para reproducirlo y retranscribirlo" IsChecked="True" IsEnabled="False" Focusable="False" Margin="5,8,5,2" ToolTip="Trazio guarda el audio cifrado. Solo una exportación WAV explícita crea un archivo reproducible por otras aplicaciones."/>
+                        <DockPanel Margin="4,0,4,8"><TextBlock Text="Límite de almacenamiento" VerticalAlignment="Center" Margin="0,0,8,0"/><ComboBox x:Name="AudioBudgetBox" Width="90" HorizontalAlignment="Left"><ComboBoxItem Content="1 GB" Tag="1"/><ComboBoxItem Content="2 GB" Tag="2"/><ComboBoxItem Content="5 GB" Tag="5"/></ComboBox></DockPanel>
+                        <Border x:Name="RecordingAudioIndicator" Visibility="Collapsed" Background="#FFE4E4" BorderBrush="#C62828" BorderThickness="1" CornerRadius="4" Padding="8" Margin="4,0,4,8"><TextBlock Text="Grabación cifrada de audio ACTIVA" Foreground="#9B1C1C" FontWeight="SemiBold"/></Border>
+                        <TextBlock Text="Modelo de transcripción" FontWeight="SemiBold" Margin="0,10,0,0"/>
+                        <TextBlock x:Name="ModelStatus" Text="Comprobando el modelo local…" TextWrapping="Wrap" Margin="4,4"/>
+                        <WrapPanel><Button x:Name="DownloadModelButton" Content="Descargar modelo recomendado" Click="DownloadModel_Click"/><Button x:Name="CancelModelButton" Content="Cancelar descarga" IsEnabled="False" Click="CancelModel_Click"/></WrapPanel>
+                        <ProgressBar x:Name="ModelProgress" Height="6" Minimum="0" Maximum="100" Margin="4"/>
+                        <Expander Header="Opciones avanzadas: modelo personalizado" Margin="4"><DockPanel><Button x:Name="BrowseModelButton" DockPanel.Dock="Right" Content="Examinar…" Click="BrowseModel_Click"/><TextBox x:Name="ModelPathBox" VerticalContentAlignment="Center"/></DockPanel></Expander>
+                        <TextBlock Text="Idioma" FontWeight="SemiBold" Margin="0,10,0,0"/>
+                        <ComboBox x:Name="LanguageBox" SelectedIndex="0"><ComboBoxItem Content="Español" Tag="es"/><ComboBoxItem Content="Inglés" Tag="en"/><ComboBoxItem Content="Detección automática" Tag="auto"/></ComboBox>
+                        <Border Background="#FFF4D6" BorderBrush="#E0B543" BorderThickness="1" CornerRadius="5" Padding="10" Margin="4,14,4,8">
+                            <TextBlock TextWrapping="Wrap" Text="Importante: silenciarte en Meet, Teams o Zoom no silencia esta aplicación. Usa Pausar aquí cuando no quieras que Trazio capture el micrófono."/>
+                        </Border>
+                        <WrapPanel Margin="0,8,0,0">
+                            <Button x:Name="StartButton" Content="Iniciar transcripción" Background="#246BCE" Foreground="White" Click="Start_Click"/>
+                            <Button x:Name="PauseButton" Content="Pausar" IsEnabled="False" Click="Pause_Click"/>
+                            <Button x:Name="ResumeButton" Content="Reanudar" IsEnabled="False" Click="Resume_Click"/>
+                            <Button x:Name="StopButton" Content="Detener" IsEnabled="False" Click="Stop_Click"/>
+                        </WrapPanel>
+                    </StackPanel>
+                    </ScrollViewer>
+                    <Border Grid.Column="2" Background="White" CornerRadius="6" Padding="14" BorderBrush="#DDE2EA" BorderThickness="1">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="Transcripción en vivo" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                            <ListBox x:Name="LiveTranscript" BorderThickness="0" ScrollViewer.CanContentScroll="True">
+                                <ListBox.ItemTemplate><DataTemplate><StackPanel Margin="0,5"><TextBlock Text="{Binding Header}" FontWeight="SemiBold" Foreground="#246BCE"/><TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="14"/></StackPanel></DataTemplate></ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+            <TabItem x:Name="HistoryTabItem" Header="Historial" GotFocus="HistoryTab_GotFocus">
+                <Grid Margin="14">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="330"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                            <DockPanel>
+                                <TextBlock Text="Sesiones guardadas" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <Button x:Name="RefreshHistoryButton" Content="Actualizar sesiones" HorizontalAlignment="Right" IsEnabled="False" Click="RefreshHistory_Click"
+                                        ToolTip="Vuelve a cargar las sesiones desde el almacenamiento local cifrado."
+                                        automation:AutomationProperties.Name="Actualizar sesiones guardadas"/>
+                            </DockPanel>
+                            <TextBlock Text="Elige una sesión para revisar su transcripción y el audio disponible." Foreground="#556070" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                        </StackPanel>
+                        <ListBox x:Name="HistoryList" SelectionChanged="HistoryList_SelectionChanged"
+                                 automation:AutomationProperties.Name="Sesiones guardadas">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate DataType="{x:Type local:HistorySessionItem}">
+                                    <StackPanel Margin="2,5">
+                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding Details}" Foreground="#556070" FontSize="12"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                    <Border Grid.Column="2" Background="White" CornerRadius="6" Padding="14" BorderBrush="#DDE2EA" BorderThickness="1">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                                <TextBlock Text="Detalles de la sesión" FontSize="18" FontWeight="SemiBold"/>
+                                <TextBlock Text="Título de la reunión" FontWeight="SemiBold" Margin="0,8,0,2"/>
+                                <DockPanel Margin="0,0,0,8">
+                                    <Button x:Name="SaveSessionTitleButton" DockPanel.Dock="Right" Content="Guardar título" IsEnabled="False" Click="SaveSessionTitle_Click" ToolTip="Guarda el nuevo título sin modificar la transcripción ni el audio."/>
+                                    <TextBox x:Name="HistoryTitleBox" MaxLength="120" IsEnabled="False" VerticalContentAlignment="Center" automation:AutomationProperties.Name="Título de la reunión seleccionada"/>
+                                </DockPanel>
+                                <TextBlock x:Name="HistoryAudioSummary" Text="Selecciona una sesión guardada para ver su transcripción y el audio conservado." Foreground="#556070" TextWrapping="Wrap" Margin="0,5,0,2"/>
+                                <TextBlock x:Name="HistoryAudioGuidance" Text="Selecciona una sesión guardada para ver su transcripción y el audio conservado." Foreground="#556070" TextWrapping="Wrap" Margin="0,0,0,8"
+                                           automation:AutomationProperties.LiveSetting="Polite"/>
+                                <Border x:Name="AudioPlayerPanel" Background="#F5F7FA" BorderBrush="#DDE2EA" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,4,0,10">
+                                    <StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="190"/></Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="Reproductor de la reunión" FontSize="16" FontWeight="SemiBold"/>
+                                                <TextBlock x:Name="PlaybackTrackText" Text="Selecciona una sesión y una pista de audio." Foreground="#246BCE" FontWeight="SemiBold" Margin="0,3,0,0"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="Pista de audio" Foreground="#556070"/>
+                                                <ComboBox x:Name="HistoryAudioSource" SelectedIndex="0" SelectionChanged="HistoryAudioSource_SelectionChanged" IsEnabled="False" ToolTip="Elige si quieres escuchar tu micrófono o el audio recibido desde el equipo." automation:AutomationProperties.Name="Pista de audio conservada">
+                                                    <ComboBoxItem Content="Micrófono · mi voz" Tag="Microphone"/>
+                                                    <ComboBoxItem Content="Audio del equipo · participantes" Tag="SystemOutput"/>
+                                                </ComboBox>
+                                            </StackPanel>
+                                        </Grid>
+                                        <Border Height="56" Background="White" BorderBrush="#DDE2EA" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,10,0,4">
+                                            <ItemsControl x:Name="AudioWaveformItems" IsHitTestVisible="False" automation:AutomationProperties.Name="Forma de onda del audio seleccionado">
+                                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate><DataTemplate><Border Height="{Binding}" MinHeight="3" Margin="1,0" Background="#7CA7E8" VerticalAlignment="Center" CornerRadius="1"/></DataTemplate></ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </Border>
+                                        <Slider x:Name="PlaybackTimeline" Minimum="0" Maximum="1" Value="0" IsEnabled="False" IsMoveToPointEnabled="True" PreviewMouseLeftButtonUp="PlaybackTimeline_PreviewMouseLeftButtonUp" KeyUp="PlaybackTimeline_KeyUp" automation:AutomationProperties.Name="Posición de reproducción"/>
+                                        <DockPanel Margin="0,4,0,0">
+                                            <TextBlock x:Name="PlaybackPositionText" DockPanel.Dock="Right" Text="00:00 / 00:00" Foreground="#556070" VerticalAlignment="Center"/>
+                                            <WrapPanel>
+                                                <Button x:Name="PlayPauseButton" Content="Reproducir" IsEnabled="False" Click="PlayPause_Click" MinWidth="92"/>
+                                                <Button x:Name="SeekBackButton" Content="Retroceder 10 s" IsEnabled="False" Click="SeekBack_Click"/>
+                                                <Button x:Name="SeekForwardButton" Content="Avanzar 10 s" IsEnabled="False" Click="SeekForward_Click"/>
+                                                <Button x:Name="StopPlaybackButton" Content="Detener" IsEnabled="False" Click="StopPlayback_Click"/>
+                                            </WrapPanel>
+                                        </DockPanel>
+                                        <TextBlock x:Name="SelectedSegmentAudioText" Text="Selecciona un fragmento de la transcripción para ubicar su audio exacto." Foreground="#556070" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <TextBlock Text="Transcripción" FontWeight="SemiBold" Margin="0,2,0,3"/>
+                                <WrapPanel>
+                                    <ComboBox x:Name="HistoryRevisionSelector" Width="210" SelectedIndex="0" SelectionChanged="HistoryRevisionSelector_SelectionChanged" automation:AutomationProperties.Name="Versión de la transcripción"><ComboBoxItem Content="Original · revisión humana" Tag="Original"/></ComboBox>
+                                    <Button x:Name="RetranscribeButton" Content="Retranscribir audio" IsEnabled="False" Click="Retranscribe_Click"/>
+                                    <Button x:Name="CancelRetranscriptionButton" Content="Cancelar retranscripción" IsEnabled="False" Click="CancelRetranscription_Click"/>
+                                </WrapPanel>
+                                <TextBlock x:Name="HistoryActionGuidance" Text="Selecciona una sesión para habilitar las acciones disponibles." Foreground="#556070" TextWrapping="Wrap" Margin="0,5,0,0" automation:AutomationProperties.LiveSetting="Polite"/>
+
+                                <Expander x:Name="ComparisonExpander" Header="Comparar transcripciones" Margin="0,8,0,0">
+                                    <StackPanel Margin="4,6,4,2">
+                                        <TextBlock Text="Agrupa fragmentos de la misma pista según su tiempo de inicio, en intervalos de 15 segundos. Una diferencia de texto no indica por sí sola cuál es más precisa." TextWrapping="Wrap" Foreground="#556070" Margin="0,0,0,8"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <StackPanel Margin="0,0,8,0">
+                                                <TextBlock Text="Primera versión" Foreground="#556070"/>
+                                                <ComboBox x:Name="ComparisonLeftSelector" SelectionChanged="ComparisonSelection_Changed" automation:AutomationProperties.Name="Primera versión para comparar"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                                <TextBlock Text="Segunda versión" Foreground="#556070"/>
+                                                <ComboBox x:Name="ComparisonRightSelector" SelectionChanged="ComparisonSelection_Changed" automation:AutomationProperties.Name="Segunda versión para comparar"/>
+                                            </StackPanel>
+                                            <Button x:Name="CompareVersionsButton" Grid.Column="2" Content="Comparar" VerticalAlignment="Bottom" Click="CompareVersions_Click" IsEnabled="False"/>
+                                        </Grid>
+                                        <TextBlock x:Name="ComparisonStatusText" Text="Retranscribe esta pista para disponer de otra versión." Foreground="#556070" TextWrapping="Wrap" Margin="0,7,0,7" automation:AutomationProperties.LiveSetting="Polite"/>
+                                        <Grid Margin="4,0,4,3">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="76"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="102"/></Grid.ColumnDefinitions>
+                                            <TextBlock Text="Inicio" FontWeight="SemiBold"/>
+                                            <TextBlock Grid.Column="1" Text="Primera versión" FontWeight="SemiBold" Margin="4,0"/>
+                                            <TextBlock Grid.Column="2" Text="Segunda versión" FontWeight="SemiBold" Margin="4,0"/>
+                                        </Grid>
+                                        <ListBox x:Name="ComparisonRows" MaxHeight="220" BorderBrush="#DDE2EA" BorderThickness="1" HorizontalContentAlignment="Stretch" ScrollViewer.CanContentScroll="True" VirtualizingPanel.IsVirtualizing="True" automation:AutomationProperties.Name="Comparación por intervalos">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type local:TranscriptComparisonRow}">
+                                                    <Grid Margin="4,5">
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="72"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="98"/></Grid.ColumnDefinitions>
+                                                        <TextBlock Text="{Binding TimeLabel}" Foreground="#246BCE" FontWeight="SemiBold"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding LeftText}" TextWrapping="Wrap" Margin="4,0,8,0"/>
+                                                        <TextBlock Grid.Column="2" Text="{Binding RightText}" TextWrapping="Wrap" Margin="4,0,8,0"/>
+                                                        <Button Grid.Column="3" Content="Escuchar" IsEnabled="{Binding HasAudio}" Click="ComparisonListen_Click" VerticalAlignment="Top" ToolTip="Reproduce este intervalo de la pista seleccionada."/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </StackPanel>
+                                </Expander>
+                                <Expander Header="Exportar, eliminar y almacenamiento local" Margin="0,8,0,0">
+                                    <StackPanel Margin="4,4,4,0">
+                                        <WrapPanel Margin="0,0,0,8">
+                                            <Button x:Name="ExportWavButton" Content="Exportar pista a WAV…" IsEnabled="False" Click="ExportWav_Click" ToolTip="Crea un archivo WAV sin cifrar de la pista seleccionada."/>
+                                            <Button x:Name="ExportTxtButton" Content="Exportar transcripción a TXT…" IsEnabled="False" Click="Export_Click" ToolTip="Crea una transcripción TXT sin cifrar en la ubicación que elijas."/>
+                                            <Button x:Name="DeleteSessionButton" Content="Eliminar sesión…" IsEnabled="False" Foreground="#A12626" Click="Delete_Click" ToolTip="Elimina definitivamente la sesión, su transcripción y el audio conservado." automation:AutomationProperties.HelpText="Elimina definitivamente la sesión, la transcripción y el audio conservado."/>
+                                        </WrapPanel>
+                                        <TextBlock Text="Almacenamiento local" FontWeight="SemiBold"/>
+                                        <TextBox x:Name="StoragePathText" IsReadOnly="True" BorderThickness="0" Background="Transparent" Margin="0,3,0,2" TextWrapping="Wrap" automation:AutomationProperties.Name="Ruta de la carpeta de almacenamiento local"/>
+                                        <TextBlock x:Name="StorageExplanationText" Foreground="#556070" TextWrapping="Wrap"/>
+                                        <TextBlock x:Name="StorageLocationStatusText" Foreground="#556070" TextWrapping="Wrap" Margin="0,5,0,0" automation:AutomationProperties.LiveSetting="Polite"/>
+                                        <WrapPanel Margin="0,6,0,0">
+                                            <Button x:Name="OpenStorageButton" Content="Abrir carpeta" Click="OpenStorageFolder_Click" ToolTip="Abre la carpeta local actual de Trazio en el Explorador de archivos."/>
+                                            <Button x:Name="CopyStoragePathButton" Content="Copiar ruta" Click="CopyStoragePath_Click" ToolTip="Copia al portapapeles la ruta de almacenamiento local actual."/>
+                                            <Button x:Name="ChangeStorageButton" Content="Cambiar carpeta…" IsEnabled="False" Click="ChangeStorageFolder_Click" ToolTip="Programa el traslado de los datos cifrados al reiniciar Trazio."/>
+                                            <Button x:Name="RestoreDefaultStorageButton" Content="Restaurar ubicación predeterminada" IsEnabled="False" Click="RestoreDefaultStorage_Click" ToolTip="Programa el regreso a la carpeta local predeterminada de la aplicación."/>
+                                            <Button x:Name="CancelStorageChangeButton" Content="Cancelar traslado pendiente" IsEnabled="False" Click="CancelStorageChange_Click" ToolTip="Cancela el traslado antes de reiniciar Trazio."/>
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </Expander>                            </StackPanel>
+                            <Grid>
+                                <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                <Grid>
+                                    <TextBlock x:Name="HistoryEmptyText" Text="Selecciona una sesión guardada para revisar su transcripción." Foreground="#556070" TextWrapping="Wrap" Margin="6"/>
+                                    <ListBox x:Name="HistorySegments" BorderThickness="0" SelectionChanged="HistorySegments_SelectionChanged"
+                                             ScrollViewer.CanContentScroll="True" VirtualizingPanel.IsVirtualizing="True"
+                                             automation:AutomationProperties.Name="Segmentos guardados de la transcripción">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type local:HistorySegmentItem}">
+                                                <DockPanel Margin="2,6">
+                                                    <Button DockPanel.Dock="Right" Content="Escuchar fragmento" Click="HistorySegmentPlay_Click" Margin="10,0,0,0" VerticalAlignment="Top" ToolTip="Reproduce el audio exacto asociado a este fragmento."/>
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Header}" FontWeight="SemiBold" Foreground="#246BCE"/>
+                                                        <TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="14"/>
+                                                        <TextBlock Text="{Binding RevisionLabel}" Foreground="#6B7280" FontSize="11"/>
+                                                    </StackPanel>
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </Grid>
+                                <Border Grid.Row="1" x:Name="CorrectionPanel" BorderBrush="#DDE2EA" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,10,0,0" IsEnabled="False">
+                                    <StackPanel>
+                                        <TextBlock Text="Revisar segmento seleccionado" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Texto original del modelo" Foreground="#556070" Margin="0,5,0,0"/>
+                                        <TextBox x:Name="OriginalSegmentText" IsReadOnly="True" TextWrapping="Wrap" Background="#F5F7FA"/>
+                                        <TextBlock Text="Texto corregido" Foreground="#556070" Margin="0,5,0,0"/>
+                                        <TextBox x:Name="CorrectedSegmentText" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="48"/>
+                                        <WrapPanel Margin="0,6,0,0">
+                                            <Button x:Name="SaveCorrectionButton" Content="Guardar corrección" Click="SaveCorrection_Click"/>
+                                            <Button x:Name="UndoCorrectionButton" Content="Deshacer corrección" Click="UndoCorrection_Click" IsEnabled="False"/>
+                                        </WrapPanel>
+                                        <Border x:Name="GlossarySuggestionsPanel" Visibility="Collapsed" Background="#F8FAFC" BorderBrush="#DDE2EA" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,10,0,0">
+                                            <StackPanel>
+                                                <TextBlock Text="Reemplazos de palabras detectados" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Revisa las palabras modificadas en esta corrección. Solo se agregarán los reemplazos seleccionados." Foreground="#556070" TextWrapping="Wrap" Margin="0,2,0,8"/>
+                                                <Grid Margin="28,0,0,4">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="90"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="Se transcribió como" Foreground="#556070" FontWeight="SemiBold"/>
+                                                    <TextBlock Grid.Column="2" Text="Usar en su lugar" Foreground="#556070" FontWeight="SemiBold"/>
+                                                </Grid>
+                                                <ScrollViewer MaxHeight="150" VerticalScrollBarVisibility="Auto">
+                                                    <ItemsControl x:Name="GlossarySuggestionsList" automation:AutomationProperties.Name="Reemplazos detectados para el diccionario">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate DataType="{x:Type local:GlossarySuggestionItem}">
+                                                                <Grid Margin="0,2">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="28"/>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                        <ColumnDefinition Width="90"/>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" ToolTip="Incluye este reemplazo"/>
+                                                                    <TextBox Grid.Column="1" Text="{Binding MistakenForm, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,8,0" ToolTip="Texto generado por la transcripción"/>
+                                                                    <TextBlock Grid.Column="2" Text="reemplazar por" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#556070"/>
+                                                                    <TextBox Grid.Column="3" Text="{Binding PreferredTerm, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTip="Palabra o nombre correcto"/>
+                                                                </Grid>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </ScrollViewer>
+                                                <DockPanel Margin="0,8,0,0" LastChildFill="False">
+                                                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                                                        <TextBlock Text="Categoría" VerticalAlignment="Center" Foreground="#556070" Margin="0,0,6,0"/>
+                                                        <ComboBox x:Name="GlossaryCategory" Width="140" SelectedIndex="5">
+                                                            <ComboBoxItem Content="Producto"/><ComboBoxItem Content="Persona"/><ComboBoxItem Content="Organización"/><ComboBoxItem Content="Sigla"/><ComboBoxItem Content="Término médico"/><ComboBoxItem Content="Término técnico"/>
+                                                        </ComboBox>
+                                                        <CheckBox x:Name="GlossaryActiveCheck" Content="Usar en futuras transcripciones" IsChecked="True" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                                    </StackPanel>
+                                                    <Button x:Name="AddGlossaryButton" DockPanel.Dock="Right" Content="Agregar términos seleccionados" Click="AddGlossary_Click" IsEnabled="False" Margin="14,0,0,0"/>
+                                                </DockPanel>
+                                                <TextBlock Text="Los términos quedan disponibles para futuras transcripciones; el texto existente nunca se modifica sin aviso." Foreground="#556070" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <TextBlock x:Name="GlossaryNoSuggestionsText" Visibility="Collapsed" Foreground="#556070" TextWrapping="Wrap" Margin="0,8,0,0"
+                                                   Text="No se detectaron palabras reemplazadas. Modifica una palabra y guarda la corrección para crear sugerencias."/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+        <StatusBar Grid.Row="2" Margin="0,12,0,0"><StatusBarItem><TextBlock x:Name="StatusText" Text="Listo" automation:AutomationProperties.LiveSetting="Polite"/></StatusBarItem></StatusBar>
+    </Grid>
+</Window>
+
+

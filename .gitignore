@@ -1,0 +1,25 @@
+bin/
+obj/
+artifacts/
+.vs/
+*.user
+*.suo
+TestResults/
+*.bin
+
+# Local secrets and meeting data must never be committed.
+.env
+.env.*
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.key
+*.pem
+*.pfx
+*.wav
+*.mp3
+*.flac
+*.gguf
+*.log

@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Trazio.AsistenteReunion.App/Trazio.AsistenteReunion.App.csproj" />
+    <Project Path="src/Trazio.AsistenteReunion.Core/Trazio.AsistenteReunion.Core.csproj" />
+    <Project Path="src/Trazio.AsistenteReunion.Worker/Trazio.AsistenteReunion.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Trazio.AsistenteReunion.Tests/Trazio.AsistenteReunion.Tests.csproj" />
+  </Folder>
+</Solution>
