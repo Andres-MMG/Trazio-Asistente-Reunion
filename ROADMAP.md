@@ -1,339 +1,355 @@
-# Trazio Meeting Assistant — Product Roadmap
+# Trazio Asistente Reunión — Hoja de ruta del producto
 
-Status date: 2026-09-22  
-Current maturity: advanced functional MVP / internal beta  
-Current release: `0.1.1-mvp`
+- Fecha del estado: 2026-09-22
+- Madurez actual: MVP funcional avanzado / versión preliminar pública
+- Versión actual: [`0.1.1-mvp`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.1.1-mvp)
 
-## Product principles
+Este es el plan canónico de etapas. **La etapa 6 es la línea funcional activa; el fortalecimiento de la distribución de la etapa 5 sigue pendiente.** La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
 
-- Local-first capture and transcription.
-- Starting a recording requires an explicit user action or an explicitly enabled automation rule. Every new recording retains encrypted audio and shows a persistent visible indicator.
-- Transcript, audio, screenshots, identities, and calendar metadata are sensitive data.
-- Automation must be configurable per account/calendar and must always provide Pause and Stop controls.
-- Calendar automation, meeting-source selection, speaker attribution, and biometric identification are separate capabilities and must not be presented as the same feature.
+## Principios del producto
 
-## Current position
+- Captura y transcripción con prioridad local.
+- Iniciar una grabación requiere una acción explícita del usuario o una regla de automatización habilitada explícitamente. Cada nueva grabación conserva audio cifrado y muestra un indicador visible persistente.
+- Las transcripciones, el audio, las capturas de pantalla, las identidades y los metadatos de calendario son datos sensibles.
+- La automatización debe ser configurable por cuenta/calendario y siempre debe ofrecer controles de Pausar y Detener.
+- La automatización de calendarios, la selección de fuente de reunión, la atribución de hablantes y la identificación biométrica son capacidades independientes y no deben presentarse como una sola función.
 
-| Stage | Outcome | Status |
+## Situación actual
+
+| Etapa | Resultado | Estado |
 |---|---|---|
-| 1 | Technical foundation and local architecture | Complete |
-| 2 | Dual-source audio capture and local transcription | Complete |
-| 3 | Encrypted transcript and mandatory encrypted audio history | Complete |
-| 4 | Usable history and configurable storage | Complete |
-| 5 | Distributable and maintainable beta | In progress |
-| 5.5 | Local user identity and microphone attribution | Implemented — physical UI validation pending |
-| 6 | Accuracy, retranscription, and model comparison | In progress |
-| 7 | Meeting source and speaker attribution | Planned |
-| 8 | Search, editing, audio navigation, and productivity | Planned |
-| 9 | Optional meeting intelligence | Planned |
-| 10 | Optional organizational/platform integration | Future |
-| 11 | Connected accounts, calendars, and meeting automation | Future |
-| 12 | Optional model training from approved corrections | Future — final stage |
+| 1 | Base técnica y arquitectura local | Implementada — validación de producción pendiente |
+| 2 | Captura de audio de dos fuentes y transcripción local | Implementada — validación de producción pendiente |
+| 3 | Transcripción cifrada e historial de audio cifrado obligatorio | Implementada — validación de producción pendiente |
+| 4 | Historial utilizable y almacenamiento configurable | Implementada — validación de producción pendiente |
+| 5 | Beta distribuible y mantenible | En curso |
+| 5.5 | Identidad del usuario local y atribución del micrófono | Implementada — validación física de interfaz pendiente |
+| 6 | Precisión, retranscripción y comparación de modelos | En curso |
+| 7 | Fuente de reunión y atribución de hablantes | Planificada |
+| 8 | Búsqueda, revisión por lotes, glosario global y productividad | Planificada — edición y navegación de audio básicas ya entregadas en la etapa 6 |
+| 9 | Inteligencia de reuniones opcional | Planificada |
+| 10 | Integración organizacional/con plataforma opcional | Futura |
+| 11 | Cuentas conectadas, calendarios y automatización de reuniones | Futura |
+| 12 | Entrenamiento opcional de modelos con correcciones aprobadas | Futura — etapa final |
 
-The deferred two-hour and five-hour physical soak tests remain release gates for production. They do not block internal beta feature work, but the product must not be declared production-ready without them.
+Las pruebas físicas prolongadas de dos y cinco horas, aplazadas, siguen siendo requisitos para publicar en producción. No bloquean el desarrollo funcional de la beta interna, pero no se debe declarar el producto listo para producción sin ellas.
 
-## Stage 5 — Distributable and maintainable beta
+## Etapa 5 — Beta distribuible y mantenible
 
-### Objective
+### Objetivo
 
-Make the existing application safe to install, update, diagnose, and recover on other computers.
+Permitir instalar, actualizar, diagnosticar y recuperar la aplicación existente de forma segura en otros equipos.
 
-### Scope
+### Base implementada
 
-- Establish source control and a version baseline.
-- Move to a beta version such as `0.2.0-beta.1`.
-- Produce a per-user installer that detects previous versions and preserves user data.
-- Implement full-application updates with a signed manifest, SHA-256 verification, controlled shutdown, atomic replacement, and rollback.
-- Update the application and Whisper model independently when the model has not changed.
-- Sign the executable and installer.
-- Export privacy-safe diagnostics without transcripts, retained audio, screenshots, secrets, or encryption keys.
-- Remove intermittent SQLite test locking before treating the test suite as fully deterministic.
+- Código público en GitHub, versión `0.1.1-mvp`, ZIP completo para Windows y suma de comprobación.
+- Script de publicación combinada de aplicación/proceso auxiliar con comprobaciones de paquete y prueba básica de salud por canal con nombre.
+- Existe la definición de Inno Setup por usuario; la validación de instalación/actualización/reversión sigue pendiente.
 
-### Exit criteria
+### Alcance pendiente
 
-- A tester can install and update Trazio without manually copying files.
-- Existing meetings and settings survive update, repair, and rollback.
-- A failed update restores the previous working version.
-- Diagnostic export contains no meeting content or secrets.
+- Pasar a una versión beta como `0.2.0-beta.1`.
+- Producir un instalador por usuario que detecte versiones anteriores y preserve los datos del usuario.
+- Implementar actualizaciones de la aplicación completa con manifiesto firmado, verificación SHA-256, cierre controlado, reemplazo atómico y reversión.
+- Actualizar la aplicación y el modelo Whisper de forma independiente cuando el modelo no haya cambiado.
+- Firmar el ejecutable y el instalador.
+- Exportar diagnósticos que protejan la privacidad, sin transcripciones, audio conservado, capturas, secretos ni claves de cifrado.
+- Eliminar los bloqueos intermitentes de SQLite en las pruebas antes de considerar que el conjunto de pruebas es completamente determinista.
 
-## Stage 5.5 — Local user identity and microphone attribution
+### Criterios de salida
 
-### Objective
+- Una persona de pruebas puede instalar y actualizar Trazio sin copiar archivos manualmente.
+- Las reuniones y configuraciones existentes sobreviven a actualizaciones, reparaciones y reversiones.
+- Una actualización fallida restaura la versión funcional anterior.
+- La exportación de diagnósticos no contiene contenido de reuniones ni secretos.
 
-Give every local recording an owner identity and attribute microphone transcript segments to the confirmed local user.
+## Etapa 5.5 — Identidad del usuario local y atribución del micrófono
 
-### Scope
+### Objetivo
 
-- Add a local profile with a required display name and an optional organization.
-- Pre-fill the display name from the Windows account when available, but require the user to confirm or change it.
-- Attribute microphone transcript segments to this confirmed local profile by default.
-- Allow a meeting-specific display-name override without changing the global profile.
-- Store profile data encrypted with the existing local privacy model.
+Dar a cada grabación local una identidad de propietario y atribuir los segmentos transcritos del micrófono al usuario local confirmado.
 
-This identifies the person using the configured microphone. It does not prove who is physically speaking into a shared microphone.
+### Alcance
 
-### Exit criteria
+- Agregar un perfil local con nombre visible obligatorio y organización opcional.
+- Completar previamente el nombre visible desde la cuenta de Windows cuando esté disponible, pero exigir que el usuario lo confirme o cambie.
+- Atribuir por defecto los segmentos transcritos del micrófono a este perfil local confirmado.
+- Permitir un nombre visible específico para la reunión sin cambiar el perfil global.
+- Guardar los datos del perfil cifrados con el modelo de privacidad local existente.
 
-- Microphone segments show the confirmed local user's name.
-- A meeting-specific name override does not alter the global profile.
-- Profile data remains encrypted and survives restart.
-> Stage 5.5 implementation status: local profile, per-meeting override, encrypted persistence, and microphone attribution are implemented. Automated identity tests pass; physical UI and capture validation remain pending.
+Esto identifica a la persona que usa el micrófono configurado. No demuestra quién está hablando físicamente por un micrófono compartido.
 
-## Stage 6 — Accuracy, correction workspace, glossary, and retranscription
+### Criterios de salida
 
-> Implementation status: Stage 6 remains in progress. Stage 6A review, synchronized retained-audio navigation, append-only corrections/undo, effective TXT export, and glossary provenance are implemented. Stage 6B now adds non-destructive Whisper retranscription from retained encrypted audio into separate encrypted model revisions with cancellation and failure audit state. A read-only comparison of original/human-reviewed text against any successful model revision, or between two model revisions for the same audio source, is implemented in 15-second time buckets with an audio shortcut for each bucket. Reproducible accuracy metrics, quality profiles, and glossary initial-prompt integration remain pending.
+- Los segmentos del micrófono muestran el nombre del usuario local confirmado.
+- Un nombre específico para una reunión no modifica el perfil global.
+- Los datos del perfil permanecen cifrados y sobreviven al reinicio.
+> Estado de implementación de la etapa 5.5: perfil local, nombre por reunión, persistencia cifrada y atribución del micrófono implementados. Las pruebas automatizadas de identidad pasan; la validación física de interfaz y captura sigue pendiente.
 
-### Objective
+## Etapa 6 — Precisión, espacio de corrección, glosario y retranscripción
 
-Turn every saved conversation into a review workspace where the user can listen, inspect, correct, and reuse terminology to improve future transcripts.
+**La etapa 6 sigue en curso.** El ciclo de revisión funcional está implementado en gran parte; la aplicación del glosario y la validación medible de calidad no.
 
-### Quick path
+| Línea de trabajo | Implementado ahora | Todavía pendiente |
+|---|---|---|
+| 6A — Revisión | Forma de onda/línea de tiempo por fuente, reproducción/pausa y saltos de 10 segundos, audio por segmento, correcciones/deshacer por anexado, exportación TXT del original efectivo | Control de velocidad, controles específicos de segmento anterior/siguiente, resaltado completo según reproducción |
+| 6A — Glosario | Sugerencias por término después de ediciones humanas, guardado explícito y procedencia de corrección cifrada | Aplicar términos a las instrucciones de Whisper, reemplazo determinista con vista previa, gestión ampliada del glosario |
+| 6B — Retranscripción | Audio cifrado conservado por fuente → revisión cifrada independiente del modelo; estado auditable de cancelación/fallo y hash del modelo | Perfiles de calidad y evaluación lingüística representativa |
+| 6B — Comparación | Original revisado frente a revisión exitosa del modelo, o dos revisiones exitosas de la misma fuente; intervalos de 15 segundos y accesos al audio | Métricas reproducibles de precisión; las diferencias visuales no son una puntuación de precisión |
 
-1. Open any saved conversation from History.
-2. View its transcript with the same segment-oriented presentation used by Live session.
-3. Select a segment to seek and play the corresponding retained audio.
-4. Correct the text inline and preserve both the original and corrected versions.
-5. Add a corrected name or technical term to the glossary when it should apply to future conversations.
-6. Retranscribe retained audio into a new revision and compare results without overwriting prior work.
+### Objetivo
 
-### Session review workspace
+Convertir cada conversación guardada en un espacio de revisión donde el usuario pueda escuchar, inspeccionar, corregir y reutilizar terminología para mejorar futuras transcripciones.
 
-- Open every saved conversation in a full transcript view rather than a read-only text block.
-- Keep timestamps, source, local speaker identity, and later remote-speaker attribution visible per segment.
-- Select a segment to seek to its audio position and play from that point.
-- Provide previous, play/pause, next, speed, and short-repeat controls for correction work.
-- Highlight the currently playing segment.
-- Support inline correction with Save and Undo.
-- Preserve immutable original text, corrected text, editor identity, timestamp, and revision history.
-- Allow transcript-only correction when no retained audio exists.
-- Clearly explain that playback and retranscription are unavailable for legacy sessions without encrypted audio or sessions whose retained audio was pruned.
+### Ruta rápida
 
-### Glossary and correction memory
+1. Abrir cualquier conversación guardada desde Historial.
+2. Ver su transcripción con la misma presentación por segmentos utilizada en Sesión en vivo.
+3. Seleccionar un segmento para navegar y reproducir el audio conservado correspondiente.
+4. Corregir el texto en el mismo lugar y preservar tanto la versión original como la corregida.
+5. Agregar al glosario un nombre o término técnico corregido cuando deba aplicarse a conversaciones futuras.
+6. Retranscribir el audio conservado en una nueva revisión y comparar resultados sin sobrescribir el trabajo anterior.
 
-The glossary is a controlled terminology aid, not automatic model training.
+### Espacio de revisión de sesiones objetivo (parcialmente implementado)
 
-Each entry can contain:
+- Abrir cada conversación guardada en una vista completa de transcripción, en vez de un bloque de texto de solo lectura.
+- Mantener visibles por segmento las marcas de tiempo, la fuente, la identidad local y, posteriormente, la atribución del hablante remoto.
+- Seleccionar un segmento para navegar a su posición de audio y reproducir desde ese punto.
+- Proporcionar controles de anterior, reproducir/pausar, siguiente, velocidad y repetición breve para el trabajo de corrección.
+- Resaltar el segmento que se está reproduciendo.
+- Admitir corrección en el mismo lugar con Guardar y Deshacer.
+- Preservar texto original inmutable, texto corregido, identidad del editor, marca de tiempo e historial de revisiones.
+- Permitir corregir solo el texto cuando no exista audio conservado.
+- Explicar claramente que la reproducción y retranscripción no están disponibles para sesiones antiguas sin audio cifrado o cuyo audio conservado fue eliminado por retención.
 
-- Preferred spelling, for example Trazio.
-- Common mistaken forms or aliases.
-- Category such as person, organization, product, acronym, medical term, or technical term.
-- Optional language and meeting scope.
-- Active/inactive state and usage count.
-- Link to the correction that created the entry.
+### Glosario y memoria de correcciones objetivo (parcialmente implementados)
 
-From a corrected segment, the user can choose:
+El glosario es una ayuda terminológica controlada, no entrenamiento automático del modelo.
 
-- Correct this segment only.
-- Replace the same error in this meeting after previewing every match.
-- Add the preferred term and mistaken form to the glossary for future meetings.
+Cada entrada puede contener:
 
-Apply glossary knowledge in two bounded ways:
+- Escritura preferida, por ejemplo Trazio.
+- Formas incorrectas frecuentes o alias.
+- Categoría como persona, organización, producto, sigla, término médico o término técnico.
+- Idioma y alcance de reunión opcionales.
+- Estado activo/inactivo y cantidad de usos.
+- Enlace a la corrección que creó la entrada.
 
-1. Include a size-limited list of relevant proper nouns and technical terms in the Whisper initial prompt.
-2. Run deterministic post-processing only for explicit alias-to-preferred-form rules, with word boundaries, a preview, and the ability to undo.
+Desde un segmento corregido, el usuario puede elegir:
 
-Never silently replace ambiguous ordinary words. The original model output must remain recoverable.
+- Corregir solo este segmento.
+- Reemplazar el mismo error en esta reunión después de previsualizar cada coincidencia.
+- Agregar al glosario el término preferido y la forma incorrecta para futuras reuniones.
 
-### Learning boundary
+Aplicar el conocimiento del glosario de dos formas acotadas:
 
-Saving a correction does not retrain or permanently modify the Whisper model. Trazio learns operationally by reusing confirmed glossary terms, aliases, and corrections. Actual model learning requires a separately prepared audio/text dataset, model fine-tuning, evaluation, and a new model release. It is intentionally deferred to Stage 12, after calendar automation.
+1. Incluir una lista de tamaño limitado de nombres propios y términos técnicos relevantes en las instrucciones iniciales de Whisper.
+2. Ejecutar posprocesamiento determinista solo para reglas explícitas de alias a forma preferida, con límites de palabra, vista previa y posibilidad de deshacer.
 
-### Model comparison and retranscription
+Nunca reemplazar silenciosamente palabras comunes ambiguas. La salida original del modelo debe seguir siendo recuperable.
 
-- Retranscribe a saved meeting from encrypted retained audio.
-- Preserve the original transcript and every human correction.
-- Create a new model-output revision rather than replacing the existing transcript.
-- Compare Whisper models using exactly the same Spanish audio sample.
-- Provide simple quality profiles: Fast, Balanced, and Accurate.
-- Show model, language, glossary version, processing time, and transcript revision in History.
-- Define a repeatable accuracy evaluation set with expected text and representative Chilean Spanish audio.
-- Calculate useful correction metrics such as corrected segments, accepted glossary suggestions, and word-error comparison on the evaluation set.
+### Límite del aprendizaje
 
-### Exit criteria
+Guardar una corrección no reentrena ni modifica permanentemente el modelo Whisper. La mejora operativa planificada consiste en reutilizar términos, alias y correcciones confirmados del glosario. La versión actual guarda esa evidencia, pero todavía no la aplica a la inferencia. El aprendizaje real del modelo requiere un conjunto de audio/texto preparado por separado, ajuste fino del modelo, evaluación y una nueva versión del modelo. Se aplaza intencionalmente hasta la etapa 12, después de la automatización de calendarios.
 
-- Any saved conversation opens in the segment review workspace.
-- Sessions with retained audio support synchronized playback, seeking, correction, and retranscription.
-- Sessions without retained audio still support transcript correction and glossary updates without pretending audio can be recovered.
-- Corrections preserve the original text and are fully undoable.
-- Glossary rules can improve a future transcription while recording which rule was applied.
-- The same meeting can be retranscribed without recapturing audio or overwriting previous revisions.
-- Model comparisons are reproducible and use the same source audio.
-## Stage 7 — Meeting source and speaker attribution
+### Comparación de modelos y retranscripción
 
-### Objective
+- Retranscribir una reunión guardada a partir del audio cifrado conservado.
+- Preservar la transcripción original y cada corrección humana.
+- Crear una nueva revisión de salida del modelo en vez de reemplazar la transcripción existente.
+- Comparar modelos Whisper usando exactamente la misma muestra de audio en español.
+- Proporcionar perfiles de calidad sencillos: Rápido, Equilibrado y Preciso.
+- Mostrar modelo, idioma, versión del glosario, tiempo de procesamiento y revisión de transcripción en Historial.
+- Definir un conjunto repetible de evaluación de precisión con texto esperado y audio representativo del español de Chile.
+- Calcular métricas útiles de corrección, como segmentos corregidos, sugerencias de glosario aceptadas y comparación de errores de palabras sobre el conjunto de evaluación.
 
-Associate a session with the selected Meet or Teams surface and attribute remote speech when reliable evidence is available.
+### Criterios de salida
 
-This stage is intentionally divided into separate confidence levels. Trazio must never claim a named speaker when the available evidence only supports an anonymous speaker label.
+- Cualquier conversación guardada se abre en el espacio de revisión por segmentos.
+- Las sesiones con audio conservado permiten reproducción sincronizada, navegación, corrección y retranscripción.
+- Las sesiones sin audio conservado siguen permitiendo corrección de texto y actualización del glosario sin fingir que se puede recuperar el audio.
+- Las correcciones preservan el texto original y se pueden deshacer completamente.
+- Las reglas del glosario pueden mejorar una transcripción futura registrando qué regla se aplicó.
+- La misma reunión se puede retranscribir sin volver a capturar audio ni sobrescribir revisiones anteriores.
+- Las comparaciones de modelos son reproducibles y usan el mismo audio de origen.
+## Etapa 7 — Fuente de reunión y atribución de hablantes
 
-### 7.1 User-selected meeting source
+### Objetivo
 
-- Ask the user to select the meeting browser tab or application window.
-- Detect Google Meet or Microsoft Teams from the selected tab URL/window metadata.
-- Bind the selected surface to the active Trazio session.
-- Keep the existing system-output capture as a fallback when no surface is selected.
+Asociar una sesión con la superficie seleccionada de Meet o Teams y atribuir el habla remota cuando exista evidencia fiable.
 
-Browser and operating-system privacy controls may require the source picker to be initiated by the user. Calendar automation cannot silently bypass that permission.
+Esta etapa se divide intencionalmente en niveles de confianza separados. Trazio nunca debe afirmar un nombre de hablante cuando la evidencia disponible solo respalde una etiqueta anónima.
 
-### 7.2 Provider adapters
+### 7.1 Fuente de reunión seleccionada por el usuario
 
-- Build separate, versioned adapters for Google Meet and Microsoft Teams.
-- A browser companion extension can read provider-specific accessibility/DOM signals, captions, participant labels, and active-speaker UI state after explicit permission.
-- The desktop application remains the recording and encrypted-storage authority.
-- If an adapter breaks after a provider UI change, continue transcription with `Remote speaker` rather than guessing a name.
+- Pedir al usuario que seleccione la pestaña del navegador o ventana de la aplicación de reunión.
+- Detectar Google Meet o Microsoft Teams desde la URL de la pestaña/los metadatos de la ventana seleccionada.
+- Vincular la superficie seleccionada con la sesión activa de Trazio.
+- Mantener la captura de salida del sistema existente como alternativa cuando no se seleccione una superficie.
 
-### 7.3 Speaker evidence levels
+Los controles de privacidad del navegador y del sistema operativo pueden exigir que el usuario inicie el selector de fuente. La automatización de calendarios no puede omitir silenciosamente ese permiso.
 
-Store an attribution confidence and evidence type for every named segment:
+### 7.2 Adaptadores de proveedores
 
-1. `Local profile`: microphone source mapped to the confirmed local user.
-2. `Provider metadata`: active-speaker/caption label obtained from the selected Meet/Teams surface.
-3. `User correction`: a human assigned or corrected the speaker.
-4. `Diarized speaker`: audio clustering produced `Speaker 1`, `Speaker 2`, etc., without a verified name.
+- Construir adaptadores separados y versionados para Google Meet y Microsoft Teams.
+- Una extensión complementaria del navegador puede leer señales de accesibilidad/DOM, subtítulos, etiquetas de participantes y estado del hablante activo específicos del proveedor después de un permiso explícito.
+- La aplicación de escritorio sigue siendo la autoridad de grabación y almacenamiento cifrado.
+- Si un adaptador deja de funcionar después de un cambio de interfaz del proveedor, continuar la transcripción con `Hablante remoto` en vez de adivinar un nombre.
 
-Audio diarization separates voices but does not reveal real names. Mapping a voice to a person would require explicit voice enrollment and introduces biometric privacy and legal obligations; it is outside the initial Stage 7 scope.
+### 7.3 Niveles de evidencia del hablante
 
-### 7.4 Optional speaker-change snapshots
+Guardar confianza de atribución y tipo de evidencia para cada segmento con nombre:
 
-- Do not use screenshots as the primary speaker-identification mechanism.
-- If enabled, capture only on a detected speaker transition, not continuously.
-- Prefer cropping the active participant tile and name label rather than storing the whole meeting screen.
-- Encrypt snapshots, apply a short retention period, and provide independent deletion controls.
-- Obtain explicit consent because snapshots may contain faces, chat, shared documents, or other sensitive content.
-- Treat visual detection as supporting evidence only; a UI highlight can be delayed, ambiguous, or incorrect.
+1. `Perfil local`: fuente de micrófono asociada al usuario local confirmado.
+2. `Metadatos del proveedor`: etiqueta de hablante activo/subtítulo obtenida desde la superficie seleccionada de Meet/Teams.
+3. `Corrección del usuario`: una persona asignó o corrigió el hablante.
+4. `Hablante diarizado`: la agrupación de audio produjo `Hablante 1`, `Hablante 2`, etc., sin un nombre verificado.
 
-### Exit criteria
+La diarización de audio separa voces, pero no revela nombres reales. Asociar una voz con una persona requeriría un registro explícito de voz e introduce obligaciones legales y de privacidad biométrica; queda fuera del alcance inicial de la etapa 7.
 
-- The user can select a Meet or Teams tab/window and see the detected provider.
-- Trazio continues safely when provider metadata is unavailable or an adapter breaks.
-- Named remote-speaker labels include evidence and confidence; uncertain segments remain anonymous.
-- Optional snapshots are encrypted, bounded, and independently removable.
+### 7.4 Capturas opcionales al cambiar de hablante
 
-## Stage 8 — History and productivity
+- No usar capturas de pantalla como mecanismo principal de identificación de hablantes.
+- Si se habilitan, capturar solo al detectar una transición de hablante, no continuamente.
+- Preferir recortar el recuadro del participante activo y la etiqueta de nombre en vez de almacenar toda la pantalla de la reunión.
+- Cifrar las capturas, aplicar una retención breve y proporcionar controles independientes de eliminación.
+- Obtener consentimiento explícito porque las capturas pueden contener rostros, chat, documentos compartidos u otro contenido sensible.
+- Tratar la detección visual solo como evidencia complementaria; un resaltado de interfaz puede estar retrasado, ser ambiguo o incorrecto.
 
-- Full-text search across meetings.
-- Advanced batch review and approval of transcript and speaker-label revisions.
-- Global glossary management, duplicate detection, import, and export.
-- Bookmarks, notes, tags, and follow-up markers.
-- Structured export formats in addition to plain text.
-- Evaluate Opus for smaller encrypted audio archives while preserving reliable seeking and export.
-## Stage 9 — Optional meeting intelligence
+### Criterios de salida
 
-- Local summaries.
-- Decisions, commitments, and action items.
-- Optional translation.
-- Topic segmentation.
-- All generated content must link back to transcript evidence and remain clearly marked as machine-generated.
+- El usuario puede seleccionar una pestaña/ventana de Meet o Teams y ver el proveedor detectado.
+- Trazio continúa de forma segura cuando los metadatos del proveedor no están disponibles o falla un adaptador.
+- Las etiquetas de hablantes remotos con nombre incluyen evidencia y confianza; los segmentos inciertos permanecen anónimos.
+- Las capturas opcionales están cifradas, acotadas y se pueden eliminar independientemente.
 
-## Stage 10 — Optional organizational/platform integration
+## Etapa 8 — Historial y productividad
 
-- Explicit opt-in synchronization with Trazio Platform.
-- Organization policies, retention controls, and administrative deployment.
-- Shared templates and controlled vocabulary.
-- This stage changes the local-only privacy boundary and therefore requires a separate security, legal, tenancy, and consent design.
+- Búsqueda de texto completo entre reuniones.
+- Revisión y aprobación avanzadas por lotes de revisiones de transcripción y etiquetas de hablantes.
+- Gestión global del glosario, detección de duplicados, importación y exportación.
+- Marcadores, notas, etiquetas e indicadores de seguimiento.
+- Formatos de exportación estructurados además del texto plano.
+- Evaluar Opus para archivos de audio cifrados más pequeños, preservando navegación y exportación fiables.
+## Etapa 9 — Inteligencia de reuniones opcional
 
-## Stage 11 — Connected accounts, calendars, and meeting automation
+- Resúmenes opcionales de reuniones mediante una API LLM externa inicialmente, con dirección del proveedor y clave API configurables; después podría reemplazarse por un servicio compatible autoalojado.
+- Explorar un modelo generativo que proponga preguntas candidatas sustentadas en evidencia y Jev que devuelva juicios tipados; validar y acotar esas preguntas en el código de la aplicación. Ninguna de las dos integraciones está implementada actualmente.
+- Exigir activación explícita antes de que el contenido de la transcripción salga del equipo; proteger credenciales y registrar la procedencia del proveedor/modelo. La grabación y revisión locales deben continuar sin esta integración.
+- Decisiones, compromisos y acciones pendientes.
+- Traducción opcional.
+- Segmentación por temas.
+- Todo contenido generado debe enlazar a la evidencia de la transcripción y permanecer claramente marcado como generado por máquina.
 
-### Objective
+## Etapa 10 — Integración organizacional/con plataforma opcional
 
-After the rest of the local product is stable, allow the user to connect one or more calendars that can prepare, start, and stop meeting capture automatically.
+- Sincronización con Trazio Platforms mediante activación explícita.
+- Políticas organizacionales, controles de retención y despliegue administrativo.
+- Plantillas compartidas y vocabulario controlado.
+- Esta etapa cambia el límite de privacidad exclusivamente local y, por tanto, requiere un diseño separado de seguridad, aspectos legales, aislamiento entre organizaciones y consentimiento.
 
-### Connected email/calendar accounts
+## Etapa 11 — Cuentas conectadas, calendarios y automatización de reuniones
 
-- Support multiple connected accounts, initially Google Calendar and Microsoft 365/Outlook Calendar.
-- Use OAuth authorization; never store account passwords.
-- Keep account identity, calendar selection, and recording policy separate.
-- Let the user select which calendars are monitored and choose a primary identity/email.
-- Read only the minimum event fields required: title, start/end, organizer, attendees, provider, and join URL.
-- Allow disconnecting an account and deleting its cached metadata.
+### Objetivo
 
-### Meeting automation rules
+Una vez que el resto del producto local sea estable, permitir que el usuario conecte uno o varios calendarios capaces de preparar, iniciar y detener la captura de reuniones automáticamente.
 
-Each connected calendar can have an explicit rule:
+### Cuentas de correo/calendario conectadas
 
-- Ignore events.
-- Notify only.
-- Prepare Trazio and wait for confirmation.
-- Start local capture automatically at the scheduled time.
+- Admitir varias cuentas conectadas, inicialmente Google Calendar y Microsoft 365/Outlook Calendar.
+- Usar autorización OAuth; nunca almacenar contraseñas de cuentas.
+- Mantener separadas la identidad de cuenta, la selección de calendarios y la política de grabación.
+- Permitir que el usuario seleccione qué calendarios se supervisan y elija una identidad/correo principal.
+- Leer solo los campos mínimos necesarios del evento: título, inicio/fin, organizador, asistentes, proveedor y URL de acceso.
+- Permitir desconectar una cuenta y eliminar sus metadatos en caché.
 
-Automatic capture is opt-in per calendar or rule and must show a persistent recording indicator. It must never silently enable recording merely because an account was connected.
+### Reglas de automatización de reuniones
 
-### Automatic lifecycle
+Cada calendario conectado puede tener una regla explícita:
 
-- Wake or launch Trazio before the event.
-- Create the session using the event title and provider metadata.
-- Optionally open the meeting join URL; Trazio does not impersonate the user or bypass a lobby.
-- Start at the configured offset when the automation rule allows it.
-- Stop at scheduled end plus a configurable grace period.
-- Use sustained silence only as a secondary stop signal, never as the sole source of truth.
-- If the event is extended or the user is still active, offer to continue.
-- Finalize encryption and persistence, then minimize or close according to the user's preference.
-- Record why the session started and stopped: manual, calendar rule, scheduled end, silence fallback, or error recovery.
+- Ignorar eventos.
+- Solo notificar.
+- Preparar Trazio y esperar confirmación.
+- Iniciar captura local automáticamente a la hora programada.
 
-### Exit criteria
+La captura automática requiere activación por calendario o regla y debe mostrar un indicador persistente de grabación. Nunca debe habilitar silenciosamente la grabación solo porque se conectó una cuenta.
 
-- Two or more accounts/calendars can coexist without duplicate sessions.
-- An opted-in calendar event can launch, start, stop, and finalize a session without losing data.
-- The user can always pause or stop automation immediately.
-- Disconnecting an account removes its tokens and cached metadata without deleting local meetings.
-## Stage 12 — Optional model training from approved corrections
+### Ciclo de vida automático
 
-### Objective
+- Activar o iniciar Trazio antes del evento.
+- Crear la sesión usando el título del evento y los metadatos del proveedor.
+- Abrir opcionalmente la URL de acceso a la reunión; Trazio no suplanta al usuario ni omite una sala de espera.
+- Iniciar con el desfase configurado cuando la regla de automatización lo permita.
+- Detener al finalizar la hora programada más un período de gracia configurable.
+- Usar el silencio sostenido solo como señal secundaria de detención, nunca como única fuente de verdad.
+- Si el evento se extiende o el usuario sigue activo, ofrecer continuar.
+- Finalizar el cifrado y la persistencia, luego minimizar o cerrar según la preferencia del usuario.
+- Registrar por qué comenzó y terminó la sesión: acción manual, regla de calendario, fin programado, alternativa por silencio o recuperación de error.
 
-After calendar automation is complete, evaluate whether confirmed transcript corrections and retained audio justify training a new Trazio transcription model.
+### Criterios de salida
 
-### Entry requirements
+- Dos o más cuentas/calendarios pueden coexistir sin sesiones duplicadas.
+- Un evento de calendario autorizado puede abrir, iniciar, detener y finalizar una sesión sin perder datos.
+- El usuario siempre puede pausar o detener la automatización inmediatamente.
+- Desconectar una cuenta elimina sus tokens y metadatos en caché sin borrar reuniones locales.
+## Etapa 12 — Entrenamiento opcional de modelos con correcciones aprobadas
 
-- Stages 1–11 are complete.
-- Users have explicitly consented to include selected audio and corrections in a training dataset.
-- Corrections have reliable revision history and approval status.
-- Audio, transcript segments, timestamps, language, source, and speaker evidence can be exported without exposing unrelated meeting content.
-- A representative Spanish and Chilean Spanish evaluation set exists before training begins.
+### Objetivo
 
-### Dataset workflow
+Después de completar la automatización de calendarios, evaluar si las correcciones confirmadas de transcripciones y el audio conservado justifican entrenar un nuevo modelo de transcripción de Trazio.
 
-1. Select eligible meetings and corrected segments explicitly.
-2. Exclude private, unapproved, low-quality, or ambiguous samples.
-3. Pair each audio interval with its final human-approved transcript.
-4. Remove duplicate and conflicting examples.
-5. Split data into training, validation, and untouched test sets.
-6. Encrypt datasets at rest and record consent, provenance, and deletion obligations.
-7. Train a separate candidate model; never modify the installed production model in place.
-8. Compare the candidate against the current model on the untouched test set.
-9. Publish a new signed model version only when accuracy improves without unacceptable regressions.
-10. Preserve rollback to the previous model.
+### Requisitos de entrada
 
-### Safety and privacy boundaries
+- Las etapas 1–11 están completas.
+- Los usuarios han consentido explícitamente incluir audio y correcciones seleccionados en un conjunto de entrenamiento.
+- Las correcciones tienen historial de revisiones y estado de aprobación fiables.
+- El audio, los segmentos transcritos, las marcas de tiempo, el idioma, la fuente y la evidencia de hablantes se pueden exportar sin exponer contenido ajeno de reuniones.
+- Existe un conjunto representativo de evaluación de español y español de Chile antes de comenzar el entrenamiento.
 
-- Corrections do not enter training automatically.
-- Dictionary entries and ordinary transcript edits remain local unless explicitly selected and approved.
-- The user can revoke unprocessed samples before dataset publication.
-- Training data must not contain calendar tokens, credentials, screenshots, or unrelated meeting metadata.
-- A model version must record its dataset policy, evaluation results, language coverage, and known limitations.
+### Flujo de trabajo del conjunto de datos
 
-### Exit criteria
+1. Seleccionar explícitamente reuniones elegibles y segmentos corregidos.
+2. Excluir muestras privadas, no aprobadas, de baja calidad o ambiguas.
+3. Emparejar cada intervalo de audio con su transcripción final aprobada por una persona.
+4. Eliminar ejemplos duplicados y contradictorios.
+5. Dividir los datos en conjuntos de entrenamiento, validación y prueba sin intervenir.
+6. Cifrar los conjuntos de datos en reposo y registrar consentimiento, procedencia y obligaciones de eliminación.
+7. Entrenar un modelo candidato independiente; nunca modificar directamente el modelo de producción instalado.
+8. Comparar el candidato con el modelo actual sobre el conjunto de prueba sin intervenir.
+9. Publicar una nueva versión firmada del modelo solo cuando mejore la precisión sin regresiones inaceptables.
+10. Conservar la posibilidad de volver al modelo anterior.
 
-- Training is reproducible from a versioned, consented dataset.
-- The candidate demonstrably improves the agreed accuracy metrics.
-- The new model is independently versioned, signed, installable, and reversible.
-- Failure to improve accuracy leaves the current model unchanged.
-## Deferred production validation
+### Límites de seguridad y privacidad
 
-Before production release:
+- Las correcciones no entran automáticamente al entrenamiento.
+- Las entradas de diccionario y las ediciones habituales de transcripción permanecen locales salvo selección y aprobación explícitas.
+- El usuario puede revocar muestras no procesadas antes de publicar el conjunto de datos.
+- Los datos de entrenamiento no deben contener tokens de calendario, credenciales, capturas ni metadatos ajenos de reuniones.
+- Una versión del modelo debe registrar su política de datos, resultados de evaluación, cobertura lingüística y limitaciones conocidas.
 
-- Run the controlled microphone-only, system-only, and combined-source test.
-- Run a two-hour meeting test.
-- Run a five-hour meeting test.
-- Verify CPU, memory, storage growth, pause/resume, device changes, crash recovery, encryption, playback, export, and segment completeness.
-- Test installer update and rollback on a clean Windows computer and on a computer containing existing meetings.
+### Criterios de salida
 
-## Recommended execution order
+- El entrenamiento es reproducible desde un conjunto de datos versionado y consentido.
+- El candidato mejora de forma demostrable las métricas de precisión acordadas.
+- El nuevo modelo se versiona independientemente, está firmado, se puede instalar y revertir.
+- Si no mejora la precisión, el modelo actual permanece sin cambios.
+## Validación de producción aplazada
 
-1. Finish Stage 5 distribution foundations.
-2. Implement Stage 5.5 local identity and microphone attribution.
-3. Complete Stage 6 retranscription and measurable model comparison.
-4. Build Stage 7 source selection before attempting named remote-speaker attribution.
-5. Add provider adapters and optional visual evidence only after the selected-source workflow is stable.
-6. Complete Stages 8–10 and the deferred long-duration validation before production release.
-7. Implement Stage 11 connected accounts, calendars, and opt-in meeting automation.
-8. Evaluate Stage 12 optional model training only after calendar automation is complete.
+Antes de publicar en producción:
+
+- Ejecutar la prueba controlada de solo micrófono, solo sistema y ambas fuentes.
+- Ejecutar una prueba de reunión de dos horas.
+- Ejecutar una prueba de reunión de cinco horas.
+- Verificar CPU, memoria, crecimiento de almacenamiento, pausa/reanudación, cambios de dispositivos, recuperación de fallos, cifrado, reproducción, exportación e integridad de segmentos.
+- Probar actualización y reversión del instalador en un equipo Windows limpio y en uno con reuniones existentes.
+
+## Orden de ejecución recomendado
+
+1. Continuar fortaleciendo la distribución de la etapa 5 desde la base existente de código público/ZIP; mantener pendientes los requisitos de producción.
+2. Validar físicamente la identidad local y la atribución del micrófono implementadas en la etapa 5.5.
+3. Completar aplicación del glosario, perfiles de calidad y evaluación medible de precisión de la etapa 6; conservar el flujo entregado de revisión/retranscripción/comparación.
+4. Construir la selección de fuente de la etapa 7 antes de intentar atribuir nombres a hablantes remotos.
+5. Agregar adaptadores de proveedores y evidencia visual opcional solo cuando el flujo de fuente seleccionada sea estable.
+6. Completar las etapas 8–10 y la validación prolongada aplazada antes de publicar en producción.
+7. Implementar las cuentas conectadas, calendarios y automatización de reuniones con activación voluntaria de la etapa 11.
+8. Evaluar el entrenamiento opcional de modelos de la etapa 12 solo después de completar la automatización de calendarios.

@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="760" viewBox="0 0 1440 760" role="img" aria-labelledby="title description">
+  <title id="title">Trazio Asistente Reunión — Conserva la conversación. El registro es tuyo.</title>
+  <desc id="description">Una portada editorial en tinta medianoche y cobalto eléctrico. Dos señales de audio independientes fluyen hacia una transcripción revisada por personas. Inferencia local, historial cifrado y revisión por fuente son los tres pilares. Ilustración abstracta, no una captura de la aplicación.</desc>
+  <defs>
+    <linearGradient id="field" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#142B79"/>
+      <stop offset="0.54" stop-color="#174EE8"/>
+      <stop offset="1" stop-color="#07235F"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#D9E9FF" stroke-opacity="0.09"/>
+    </pattern>
+    <clipPath id="signal-panel"><rect x="826" y="134" width="550" height="476" rx="3"/></clipPath>
+  </defs>
+  <rect width="1440" height="760" rx="18" fill="#080F23"/>
+  <rect x="18" y="18" width="1404" height="724" rx="10" fill="none" stroke="#24334E"/>
+  <path d="M64 88H1376" stroke="#33415C"/>
+  <g font-family="Consolas, 'Courier New', monospace" font-size="14" letter-spacing="2">
+    <text x="64" y="61" fill="#8FAACB">TRAZIO / LABORATORIO DE INTELIGENCIA DE AUDIO</text>
+    <circle cx="1096" cy="55" r="5" fill="#86F4DC"/>
+    <text x="1112" y="61" fill="#86F4DC">PRIORIDAD LOCAL / WINDOWS</text>
+  </g>
+  <g font-family="Georgia, 'Times New Roman', serif" fill="#F3EFE6">
+    <text x="57" y="277" font-size="151" letter-spacing="-8">TRAZIO</text>
+    <text x="67" y="345" font-size="48" letter-spacing="-1">Asistente Reunión</text>
+  </g>
+  <rect x="68" y="377" width="73" height="5" fill="#FFA971"/>
+  <g font-family="'Segoe UI', sans-serif">
+    <text x="67" y="447" fill="#F3EFE6" font-size="32" font-weight="600">Conserva la conversación.</text>
+    <text x="67" y="491" fill="#86F4DC" font-size="32" font-weight="600">El registro es tuyo.</text>
+    <text x="68" y="542" fill="#A6B7D1" font-size="18">Dos fuentes. Un historial revisable.</text>
+    <text x="68" y="572" fill="#A6B7D1" font-size="18">Tus palabras permanecen en tu equipo.</text>
+  </g>
+  <g clip-path="url(#signal-panel)">
+    <rect x="826" y="134" width="550" height="476" fill="url(#field)"/>
+    <rect x="826" y="134" width="550" height="476" fill="url(#grid)"/>
+    <circle cx="1415" cy="110" r="330" fill="none" stroke="#B6D9FF" stroke-opacity="0.16" stroke-width="80"/>
+    <circle cx="1415" cy="110" r="230" fill="none" stroke="#B6D9FF" stroke-opacity="0.14" stroke-width="2"/>
+    <g font-family="Consolas, 'Courier New', monospace" font-size="13" letter-spacing="2">
+      <text x="856" y="179" fill="#DCE9FF">01 / MICRÓFONO</text>
+      <text x="856" y="331" fill="#DCE9FF">02 / AUDIO DEL EQUIPO</text>
+    </g>
+    <path d="M850 243H868L874 237L880 249L887 216L894 271L902 230L910 252L918 190L927 289L936 219L944 262L952 236L960 245H976L984 214L992 270L1000 197L1008 282L1016 229L1024 254L1032 240H1050L1058 224L1066 260L1074 237L1082 245H1110L1118 230L1126 258L1134 215L1142 272L1150 233L1158 250H1190" stroke="#8FFFF0" stroke-width="3" fill="none" stroke-linejoin="round"/>
+    <path d="M850 390H876L884 378L892 408L900 387H928L936 357L944 427L952 365L960 413L968 379L976 399H994L1002 348L1010 435L1018 371L1026 411L1034 385H1060L1068 378L1076 403L1084 358L1092 424L1100 383L1108 398H1140L1148 366L1156 419L1164 380L1172 394H1190" stroke="#FFD1A5" stroke-width="3" fill="none" stroke-linejoin="round"/>
+    <path d="M1190 243H1220V465M1190 390H1220" stroke="#E7EFFF" stroke-width="2" fill="none" stroke-dasharray="5 7"/>
+    <path d="M1213 453L1220 465L1227 453" fill="none" stroke="#E7EFFF" stroke-width="2"/>
+    <rect x="856" y="476" width="488" height="102" rx="4" fill="#09142D"/>
+    <rect x="856" y="476" width="5" height="102" fill="#8FFFF0"/>
+    <g font-family="Consolas, 'Courier New', monospace" font-size="12" letter-spacing="1">
+      <text x="879" y="501" fill="#8FFFF0">AUDIO → TEXTO → REVISIÓN HUMANA</text>
+    </g>
+    <path d="M880 524H1090M880 543H1183M1200 543H1260M1106 524H1240" stroke="#A6B7D1" stroke-width="5" stroke-linecap="round"/>
+    <rect x="1262" y="512" width="57" height="43" rx="4" fill="#18364A"/>
+    <path d="M1278 534L1287 542L1304 523" stroke="#8FFFF0" stroke-width="3" fill="none"/>
+  </g>
+  <text x="1375" y="635" text-anchor="end" font-family="Consolas, 'Courier New', monospace" font-size="11" letter-spacing="1.5" fill="#7E94B5">ESTUDIO DE SEÑAL — NO ES UNA CAPTURA DE LA APLICACIÓN</text>
+  <path d="M64 658H1376" stroke="#33415C"/>
+  <g font-family="Consolas, 'Courier New', monospace" font-size="13" letter-spacing="1">
+    <text x="68" y="707" fill="#FFA971">01</text><text x="105" y="707" fill="#DCE5F3">INFERENCIA LOCAL</text>
+    <text x="496" y="707" fill="#FFA971">02</text><text x="533" y="707" fill="#DCE5F3">HISTORIAL CIFRADO</text>
+    <text x="976" y="707" fill="#FFA971">03</text><text x="1013" y="707" fill="#DCE5F3">REVISIÓN POR FUENTE</text>
+  </g>
+</svg>

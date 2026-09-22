@@ -1,109 +1,113 @@
+<p align="center">
+  <img src="docs/assets/cover.svg" alt="Trazio Asistente Reunión — audio local, historial cifrado y transcripciones revisadas por personas. Una señal de audio abstracta de dos pistas se convierte en una transcripción." width="100%">
+</p>
+
 # Trazio Asistente Reunión
 
-Windows-first local meeting transcription. The application captures a selected microphone and/or the selected Windows output device, transcribes locally through a separate Whisper worker, and stores encrypted transcript content in SQLite.
+**Conserva la conversación. El registro es tuyo.**
 
-This product is **Trazio Asistente Reunión**. It is separate from Trazio Platform.
+Un asistente de escritorio para Windows que captura el micrófono y el audio del equipo, transcribe localmente y convierte las reuniones guardadas en un espacio de revisión: escucha, navega, corrige y compara versiones de la transcripción sin sobrescribir el original.
 
-## Current MVP
+**Windows 11 x64 · .NET 10 / C# 14 · Whisper local · Interfaz en español · Versión preliminar pública**
 
-- Manual start, pause, resume, and stop.
-- WASAPI microphone and system-output capture through NAudio.
-- A confirmed local profile attributes microphone segments to the current user; computer-output segments retain their distinct source label and are never assigned that local name. A per-meeting override does not change the saved profile.
-- 16 kHz mono PCM processing and 15-second transcription windows with a 1-second carry-over.
-- Local Whisper.net worker over a current-user-only named pipe.
-- Encrypted session titles, transcript text, and pending PCM using AES-256-GCM.
-- Master key, saved device/model preferences, and local profile protected by Windows DPAPI for the current Windows account.
-- SQLite history, TXT export, deletion, and restart-safe pending chunks. Pending audio expires after 24 hours for completed or interrupted sessions; active Recording sessions are never removed by TTL cleanup. Recent interrupted-session audio remains available for recovery.
-- Mandatory encrypted audio history for every new session. Microphone and computer output are archived separately in bounded 30-second, 16 kHz mono PCM WAV chunks encrypted with AES-256-GCM.
-- Per-source capture diagnostics distinguish missing/stalled PCM, archived chunks, transcription backlog, and the latest source error.
+[Descargar v0.1.1-mvp](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.1.1-mvp) · [Primeros pasos](docs/user-guide.md) · [Arquitectura](docs/architecture.md) · [Hoja de ruta](ROADMAP.md) · [Documentación](docs/README.md)
 
-## Privacy boundary
+> **MVP funcional avanzado — todavía no validado para producción.** Las etapas 5 (distribución) y 6 (calidad de revisión y retranscripción) están en curso. La etapa 5.5 (identidad local) está implementada, con validación física pendiente. Las pruebas de reuniones de dos y cinco horas siguen siendo requisitos de publicación pendientes. El paquete de Windows no está firmado.
 
-The SQLite **file and structural metadata are not wholly encrypted**. Sensitive payload columns are encrypted before insertion. Record identifiers, timestamps, source enums, sequence numbers, and database structure remain visible. The key file and settings file are protected with Windows DPAPI `CurrentUser`; malware running as that user is outside this threat model.
+## De la conversación en vivo a un registro revisable
 
-No plaintext audio is written to application storage. PCM is held in bounded buffers and sent over a named pipe. Every retained WAV chunk is encrypted before its atomic `.partial` to final-file commit; SQLite contains metadata and relative paths only. Incomplete and unreferenced archive files are removed during startup reconciliation. The explicit TXT and WAV exports are plaintext and the UI warns before creating either one. WAV export writes only to the exact path selected by the user; a process or machine crash during export can leave an incomplete plaintext WAV at that chosen path. The application does not open a network port and does not contain a cloud fallback.
+```text
+MICRÓFONO + AUDIO DEL EQUIPO
+             ↓
+    TRANSCRIPCIÓN LOCAL
+             ↓
+  AUDIO CIFRADO + HISTORIAL
+             ↓
+   ESCUCHAR → CORREGIR → COMPARAR
+```
 
-Encrypted audio retention is global and configurable to 1, 2, or 5 GB. Cleanup removes the oldest chunks only from completed or interrupted sessions; it never removes audio from an active recording or pending write, and it keeps the session and transcript after audio pruning. Deleting a session also removes its retained audio. The history tab reports chunk count and retained duration for each source, plays one decrypted chunk at a time without a plaintext temporary file, and exports microphone or computer audio separately. It does not create a mixed recording.
+| Disponible ahora | Qué significa |
+|---|---|
+| Dos fuentes de audio diferenciadas | Selecciona un micrófono y/o un dispositivo de salida de Windows. Cada uno conserva su propia identidad de audio y transcripción. |
+| Grabación manual rápida | Título automático editable; inicio, pausa, reanudación y detención; diagnóstico de captura visible. |
+| Perfil local confirmado | Atribuye los segmentos del micrófono a un nombre elegido. Es una etiqueta, no identificación por voz. |
+| Reconocimiento de voz local | Un proceso independiente de Whisper ejecuta la inferencia en este equipo. El modelo recomendado se descarga solo después de una acción explícita. |
+| Historial de reuniones cifrado | Las nuevas grabaciones siempre conservan audio cifrado; el contenido de texto sensible se cifra antes de insertarse en SQLite. |
+| Revisión humana | Forma de onda por fuente, línea de tiempo, saltos de 10 segundos, reproducción de segmentos, correcciones/deshacer y sugerencias de glosario por término, como `Need → Meet`. |
+| Retranscripción no destructiva | Procesa el audio conservado en una nueva revisión del modelo; compara versiones por intervalos de 15 segundos y escucha la fuente correspondiente. |
 
-History also offers a read-only, source-specific comparison between the reviewed original transcript and successful retranscription revisions, or between two model revisions. Text is grouped by segment start time in 15-second intervals with an audio shortcut for each interval. Differences are not presented as automatic accuracy scores. No comparison changes stored transcripts or corrections.
+**Todavía no implementado:** identificación de hablantes remotos, adaptadores de navegador/reuniones, automatización de calendarios, sincronización en la nube, resúmenes/traducción de reuniones, actualizaciones automáticas o entrenamiento de modelos. Las entradas del glosario se guardan, pero **todavía no se incorporan a Whisper ni se aplican automáticamente a nuevas transcripciones**. Una diferencia textual entre versiones no es una puntuación de precisión.
 
-The **History** tab shows the exact local data folder and provides **Open storage folder** and **Copy path** actions. Session rows include the local start time and state. Audio playback and WAV export are enabled only when the selected source has retained audio; transcript export is enabled only when saved text exists. Empty states explain whether a session has no transcript or whether legacy audio is unavailable or retained audio was pruned.
+## Ejecutar la versión preliminar
 
-Muting a microphone inside Meet, Teams, or Zoom does **not** mute this application's independent microphone capture. Pause Trazio Asistente Reunión when microphone capture must stop.
+1. Descarga el ZIP de Windows desde [Versiones publicadas](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.1.1-mvp) y extrae **el archivo completo**.
+2. Abre `Trazio.AsistenteReunion.exe`. Mantén `Trazio.AsistenteReunion.Worker.exe` y todas las dependencias incluidas junto a él; copiar solo el EXE no funcionará.
+3. Confirma tu nombre visible local, selecciona los dispositivos correctos y descarga el modelo recomendado desde la aplicación (aproximadamente 148 MB, una vez).
+4. Haz clic en **Iniciar transcripción**. Usa **Detener** para finalizar antes de revisar la reunión en **Historial**.
 
-## Prerequisites
+El paquete incluye el entorno de ejecución de .NET. Se requiere una CPU x64 compatible. La definición del instalador opcional existe en el código fuente; la versión preliminar publicada es un ZIP. Consulta [primera grabación, reproducción, actualizaciones y solución de problemas](docs/user-guide.md).
 
-- Windows 11 x64.
-- .NET 10 SDK for building; the packaged app is self-contained.
-- An x64 CPU supported by the Whisper.net CPU runtime.
-- The recommended multilingual Whisper Base model can be downloaded once from the application (148 MB), or supplied in a `models` folder beside the executable. A custom compatible GGML `.bin` remains available under Advanced.
-- Optional: Inno Setup 6 to build the installer.
+> **Límite de grabación:** silenciarte en Meet, Teams o Zoom no silencia la captura independiente del micrófono de Trazio. Pausa Trazio cuando deba dejar de capturar. El audio del equipo abarca el dispositivo de salida seleccionado, no solo una pestaña de reunión. Obtén los permisos correspondientes antes de grabar.
 
-## Build and test
+## Arquitectura de un vistazo
+
+```mermaid
+flowchart LR
+    Devices["Micrófono / dispositivo de salida"] --> App["Aplicación WPF — captura, coordinación, revisión"]
+    App <-->|"Canal con nombre del usuario actual"| Worker["Proceso Whisper — inferencia local"]
+    App --> Store["SQLite — contenido sensible cifrado"]
+    App --> Audio["Fragmentos de audio cifrados — pistas por fuente"]
+```
+
+| Capa | Tecnología |
+|---|---|
+| Escritorio | WPF, .NET 10, C# 14; interfaz en español |
+| Captura / reproducción | NAudio 2.2.1, Windows WASAPI |
+| Reconocimiento | Whisper.net + entorno de ejecución CPU 1.9.1; catálogo Whisper Base multilingüe |
+| Persistencia | Microsoft.Data.Sqlite 10.0.4; contenido cifrado |
+| Protección | AES-256-GCM; Windows DPAPI `CurrentUser` para la clave maestra y la configuración |
+| Distribución / comprobaciones | Publicación y pruebas básicas con PowerShell, Inno Setup 6 opcional; pruebas xUnit |
+
+La [guía de arquitectura](docs/architecture.md) vincula estas afirmaciones con archivos fuente, registra decisiones y límites, y explica los flujos de captura/recuperación/retranscripción. Esta aplicación es **independiente de Trazio Platforms**; no hay conexión con la plataforma en esta versión.
+
+## Estado de ingeniería
+
+| Línea de trabajo | Situación actual |
+|---|---|
+| Captura, cifrado, almacenamiento, historial | Bases implementadas; aceptación física y de larga duración todavía pendiente |
+| Etapa 5 — distribución | Código público + ZIP versionado disponibles; firma, actualización/reversión automáticas y pruebas paralelas deterministas pendientes |
+| Etapa 5.5 — identidad | Perfil local y atribución del micrófono implementados; sin reconocimiento de hablantes remotos |
+| Etapa 6 — calidad | Revisión, reproducción por fuente, corrección, captura de glosario, retranscripción y comparación visual implementadas; evaluación de precisión y aplicación del glosario pendientes |
+| Etapas posteriores | Atribución de fuente de reunión → productividad → inteligencia/integración opcionales → calendarios (11) → entrenamiento (12) |
+
+La comprobación registrada de la versión aprobó **164/164 pruebas con el paralelismo entre colecciones desactivado**. La ejecución paralela predeterminada presenta bloqueos intermitentes durante la limpieza de SQLite. Es un problema conocido de aislamiento de pruebas, no una insignia de CI aprobada ni una prueba de estabilidad de cinco horas. Consulta [evidencia de validación y lista de aceptación](docs/validation.md).
+
+## Privacidad, sin promesas mágicas
+
+- El audio y la transcripción permanecen locales; no hay una alternativa de inferencia en la nube implementada.
+- La **estructura y los metadatos operativos de SQLite no están completamente cifrados**; el contenido sensible sí.
+- El audio nuevo se cifra en reposo y se reproduce dentro de la aplicación sin un WAV temporal en texto claro. Las exportaciones TXT/WAV explícitas no están cifradas.
+- DPAPI vincula la clave al usuario de Windows. Copiar la carpeta de datos a otra cuenta **no** es una estrategia de respaldo/restauración portátil.
+- El audio que nunca se conservó o que fue eliminado por retención no se puede recuperar a partir de su transcripción.
+
+Lee el [modelo de amenazas y los límites de retención/recuperación](docs/security.md) antes de confiar reuniones sensibles a la beta.
+
+## Compilar y contribuir
 
 ```powershell
 dotnet restore .\Trazio.AsistenteReunion.slnx
 dotnet build .\Trazio.AsistenteReunion.slnx -c Release --no-restore
-dotnet test .\Trazio.AsistenteReunion.slnx -c Release --no-build
-```
-
-The UI expects `Trazio.AsistenteReunion.Worker.exe` beside the application executable. Use the packaging script for a runnable combined folder:
-
-```powershell
 .\installer\publish.ps1
 ```
 
-Output: `artifacts\publish`. To create an installer after publishing:
+La salida combinada admitida es `artifacts\publish`. Cierra la aplicación antes de volver a publicarla; el script reemplaza esa carpeta. Consulta [entorno de desarrollo, pruebas, comprobación de paquetes y reglas de contribución](docs/development.md).
 
-```powershell
-& "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe" .\installer\Trazio.AsistenteReunion.iss
-```
+## Licencia y agradecimientos
 
-## First run
+**Todavía no se ha seleccionado una licencia para el código fuente de la aplicación.** La visibilidad pública no otorga una licencia MIT. Las dependencias y los modelos tienen condiciones independientes; conserva los [avisos de terceros](THIRD-PARTY-NOTICES.md) al distribuir un paquete. No se incluye código fuente de FluidVoice/GPL.
 
-1. Confirm or edit the default local display name. Optionally enter a different name for only this meeting.
-2. Select the microphone and output device to capture.
-3. Click **Download recommended model** once, or click **Start transcription** to set it up before capture begins. No audio is captured during setup. A verified bundled/cached model is selected automatically.
-4. Choose the language.
-5. Start transcription. Use headphones to reduce microphone echo.
-6. Choose the encrypted audio storage limit before starting. Audio retention is mandatory for new sessions, and a red indicator remains visible while encrypted audio recording is active.
+---
 
-Setup downloads only after an explicit click; startup never contacts the network. Downloads show progress and can be cancelled. Failure/cancellation removes the temporary file and allows retry. Existing custom model paths are preserved; damaged catalog models are rejected rather than silently overwritten. Setup and transcription controls are serialized so repeated clicks cannot start duplicate captures.
+**Primero la señal. Siempre la evidencia.** [Explorar la documentación de ingeniería →](docs/README.md)
 
-The built-in catalog pins `ggerganov/whisper.cpp` revision `5359861c739e955e79d9a303bcbc70fb988958b1`, `ggml-base.bin`, size **147951465 bytes**, SHA-256 `60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe`. Source metadata: https://huggingface.co/api/models/ggerganov/whisper.cpp?blobs=true . Both downloaded and bundled catalog models are verified before use. Manual custom models are user-supplied and are not authenticated by this catalog; model compatibility is checked by the transcription worker. Transcription/audio never goes to the download provider.
-
-The default data root is `%LOCALAPPDATA%\Trazio Asistente Reunion`. History can schedule a move to a different folder on a ready local fixed drive. The selected parent receives a `Trazio Asistente Reunion` child folder. The active root, pending move, exact managed-file manifest, and cleanup source are stored together as one versioned state document per Windows user under `HKCU\Software\Trazio\AsistenteReunion`. This locator contains paths, file lengths, and SHA-256 hashes only; it contains no encryption key or meeting content.
-
-A scheduled move runs on the next startup, before the database, key, settings, or models are opened. Trazio copies managed files with bounded streaming, flushes them, verifies length and SHA-256, and commits the new active root only after every file matches. An interrupted move resumes safely. Conflicting or unrelated destination files stop the migration instead of being overwritten. If a configured custom drive is unavailable, startup fails closed with recovery guidance; Trazio never silently creates an empty database elsewhere. Before commit, the exact managed-file manifest is durable. The commit keeps both the new active root and cleanup intent in the same state document until cleanup finishes. Cleanup deletes only manifested source files whose destination length and SHA-256 match; excluded `.tmp`/`.partial` files and unrelated files are never deleted. Interrupted cleanup resumes on the next start.
-
-The active data root contains:
-
-- `trazio-transcripts.db` and SQLite sidecars: session metadata plus encrypted session titles and transcript text. The SQLite structure itself is not fully encrypted.
-- `audio\`: encrypted retained-audio chunks. These files cannot be played directly.
-- `master.key` and `settings.dat`: protected for the current Windows account using DPAPI.
-- `models\`: local speech-recognition models and applicable license notices. Models are not secrets and are not encrypted.
-
-Storage moves are restricted to absolute local fixed-drive folders. Network/UNC, removable, drive-root, nested source/target, installation-subtree, unwritable, low-space, and unrelated nonempty destinations are rejected. The DPAPI-protected key remains bound to the same Windows user after a move.
-
-TXT and WAV exports are never managed or moved. They exist only after an explicit export, are plaintext, and are written to the destination selected by the user. Treat exported files as sensitive meeting data.
-## Current limitations
-
-- Windows 11 x64 only; five-hour stability and performance targets still require physical-machine validation.
-- Captures an output device, not one browser tab or application. Notifications and music on that device may be transcribed.
-- No remote-speaker identification, diarization, translation, summary, extension, cloud sync, or automatic meeting detection.
-- Device disconnect pauses the pipeline visibly; it never switches devices silently.
-- The worker is restarted once after a pipe/process failure. A second failure pauses transcription.
-- On restart, encrypted pending chunks from an interrupted session can be recovered after explicit confirmation; capture never restarts automatically.
-- At startup, any session left in Recording state by a crash is atomically normalized to Interrupted before TTL cleanup. Declining recovery leaves it Interrupted; it is never mistaken for an active capture.
-- A stable, per-user named-pipe server is acquired before migration, database, or recovery initialization with Windows `PipeOptions.CurrentUserOnly` and a single allowed server instance. It is independent of the selected data root, its ACL is enforced for the current Windows user, and the OS releases it when the process exits or crashes.
-- DPAPI ties local data to the Windows account; portable encrypted backup is not implemented.
-- Audio retention is mandatory for new sessions, including upgrades from earlier settings. The WAV archive uses lossless PCM for validation and retranscription, so it consumes substantially more space than Opus; compressed audio is not implemented yet.
-- Playback, segment seeking, export, and non-destructive retranscription operate source-by-source. Echo cancellation, source mixing, and compressed archival audio are not implemented yet.
-- A process crash can lose the final in-memory partial chunk (at most 30 seconds per enabled source). Previously committed encrypted chunks remain referenced by SQLite and are available after restart.
-- The installer is unsigned until a production code-signing certificate is configured.
-
-## Dependency licenses
-
-NAudio and Whisper.net use MIT licenses. Microsoft.Data.Sqlite is MIT. Whisper model licenses are independent and must be reviewed for the selected model. See `THIRD-PARTY-NOTICES.md`.
-
-
+¿Lees este README desde un ZIP extraído? La portada y los enlaces locales de documentación son recursos del repositorio; utiliza el [índice de documentación en línea](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/tree/main/docs).
