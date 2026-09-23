@@ -10,9 +10,9 @@ Un asistente de escritorio para Windows que captura el micrófono y el audio del
 
 **Windows 11 x64 · .NET 10 / C# 14 · Whisper local · Interfaz en español · Versión preliminar pública**
 
-[Descargar v0.1.1-mvp](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.1.1-mvp) · [Primeros pasos](docs/user-guide.md) · [Arquitectura](docs/architecture.md) · [Hoja de ruta](ROADMAP.md) · [Documentación](docs/README.md)
+[Descargar v0.2.0-beta.1](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.1) · [Primeros pasos](docs/user-guide.md) · [Arquitectura](docs/architecture.md) · [Hoja de ruta](ROADMAP.md) · [Documentación](docs/README.md)
 
-> **MVP funcional avanzado — todavía no validado para producción.** Las etapas 5 (distribución) y 6 (calidad de revisión y retranscripción) están en curso. La etapa 5.5 (identidad local) está implementada, con validación física pendiente. Las pruebas de reuniones de dos y cinco horas siguen siendo requisitos de publicación pendientes. El paquete de Windows no está firmado.
+> **Beta funcional — todavía no validada para producción.** La etapa 6 tiene una línea base funcional implementada y la etapa 7 está en curso. La etapa 5 (distribución) conserva trabajo pendiente; la etapa 5.5 (identidad local), la exportación Obsidian en interfaz real y las reuniones de dos y cinco horas todavía requieren validación física. El paquete de Windows no está firmado.
 
 ## De la conversación en vivo a un registro revisable
 
@@ -35,12 +35,13 @@ MICRÓFONO + AUDIO DEL EQUIPO
 | Historial de reuniones cifrado | Las nuevas grabaciones siempre conservan audio cifrado; el contenido de texto sensible se cifra antes de insertarse en SQLite. |
 | Revisión humana | Forma de onda por fuente, línea de tiempo, saltos de 10 segundos, reproducción de segmentos, correcciones/deshacer y sugerencias de glosario por término, como `Need → Meet`. |
 | Retranscripción no destructiva | Procesa el audio conservado en una nueva revisión del modelo; compara versiones por intervalos de 15 segundos y escucha la fuente correspondiente. |
+| Exportación para Obsidian | Crea de forma explícita una nota Markdown en la carpeta elegida, con metadatos, marcas de tiempo, fuente, hablante y correcciones humanas vigentes; no exporta audio ni selecciona silenciosamente una revisión del modelo. |
 
 **Todavía no implementado:** identificación de hablantes remotos, adaptadores de navegador/reuniones, automatización de calendarios, sincronización en la nube, resúmenes/traducción de reuniones, actualizaciones automáticas o entrenamiento de modelos. Las entradas del glosario se guardan, pero **todavía no se incorporan a Whisper ni se aplican automáticamente a nuevas transcripciones**. Una diferencia textual entre versiones no es una puntuación de precisión.
 
 ## Ejecutar la versión preliminar
 
-1. Descarga el ZIP de Windows desde [Versiones publicadas](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.1.1-mvp) y extrae **el archivo completo**.
+1. Descarga el ZIP de Windows desde [Versiones publicadas](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.1) y extrae **el archivo completo**.
 2. Abre `Trazio.AsistenteReunion.exe`. Mantén `Trazio.AsistenteReunion.Worker.exe` y todas las dependencias incluidas junto a él; copiar solo el EXE no funcionará.
 3. Confirma tu nombre visible local, selecciona los dispositivos correctos y descarga el modelo recomendado desde la aplicación (aproximadamente 148 MB, una vez).
 4. Haz clic en **Iniciar transcripción**. Usa **Detener** para finalizar antes de revisar la reunión en **Historial**.
@@ -76,17 +77,17 @@ La [guía de arquitectura](docs/architecture.md) vincula estas afirmaciones con 
 |---|---|
 | Captura, cifrado, almacenamiento, historial | Bases implementadas; aceptación física y de larga duración todavía pendiente |
 | Etapa 5 — distribución | Código público + ZIP versionado disponibles; firma, actualización/reversión automáticas y pruebas paralelas deterministas pendientes |
-| Etapa 5.5 — identidad | Perfil local y atribución del micrófono implementados; sin reconocimiento de hablantes remotos |
-| Etapa 6 — calidad | Revisión, reproducción por fuente, corrección, captura de glosario, retranscripción y comparación visual implementadas; evaluación de precisión y aplicación del glosario pendientes |
-| Etapas posteriores | Atribución de fuente de reunión → productividad → inteligencia/integración opcionales → calendarios (11) → entrenamiento (12) |
+| Etapa 5.5 — identidad | Perfil local y atribución del micrófono implementados; validación física de interfaz y captura pendiente |
+| Etapa 6 — revisión | Línea base funcional implementada: reproducción por fuente/segmento, corrección, glosario cifrado con procedencia, retranscripción versionada, comparación y exportación manual a Obsidian |
+| Etapa 7 y posteriores | Fuente de reunión y atribución de hablantes en curso → productividad/glosario avanzado (8) → inteligencia/integración opcionales → calendarios (11) → entrenamiento (12) |
 
-La comprobación registrada de la versión aprobó **164/164 pruebas con el paralelismo entre colecciones desactivado**. La ejecución paralela predeterminada presenta bloqueos intermitentes durante la limpieza de SQLite. Es un problema conocido de aislamiento de pruebas, no una insignia de CI aprobada ni una prueba de estabilidad de cinco horas. Consulta [evidencia de validación y lista de aceptación](docs/validation.md).
+La evidencia histórica de `v0.1.1-mvp` registró **164/164 pruebas con el paralelismo entre colecciones desactivado**. La candidata `v0.2.0-beta.1` debe registrar su propia ejecución antes de atribuirle ese resultado. La ejecución paralela predeterminada presenta bloqueos intermitentes durante la limpieza de SQLite; no es una prueba de estabilidad física ni de cinco horas. Consulta [evidencia de validación y lista de aceptación](docs/validation.md).
 
 ## Privacidad, sin promesas mágicas
 
 - El audio y la transcripción permanecen locales; no hay una alternativa de inferencia en la nube implementada.
 - La **estructura y los metadatos operativos de SQLite no están completamente cifrados**; el contenido sensible sí.
-- El audio nuevo se cifra en reposo y se reproduce dentro de la aplicación sin un WAV temporal en texto claro. Las exportaciones TXT/WAV explícitas no están cifradas.
+- El audio nuevo se cifra en reposo y se reproduce dentro de la aplicación sin un WAV temporal en texto claro. Las exportaciones TXT/Markdown/WAV explícitas no están cifradas.
 - DPAPI vincula la clave al usuario de Windows. Copiar la carpeta de datos a otra cuenta **no** es una estrategia de respaldo/restauración portátil.
 - El audio que nunca se conservó o que fue eliminado por retención no se puede recuperar a partir de su transcripción.
 

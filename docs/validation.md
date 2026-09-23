@@ -4,7 +4,7 @@
 
 ## Evidencia actual
 
-Base: [`v0.1.1-mvp`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.1.1-mvp) pública, código [`b9229ea`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/commit/b9229eaacd79ac03c31f1c3dec5edf7bb54c2b73). Esto registra la validación de versión informada el **2026-09-22**, no una nueva ejecución de pruebas realizada al editar documentación.
+Candidata actual: `v0.2.0-beta.1`. La última base con evidencia publicada sigue siendo [`v0.1.1-mvp`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.1.1-mvp), código [`b9229ea`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/commit/b9229eaacd79ac03c31f1c3dec5edf7bb54c2b73). Sus resultados no se heredan automáticamente: la beta debe registrar una ejecución nueva, la comprobación del paquete y las pruebas físicas pendientes.
 
 | Evidencia | Resultado registrado / límite |
 |---|---|
@@ -51,7 +51,7 @@ finally { Remove-Item -LiteralPath $settings -ErrorAction SilentlyContinue }
 | Cifrado / preferencias | [CryptoTests](../tests/Trazio.AsistenteReunion.Tests/CryptoTests.cs), [SettingsStoreTests](../tests/Trazio.AsistenteReunion.Tests/SettingsStoreTests.cs) |
 | Procesamiento acotado / recuperación | [RecordingCoordinatorTests](../tests/Trazio.AsistenteReunion.Tests/RecordingCoordinatorTests.cs), [PipelineLogicTests](../tests/Trazio.AsistenteReunion.Tests/PipelineLogicTests.cs), [StartupRecoveryServiceTests](../tests/Trazio.AsistenteReunion.Tests/StartupRecoveryServiceTests.cs) |
 | Archivo de audio / traslados de almacenamiento | [AudioArchiveStoreTests](../tests/Trazio.AsistenteReunion.Tests/AudioArchiveStoreTests.cs), [StorageMigrationServiceTests](../tests/Trazio.AsistenteReunion.Tests/StorageMigrationServiceTests.cs) |
-| Identidad / revisión / glosario | [LocalProfileTests](../tests/Trazio.AsistenteReunion.Tests/LocalProfileTests.cs), [ReviewStoreTests](../tests/Trazio.AsistenteReunion.Tests/ReviewStoreTests.cs), [GlossaryCandidateExtractorTests](../tests/Trazio.AsistenteReunion.Tests/GlossaryCandidateExtractorTests.cs) |
+| Identidad / revisión / glosario / Markdown | [LocalProfileTests](../tests/Trazio.AsistenteReunion.Tests/LocalProfileTests.cs), [ReviewStoreTests](../tests/Trazio.AsistenteReunion.Tests/ReviewStoreTests.cs), [GlossaryCandidateExtractorTests](../tests/Trazio.AsistenteReunion.Tests/GlossaryCandidateExtractorTests.cs), [ObsidianMarkdownExportTests](../tests/Trazio.AsistenteReunion.Tests/ObsidianMarkdownExportTests.cs) |
 | Navegación / comparación / revisiones de inferencia | [SegmentAudioNavigatorTests](../tests/Trazio.AsistenteReunion.Tests/SegmentAudioNavigatorTests.cs), [TranscriptComparisonTests](../tests/Trazio.AsistenteReunion.Tests/TranscriptComparisonTests.cs), [HistoryRetranscriptionServiceTests](../tests/Trazio.AsistenteReunion.Tests/HistoryRetranscriptionServiceTests.cs) |
 | Contratos de proceso auxiliar / paquete | [IpcTests](../tests/Trazio.AsistenteReunion.Tests/IpcTests.cs), [HistoryWorkspacePublicationTests](../tests/Trazio.AsistenteReunion.Tests/HistoryWorkspacePublicationTests.cs), [VersionMetadataTests](../tests/Trazio.AsistenteReunion.Tests/VersionMetadataTests.cs) |
 
@@ -83,6 +83,8 @@ Usa habla autorizada y no sensible. Registra versión de aplicación, hash de mo
 
 ### Matriz funcional breve — aceptación registrada pendiente
 
+El cierre funcional de la etapa 6 no marca estos controles como aprobados. La interfaz, la identidad local y la escritura real dentro de una bóveda Obsidian requieren evidencia manual separada.
+
 - [ ] **Solo micrófono:** frases conocidas; verificar fuente/nombre, transcripción, sonido guardado y reproducción tras reinicio.
 - [ ] **Solo audio del equipo:** clip conocido en el dispositivo seleccionado; verificar que no se atribuya al micrófono.
 - [ ] **Ambas fuentes:** alternar habla/clips; verificar pistas independientes, tiempos y ausencia de intercambio de fuentes.
@@ -92,7 +94,7 @@ Usa habla autorizada y no sensible. Registra versión de aplicación, hash de mo
 - [ ] Corregir/deshacer; guardar solo términos modificados del glosario; comparar original/nueva revisión sin sobrescrituras.
 - [ ] Retranscribir una fuente completa y cancelar otra ejecución; las incompletas no son comparaciones exitosas.
 - [ ] Una sesión antigua/con audio eliminado permite revisión de texto, explica el sonido ausente y rechaza retranscripción imposible.
-- [ ] Exportar TXT/WAV deliberadamente; verificar fuente/texto/destino y después manejar los archivos sin cifrar de forma segura.
+- [ ] Exportar TXT/Markdown/WAV deliberadamente; verificar que Markdown use el original efectivo con correcciones humanas, metadatos/marcas/fuentes correctos, ningún audio/ID/ruta interna y el destino elegido dentro de una bóveda de prueba; después manejar los archivos sin cifrar de forma segura.
 
 ### Resiliencia y almacenamiento — validación física pendiente
 

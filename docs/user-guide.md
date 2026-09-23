@@ -4,7 +4,7 @@
 
 ## Primera grabación
 
-1. Descarga el ZIP completo de Windows desde la [versión v0.1.1-mvp](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.1.1-mvp). Extráelo en una carpeta normal de aplicaciones; no lo ejecutes desde dentro del ZIP.
+1. Descarga el ZIP completo de Windows desde la [versión v0.2.0-beta.1](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.1). Extráelo en una carpeta normal de aplicaciones; no lo ejecutes desde dentro del ZIP.
 2. Abre `Trazio.AsistenteReunion.exe`. No lo separes del proceso auxiliar ni de las DLL. La beta sin firma puede generar advertencias de reputación de Windows; verifica el origen de la versión y su SHA-256 antes de decidir ejecutarla. No desactives el antivirus globalmente.
 3. En **Sesión en vivo**, acepta o edita **Título de la reunión**. Es un título automático de reunión, no tu nombre; se puede renombrar después en Historial.
 4. En **Perfil local**, confirma **Nombre visible**, ingresa opcionalmente una organización, marca **Confirmo este nombre visible** y **Guardar perfil**. **Tu nombre en esta reunión (opcional)** cambia solo la atribución del micrófono para esta grabación.
@@ -62,11 +62,15 @@ La carpeta predeterminada es `%LOCALAPPDATA%\Trazio Asistente Reunion`. **Histor
 | Sonido conservado | `audio\`, fragmentos cifrados; no se pueden abrir directamente como WAV comunes |
 | Clave y preferencias | `master.key`, `settings.dat`, protegidos para la cuenta actual de Windows |
 | Modelo de voz | `models\`; los modelos no son secretos cifrados |
-| Exportación TXT / WAV | Sin cifrar, solo en la ruta exacta que elijas explícitamente |
+| Exportaciones TXT / Markdown / WAV | Sin cifrar, solo en la ruta exacta que elijas explícitamente |
 
 La retención de audio es global entre reuniones. La limpieza puede eliminar el audio más antiguo de sesiones completadas/interrumpidas manteniendo su transcripción; las grabaciones activas están protegidas de esa limpieza. El presupuesto seleccionado **no es un límite estricto de disco** para una grabación activa. Supervisa el espacio libre durante pruebas largas.
 
-**Exportar TXT** actualmente escribe la transcripción original de la sesión con sus correcciones humanas efectivas (no la comparación de revisión del modelo seleccionada); **Exportar WAV** escribe la fuente conservada seleccionada, no una pista mezclada. Ambas exportaciones están sin cifrar y fuera de la gestión de retención/migración de Trazio. Mantenlas privadas. Eliminar una sesión borra sus datos almacenados y audio conservado, pero no los archivos exportados previamente.
+**Exportar TXT** escribe la transcripción original de la sesión con sus correcciones humanas efectivas (no la comparación de revisión del modelo seleccionada). **Exportar a Obsidian…** usa el mismo texto efectivo y crea una nota `.md` con título, tiempos de la sesión, estado, marcas de tiempo, hablante y fuente. **Exportar WAV** escribe la fuente conservada seleccionada, no una pista mezclada.
+
+Para Obsidian no necesitas entregar ni configurar la bóveda: elige con el diálogo de guardado una carpeta dentro de ella. Trazio no memoriza esa ruta en esta primera integración, no copia audio y no incluye rutas ni identificadores internos. La nota comienza con frontmatter YAML y también funciona como Markdown genérico.
+
+Las tres exportaciones están sin cifrar y fuera de la gestión de retención/migración de Trazio. Una bóveda sincronizada puede enviar la nota a servicios externos. Mantenlas privadas. Eliminar una sesión borra sus datos almacenados y audio conservado, pero no los archivos exportados previamente.
 
 ### Cambiar la carpeta de datos de forma segura
 

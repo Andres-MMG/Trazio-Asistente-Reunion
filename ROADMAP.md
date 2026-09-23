@@ -2,9 +2,9 @@
 
 - Fecha del estado: 2026-09-22
 - Madurez actual: MVP funcional avanzado / versión preliminar pública
-- Versión actual: [`0.1.1-mvp`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.1.1-mvp)
+- Versión actual: [`0.2.0-beta.1`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.1)
 
-Este es el plan canónico de etapas. **La etapa 6 es la línea funcional activa; el fortalecimiento de la distribución de la etapa 5 sigue pendiente.** La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
+Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funcional implementada y la etapa 7 está en curso; el fortalecimiento de la distribución de la etapa 5 sigue pendiente.** La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
 
 ## Principios del producto
 
@@ -24,8 +24,8 @@ Este es el plan canónico de etapas. **La etapa 6 es la línea funcional activa;
 | 4 | Historial utilizable y almacenamiento configurable | Implementada — validación de producción pendiente |
 | 5 | Beta distribuible y mantenible | En curso |
 | 5.5 | Identidad del usuario local y atribución del micrófono | Implementada — validación física de interfaz pendiente |
-| 6 | Precisión, retranscripción y comparación de modelos | En curso |
-| 7 | Fuente de reunión y atribución de hablantes | Planificada |
+| 6 | Revisión, corrección, glosario de procedencia y retranscripción versionada | Línea base funcional implementada — validación física pendiente |
+| 7 | Fuente de reunión y atribución de hablantes | En curso |
 | 8 | Búsqueda, revisión por lotes, glosario global y productividad | Planificada — edición y navegación de audio básicas ya entregadas en la etapa 6 |
 | 9 | Inteligencia de reuniones opcional | Planificada |
 | 10 | Integración organizacional/con plataforma opcional | Futura |
@@ -42,13 +42,13 @@ Permitir instalar, actualizar, diagnosticar y recuperar la aplicación existente
 
 ### Base implementada
 
-- Código público en GitHub, versión `0.1.1-mvp`, ZIP completo para Windows y suma de comprobación.
+- Código público en GitHub y flujo de ZIP completo para Windows con suma de comprobación; la versión `0.2.0-beta.1` prepara la siguiente beta pública.
 - Script de publicación combinada de aplicación/proceso auxiliar con comprobaciones de paquete y prueba básica de salud por canal con nombre.
 - Existe la definición de Inno Setup por usuario; la validación de instalación/actualización/reversión sigue pendiente.
 
 ### Alcance pendiente
 
-- Pasar a una versión beta como `0.2.0-beta.1`.
+- Validar la instalación y actualización de la beta `0.2.0-beta.1` en equipos representativos.
 - Producir un instalador por usuario que detecte versiones anteriores y preserve los datos del usuario.
 - Implementar actualizaciones de la aplicación completa con manifiesto firmado, verificación SHA-256, cierre controlado, reemplazo atómico y reversión.
 - Actualizar la aplicación y el modelo Whisper de forma independiente cuando el modelo no haya cambiado.
@@ -86,93 +86,42 @@ Esto identifica a la persona que usa el micrófono configurado. No demuestra qui
 - Los datos del perfil permanecen cifrados y sobreviven al reinicio.
 > Estado de implementación de la etapa 5.5: perfil local, nombre por reunión, persistencia cifrada y atribución del micrófono implementados. Las pruebas automatizadas de identidad pasan; la validación física de interfaz y captura sigue pendiente.
 
-## Etapa 6 — Precisión, espacio de corrección, glosario y retranscripción
+## Etapa 6 — Revisión, corrección, glosario y retranscripción
 
-**La etapa 6 sigue en curso.** El ciclo de revisión funcional está implementado en gran parte; la aplicación del glosario y la validación medible de calidad no.
+**Estado: línea base funcional implementada.** Este cierre describe capacidades presentes en el código; no equivale a aceptación con dispositivos físicos ni preparación para producción.
 
-| Línea de trabajo | Implementado ahora | Todavía pendiente |
-|---|---|---|
-| 6A — Revisión | Forma de onda/línea de tiempo por fuente, reproducción/pausa y saltos de 10 segundos, audio por segmento, correcciones/deshacer por anexado, exportación TXT del original efectivo | Control de velocidad, controles específicos de segmento anterior/siguiente, resaltado completo según reproducción |
-| 6A — Glosario | Sugerencias por término después de ediciones humanas, guardado explícito y procedencia de corrección cifrada | Aplicar términos a las instrucciones de Whisper, reemplazo determinista con vista previa, gestión ampliada del glosario |
-| 6B — Retranscripción | Audio cifrado conservado por fuente → revisión cifrada independiente del modelo; estado auditable de cancelación/fallo y hash del modelo | Perfiles de calidad y evaluación lingüística representativa |
-| 6B — Comparación | Original revisado frente a revisión exitosa del modelo, o dos revisiones exitosas de la misma fuente; intervalos de 15 segundos y accesos al audio | Métricas reproducibles de precisión; las diferencias visuales no son una puntuación de precisión |
+### Línea base entregada
 
-### Objetivo
+| Capacidad | Comportamiento implementado |
+|---|---|
+| Espacio de revisión | Abre conversaciones guardadas por segmentos con marcas de tiempo, fuente e identidad local disponible. |
+| Audio sincronizado | Reproduce por fuente, navega por línea de tiempo y permite escuchar el fragmento asociado al segmento seleccionado. |
+| Correcciones humanas | Guarda y deshace correcciones sin sobrescribir el texto original. |
+| Glosario con procedencia | Extrae términos modificados después de una edición humana y guarda de forma explícita entradas cifradas enlazadas a su corrección de origen. Es evidencia para uso futuro: **todavía no cambia Whisper ni nuevas transcripciones**. |
+| Retranscripción versionada | Procesa el audio cifrado conservado en una revisión independiente, con estado y hash de modelo, sin reemplazar el original ni las correcciones humanas. |
+| Comparación | Compara revisiones exitosas por intervalos sobre la misma fuente y ofrece acceso al audio correspondiente; no presenta la diferencia visual como una métrica de precisión. |
+| Exportación manual | Exporta TXT, WAV por fuente y una nota Markdown compatible con Obsidian a un destino elegido explícitamente. La nota usa el original efectivo con correcciones humanas y no incluye audio, rutas ni identificadores internos. |
 
-Convertir cada conversación guardada en un espacio de revisión donde el usuario pueda escuchar, inspeccionar, corregir y reutilizar terminología para mejorar futuras transcripciones.
-
-### Ruta rápida
-
-1. Abrir cualquier conversación guardada desde Historial.
-2. Ver su transcripción con la misma presentación por segmentos utilizada en Sesión en vivo.
-3. Seleccionar un segmento para navegar y reproducir el audio conservado correspondiente.
-4. Corregir el texto en el mismo lugar y preservar tanto la versión original como la corregida.
-5. Agregar al glosario un nombre o término técnico corregido cuando deba aplicarse a conversaciones futuras.
-6. Retranscribir el audio conservado en una nueva revisión y comparar resultados sin sobrescribir el trabajo anterior.
-
-### Espacio de revisión de sesiones objetivo (parcialmente implementado)
-
-- Abrir cada conversación guardada en una vista completa de transcripción, en vez de un bloque de texto de solo lectura.
-- Mantener visibles por segmento las marcas de tiempo, la fuente, la identidad local y, posteriormente, la atribución del hablante remoto.
-- Seleccionar un segmento para navegar a su posición de audio y reproducir desde ese punto.
-- Proporcionar controles de anterior, reproducir/pausar, siguiente, velocidad y repetición breve para el trabajo de corrección.
-- Resaltar el segmento que se está reproduciendo.
-- Admitir corrección en el mismo lugar con Guardar y Deshacer.
-- Preservar texto original inmutable, texto corregido, identidad del editor, marca de tiempo e historial de revisiones.
-- Permitir corregir solo el texto cuando no exista audio conservado.
-- Explicar claramente que la reproducción y retranscripción no están disponibles para sesiones antiguas sin audio cifrado o cuyo audio conservado fue eliminado por retención.
-
-### Glosario y memoria de correcciones objetivo (parcialmente implementados)
-
-El glosario es una ayuda terminológica controlada, no entrenamiento automático del modelo.
-
-Cada entrada puede contener:
-
-- Escritura preferida, por ejemplo Trazio.
-- Formas incorrectas frecuentes o alias.
-- Categoría como persona, organización, producto, sigla, término médico o término técnico.
-- Idioma y alcance de reunión opcionales.
-- Estado activo/inactivo y cantidad de usos.
-- Enlace a la corrección que creó la entrada.
-
-Desde un segmento corregido, el usuario puede elegir:
-
-- Corregir solo este segmento.
-- Reemplazar el mismo error en esta reunión después de previsualizar cada coincidencia.
-- Agregar al glosario el término preferido y la forma incorrecta para futuras reuniones.
-
-Aplicar el conocimiento del glosario de dos formas acotadas:
-
-1. Incluir una lista de tamaño limitado de nombres propios y términos técnicos relevantes en las instrucciones iniciales de Whisper.
-2. Ejecutar posprocesamiento determinista solo para reglas explícitas de alias a forma preferida, con límites de palabra, vista previa y posibilidad de deshacer.
-
-Nunca reemplazar silenciosamente palabras comunes ambiguas. La salida original del modelo debe seguir siendo recuperable.
-
-### Límite del aprendizaje
-
-Guardar una corrección no reentrena ni modifica permanentemente el modelo Whisper. La mejora operativa planificada consiste en reutilizar términos, alias y correcciones confirmados del glosario. La versión actual guarda esa evidencia, pero todavía no la aplica a la inferencia. El aprendizaje real del modelo requiere un conjunto de audio/texto preparado por separado, ajuste fino del modelo, evaluación y una nueva versión del modelo. Se aplaza intencionalmente hasta la etapa 12, después de la automatización de calendarios.
-
-### Comparación de modelos y retranscripción
-
-- Retranscribir una reunión guardada a partir del audio cifrado conservado.
-- Preservar la transcripción original y cada corrección humana.
-- Crear una nueva revisión de salida del modelo en vez de reemplazar la transcripción existente.
-- Comparar modelos Whisper usando exactamente la misma muestra de audio en español.
-- Proporcionar perfiles de calidad sencillos: Rápido, Equilibrado y Preciso.
-- Mostrar modelo, idioma, versión del glosario, tiempo de procesamiento y revisión de transcripción en Historial.
-- Definir un conjunto repetible de evaluación de precisión con texto esperado y audio representativo del español de Chile.
-- Calcular métricas útiles de corrección, como segmentos corregidos, sugerencias de glosario aceptadas y comparación de errores de palabras sobre el conjunto de evaluación.
-
-### Criterios de salida
+### Criterios de aceptación de la línea base
 
 - Cualquier conversación guardada se abre en el espacio de revisión por segmentos.
-- Las sesiones con audio conservado permiten reproducción sincronizada, navegación, corrección y retranscripción.
-- Las sesiones sin audio conservado siguen permitiendo corrección de texto y actualización del glosario sin fingir que se puede recuperar el audio.
-- Las correcciones preservan el texto original y se pueden deshacer completamente.
-- Las reglas del glosario pueden mejorar una transcripción futura registrando qué regla se aplicó.
-- La misma reunión se puede retranscribir sin volver a capturar audio ni sobrescribir revisiones anteriores.
-- Las comparaciones de modelos son reproducibles y usan el mismo audio de origen.
+- Una sesión con audio conservado permite reproducción por fuente y segmento, navegación temporal y retranscripción.
+- Una sesión sin audio permite revisar y corregir texto sin afirmar que el sonido se puede recuperar.
+- Una corrección conserva el texto original, registra su procedencia y se puede deshacer.
+- Una entrada de glosario se crea solo por acción explícita, permanece cifrada y conserva la corrección que la originó para uso futuro.
+- Una retranscripción crea una nueva revisión versionada sin volver a capturar audio ni sobrescribir revisiones previas.
+- La exportación a Obsidian es manual, genera Markdown sin cifrar y advierte el límite de privacidad antes de escribir en la carpeta elegida.
+
+### Trabajo reasignado
+
+- La navegación avanzada (anterior/siguiente, velocidad, resaltado continuo y revisión por lotes) pasa a la etapa 8.
+- La aplicación futura del glosario a instrucciones de Whisper o posprocesamiento con vista previa/deshacer pasa a la etapa 8. Guardar una entrada no reentrena el modelo.
+- Los perfiles de calidad y la evaluación medible de precisión no son un requisito de cierre funcional de esta etapa; forman parte de la validación de producción aplazada.
+- Siguen pendientes la validación física de la interfaz de revisión y una exportación real hacia una bóveda de Obsidian de prueba.
+
 ## Etapa 7 — Fuente de reunión y atribución de hablantes
+
+**Estado: en curso.** Iniciar esta etapa no significa que la detección de proveedor ni los nombres de hablantes remotos estén disponibles en la beta actual.
 
 ### Objetivo
 
@@ -226,11 +175,14 @@ La diarización de audio separa voces, pero no revela nombres reales. Asociar un
 ## Etapa 8 — Historial y productividad
 
 - Búsqueda de texto completo entre reuniones.
+- Navegación avanzada: segmento anterior/siguiente, control de velocidad, resaltado continuo y revisión por lotes.
 - Revisión y aprobación avanzadas por lotes de revisiones de transcripción y etiquetas de hablantes.
 - Gestión global del glosario, detección de duplicados, importación y exportación.
+- Aplicar glosario de forma acotada a instrucciones de Whisper o posprocesamiento determinista, siempre con vista previa, procedencia y deshacer; nunca reemplazar silenciosamente términos ambiguos.
 - Marcadores, notas, etiquetas e indicadores de seguimiento.
-- Formatos de exportación estructurados además del texto plano.
+- Ampliar los formatos estructurados más allá de la nota Markdown/Obsidian ya entregada y evaluar integración directa solo si conserva el control explícito del usuario.
 - Evaluar Opus para archivos de audio cifrados más pequeños, preservando navegación y exportación fiables.
+
 ## Etapa 9 — Inteligencia de reuniones opcional
 
 - Resúmenes opcionales de reuniones mediante una API LLM externa inicialmente, con dirección del proveedor y clave API configurables; después podría reemplazarse por un servicio compatible autoalojado.
@@ -338,6 +290,9 @@ Después de completar la automatización de calendarios, evaluar si las correcci
 Antes de publicar en producción:
 
 - Ejecutar la prueba controlada de solo micrófono, solo sistema y ambas fuentes.
+- Validar físicamente la identidad local y la atribución del micrófono implementadas en la etapa 5.5.
+- Validar la interfaz de revisión y la exportación manual hacia una bóveda de Obsidian de prueba.
+- Definir perfiles de calidad y un conjunto repetible de evaluación con audio/texto representativo del español de Chile; registrar métricas reproducibles antes de afirmar mejoras de precisión.
 - Ejecutar una prueba de reunión de dos horas.
 - Ejecutar una prueba de reunión de cinco horas.
 - Verificar CPU, memoria, crecimiento de almacenamiento, pausa/reanudación, cambios de dispositivos, recuperación de fallos, cifrado, reproducción, exportación e integridad de segmentos.
@@ -346,10 +301,10 @@ Antes de publicar en producción:
 ## Orden de ejecución recomendado
 
 1. Continuar fortaleciendo la distribución de la etapa 5 desde la base existente de código público/ZIP; mantener pendientes los requisitos de producción.
-2. Validar físicamente la identidad local y la atribución del micrófono implementadas en la etapa 5.5.
-3. Completar aplicación del glosario, perfiles de calidad y evaluación medible de precisión de la etapa 6; conservar el flujo entregado de revisión/retranscripción/comparación.
-4. Construir la selección de fuente de la etapa 7 antes de intentar atribuir nombres a hablantes remotos.
-5. Agregar adaptadores de proveedores y evidencia visual opcional solo cuando el flujo de fuente seleccionada sea estable.
+2. Mantener la línea base funcional de la etapa 6 y completar su validación física pendiente sin ampliar silenciosamente su alcance.
+3. Construir la selección de fuente de la etapa 7 antes de intentar atribuir nombres a hablantes remotos.
+4. Agregar adaptadores de proveedores y evidencia visual opcional solo cuando el flujo de fuente seleccionada sea estable.
+5. Implementar en la etapa 8 la navegación avanzada y la aplicación controlada del glosario.
 6. Completar las etapas 8–10 y la validación prolongada aplazada antes de publicar en producción.
 7. Implementar las cuentas conectadas, calendarios y automatización de reuniones con activación voluntaria de la etapa 11.
 8. Evaluar el entrenamiento opcional de modelos de la etapa 12 solo después de completar la automatización de calendarios.
