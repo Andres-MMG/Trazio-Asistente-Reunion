@@ -68,7 +68,8 @@ public sealed class RecordingCoordinator : IAsyncDisposable
     public event EventHandler<CapturedSecond>? LevelChanged;
     public event EventHandler<SourceDiagnostic>? DiagnosticChanged;
     public string? ActiveSessionId => _session?.Id;
-    internal ISessionTimelineContext? ActiveTimelineContext => Volatile.Read(ref _activeTimelineContext);
+    internal ISessionTimelineContext? ActiveSessionTimelineContext => Volatile.Read(ref _activeTimelineContext);
+    internal ISessionTimelineContext? ActiveTimelineContext => ActiveSessionTimelineContext;
 
     public async Task StartAsync(string title, AppSettings settings, CancellationToken cancellationToken = default, string? localDisplayNameOverride = null, MeetingProvider meetingProvider = MeetingProvider.NotSelected)
     {

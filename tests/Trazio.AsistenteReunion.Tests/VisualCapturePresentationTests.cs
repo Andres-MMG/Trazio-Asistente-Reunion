@@ -38,9 +38,9 @@ public sealed class VisualCapturePresentationTests
         Assert.False(withoutSelection.CanAuthorize);
         Assert.Contains("Selecciona una ventana", withoutSelection.Status);
         Assert.True(selectable.CanAuthorize);
-        Assert.Contains("no lo activa", selectable.Status);
+        Assert.Contains("no la activa", selectable.Status);
         Assert.False(authorized.CanAuthorize);
-        Assert.Contains("autorizado", authorized.Status);
+        Assert.Contains("autorizada", authorized.Status);
     }
 
     [Theory]
@@ -69,7 +69,7 @@ public sealed class VisualCapturePresentationTests
         Assert.Equal(showActiveIndicator, presentation.ShowActiveIndicator);
         Assert.Equal(showStop, presentation.ShowStop);
         if (state == VisualCaptureState.Active)
-            Assert.Equal("Análisis visual activo · no se guardan imágenes", presentation.Status);
+            Assert.Equal("Captura visual activa · no se guardan imágenes", presentation.Status);
     }
 
     [Fact]

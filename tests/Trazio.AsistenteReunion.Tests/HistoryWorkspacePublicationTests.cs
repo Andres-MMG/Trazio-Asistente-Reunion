@@ -43,7 +43,7 @@ public sealed class HistoryWorkspacePublicationTests
         Assert.Contains("Avanzar 10 s", compiledApplication);
         Assert.Contains("Exportar a Obsidian…", compiledApplication);
         Assert.Contains("Aplicación de reunión (opcional)", compiledApplication);
-        Assert.Contains("Asociar una ventana solo identifica la aplicación: no inicia el análisis visual", compiledApplication);
+        Assert.Contains("Asociar una ventana solo identifica la aplicación: no inicia la captura visual ni el análisis anónimo", compiledApplication);
         Assert.Contains("Seleccionar ventana de reunión", compiledApplication);
         Assert.Contains("No se pudo consultar la lista de ventanas. Intenta nuevamente.", compiledApplication);
         Assert.DoesNotContain("No se pudo consultar la lista de ventanas:", compiledApplication, StringComparison.Ordinal);
@@ -61,36 +61,84 @@ public sealed class HistoryWorkspacePublicationTests
 
     [Fact]
     [Trait("Area", "VisualCapture")]
-    public void LiveSession_CompiledApplicationContainsAccessibleVisualConsentAndControls()
+    public void LiveSession_CompiledApplicationContainsSeparateAccessibleVisualConsentsAndControls()
     {
         var compiledApplication = Encoding.UTF8.GetString(File.ReadAllBytes(typeof(MainWindow).Assembly.Location));
         var root = FindRepositoryRoot();
-        var consentXaml = File.ReadAllText(Path.Combine(
+        var captureConsentXaml = File.ReadAllText(Path.Combine(
             root, "src", "Trazio.AsistenteReunion.App", "VisualCaptureConsentWindow.xaml"));
-        var consentCode = File.ReadAllText(Path.Combine(
+        var captureConsentCode = File.ReadAllText(Path.Combine(
             root, "src", "Trazio.AsistenteReunion.App", "VisualCaptureConsentWindow.xaml.cs"));
+        var analysisConsentXaml = File.ReadAllText(Path.Combine(
+            root, "src", "Trazio.AsistenteReunion.App", "AnonymousVisualAnalysisConsentWindow.xaml"));
+        var analysisConsentCode = File.ReadAllText(Path.Combine(
+            root, "src", "Trazio.AsistenteReunion.App", "AnonymousVisualAnalysisConsentWindow.xaml.cs"));
         var mainXaml = File.ReadAllText(Path.Combine(
             root, "src", "Trazio.AsistenteReunion.App", "MainWindow.xaml"));
         var mainCode = File.ReadAllText(Path.Combine(
             root, "src", "Trazio.AsistenteReunion.App", "MainWindow.xaml.cs"));
+        var presentationCode = File.ReadAllText(Path.Combine(
+            root, "src", "Trazio.AsistenteReunion.App", "VisualCapturePresentation.cs"));
 
-        Assert.Contains("Autorizar análisis visual", compiledApplication);
-        Assert.Contains("Análisis visual activo · no se guardan imágenes", compiledApplication);
+        Assert.Contains("Autorizar captura visual", compiledApplication);
+        Assert.Contains("Autorizar análisis anónimo", compiledApplication);
+        Assert.Contains("Captura visual activa · no se guardan imágenes", compiledApplication);
+        Assert.Contains("Evidencia visual no disponible: perfil en validación", presentationCode);
         Assert.Contains("No grabará video ni guardará imágenes", compiledApplication);
+        Assert.Contains("normalmente 1 vez por segundo y nunca más de 2", compiledApplication);
+        Assert.Contains("no lee nombres, chat, subtítulos ni documentos", compiledApplication);
+        Assert.Contains("intervalos derivados de actividad y disponibilidad", compiledApplication);
+        Assert.Contains("todavía no se exportan", compiledApplication);
         Assert.Contains("audio y la transcripción continuarán", compiledApplication);
         Assert.Contains("La autorización no se guarda ni se reutiliza en otra reunión", compiledApplication);
         Assert.NotNull(typeof(MainWindow).GetField("AuthorizeVisualCaptureButton", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
+        Assert.NotNull(typeof(MainWindow).GetField("AuthorizeAnonymousVisualAnalysisButton", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
         Assert.NotNull(typeof(MainWindow).GetField("PauseVisualCaptureButton", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
         Assert.NotNull(typeof(MainWindow).GetField("ResumeVisualCaptureButton", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
         Assert.NotNull(typeof(MainWindow).GetField("StopVisualCaptureButton", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
         Assert.NotNull(typeof(VisualCaptureConsentWindow).GetField("CancelButton", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
-        Assert.Contains("IsCancel=\"True\" IsDefault=\"True\"", consentXaml, StringComparison.Ordinal);
-        Assert.Contains("AutomationProperties.Name=\"Cancelar autorización de análisis visual\"", consentXaml, StringComparison.Ordinal);
-        Assert.Contains("CancelButton.Focus()", consentCode, StringComparison.Ordinal);
+        Assert.NotNull(typeof(AnonymousVisualAnalysisConsentWindow).GetField("CancelButton", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
+        Assert.Contains("IsCancel=\"True\" IsDefault=\"True\"", captureConsentXaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"Cancelar autorización de captura visual\"", captureConsentXaml, StringComparison.Ordinal);
+        Assert.Contains("CancelButton.Focus()", captureConsentCode, StringComparison.Ordinal);
+        Assert.Contains("IsCancel=\"True\" IsDefault=\"True\"", analysisConsentXaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"Cancelar autorización de análisis visual anónimo\"", analysisConsentXaml, StringComparison.Ordinal);
+        Assert.Contains("CancelButton.Focus()", analysisConsentCode, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"VisualCaptureStatusText\"", mainXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"AnonymousVisualAnalysisStatusText\"", mainXaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Captura visual\"", mainXaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Actividad visual anónima\"", mainXaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Autorizar análisis anónimo\"", mainXaml, StringComparison.Ordinal);
         Assert.Contains("Focusable=\"True\"", mainXaml, StringComparison.Ordinal);
         Assert.Contains("VisualCaptureStatusText.Focus()", mainCode, StringComparison.Ordinal);
+        Assert.Contains("AnonymousVisualAnalysisStatusText.Focus()", mainCode, StringComparison.Ordinal);
+        Assert.Contains("_settings.CaptureSystemOutput", mainCode, StringComparison.Ordinal);
+        Assert.Contains("ActiveSessionTimelineContext", mainCode, StringComparison.Ordinal);
+        Assert.Contains("new WindowsGraphicsCaptureService(selection, activation.Session)", mainCode, StringComparison.Ordinal);
         Assert.Equal(2, mainCode.Split("VisualCaptureShutdown.RunVisualFirstAsync", StringSplitOptions.None).Length - 1);
+
+        var analysisHandlerStart = mainCode.IndexOf("private void AuthorizeAnonymousVisualAnalysis_Click", StringComparison.Ordinal);
+        var analysisHandlerEnd = mainCode.IndexOf("private async void Start_Click", analysisHandlerStart, StringComparison.Ordinal);
+        var analysisHandler = mainCode[analysisHandlerStart..analysisHandlerEnd];
+        Assert.True(
+            analysisHandler.IndexOf("dialog.ShowDialog() != true", StringComparison.Ordinal) <
+            analysisHandler.IndexOf("AnonymousVisualAnalysisAuthorization.GrantForSession", StringComparison.Ordinal));
+
+        var invalidationStart = mainCode.IndexOf("private void InvalidateVisualAuthorization()", StringComparison.Ordinal);
+        var invalidationEnd = mainCode.IndexOf("private void SetVisualCaptureState", invalidationStart, StringComparison.Ordinal);
+        var invalidation = mainCode[invalidationStart..invalidationEnd];
+        Assert.Contains("_visualCaptureAuthorization = null", invalidation, StringComparison.Ordinal);
+        Assert.Contains("_anonymousVisualAnalysisAuthorization = null", invalidation, StringComparison.Ordinal);
+
+        var teardownStart = mainCode.IndexOf("private async Task StopAndDisposeVisualCaptureAsync", StringComparison.Ordinal);
+        var teardownEnd = mainCode.IndexOf("private void OnVisualCaptureStateChanged", teardownStart, StringComparison.Ordinal);
+        var teardown = mainCode[teardownStart..teardownEnd];
+        Assert.True(
+            teardown.IndexOf("await controller.DisposeAsync()", StringComparison.Ordinal) <
+            teardown.IndexOf("await analysisSession.CompleteAt(finalOffset)", StringComparison.Ordinal));
+        Assert.True(
+            teardown.IndexOf("await analysisSession.CompleteAt(finalOffset)", StringComparison.Ordinal) <
+            teardown.IndexOf("await analysisSession.DisposeAsync()", StringComparison.Ordinal));
     }
 
     private static string FindRepositoryRoot()

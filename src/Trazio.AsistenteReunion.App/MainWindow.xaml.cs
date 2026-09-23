@@ -40,10 +40,16 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     private readonly VisualCaptureStateTracker _visualCaptureStateTracker = new();
     private readonly SemaphoreSlim _visualCaptureActions = new(1, 1);
     private VisualCaptureAuthorization? _visualCaptureAuthorization;
+    private AnonymousVisualAnalysisAuthorization? _anonymousVisualAnalysisAuthorization;
     private VisualCaptureSessionController? _visualCaptureController;
+    private IAnonymousVisualAnalysisSession? _anonymousVisualAnalysisSession;
+    private ISessionTimelineContext? _anonymousVisualAnalysisContext;
+    private VisualProbeProfileValidationState? _anonymousVisualAnalysisProfileValidationState;
     private VisualCaptureState _visualCaptureState = VisualCaptureState.Off;
+    private AnonymousVisualAnalysisStatus _anonymousVisualAnalysisStatus = AnonymousVisualAnalysisStatus.Off;
     private bool _visualCaptureActionInProgress;
     private bool _visualPausedByRecording;
+    private int _anonymousVisualAnalysisFailureReported;
     private bool _historySelectedSourceAudioComplete;
     private bool _suppressHistorySegmentPlayback;
     private bool _historyPlaybackPaused;
@@ -249,7 +255,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         if (_visualCaptureActionInProgress || _busy || _closing) return;
         if (_recordingPaused)
         {
-            StatusText.Text = "Reanuda la reunión antes de autorizar el análisis visual.";
+            StatusText.Text = "Reanuda la reunión antes de autorizar la captura visual.";
             UpdateVisualCaptureUi();
             return;
         }
@@ -258,7 +264,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         {
             InvalidateVisualAuthorization();
             UpdateVisualCaptureUi();
-            StatusText.Text = "Selecciona una ventana disponible antes de autorizar el análisis visual.";
+            StatusText.Text = "Selecciona una ventana disponible antes de autorizar la captura visual.";
             return;
         }
 
@@ -266,7 +272,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         if (dialog.ShowDialog() != true)
         {
             AuthorizeVisualCaptureButton.Focus();
-            StatusText.Text = "No se activó el análisis visual. La transcripción continuará sin cambios.";
+            StatusText.Text = "No se activó la captura visual. La transcripción continuará sin cambios.";
             return;
         }
 
@@ -289,6 +295,52 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         VisualCaptureStatusText.Focus();
     }
 
+    private void AuthorizeAnonymousVisualAnalysis_Click(object sender, RoutedEventArgs e)
+    {
+        if (_visualCaptureActionInProgress || _busy || _closing) return;
+        var selection = _meetingWindowSelection.Selection;
+        if (!TryResolveAnonymousVisualAnalysisContext(
+                selection,
+                out var sessionId,
+                out var timelineContext))
+        {
+            InvalidateAnonymousVisualAnalysisAuthorization();
+            UpdateVisualCaptureUi();
+            StatusText.Text = "El análisis anónimo no puede autorizarse en el estado actual. El audio y la transcripción continúan.";
+            return;
+        }
+
+        var dialog = new AnonymousVisualAnalysisConsentWindow { Owner = this };
+        if (dialog.ShowDialog() != true)
+        {
+            AuthorizeAnonymousVisualAnalysisButton.Focus();
+            StatusText.Text = "No se autorizó el análisis visual anónimo. El audio y la transcripción continúan sin cambios.";
+            return;
+        }
+
+        if (!TryResolveAnonymousVisualAnalysisContext(
+                selection,
+                out var currentSessionId,
+                out var currentTimelineContext) ||
+            !string.Equals(currentSessionId, sessionId, StringComparison.Ordinal) ||
+            !ReferenceEquals(currentTimelineContext, timelineContext))
+        {
+            InvalidateAnonymousVisualAnalysisAuthorization();
+            UpdateVisualCaptureUi();
+            StatusText.Text = "La sesión o la ventana cambió. Autoriza nuevamente el análisis anónimo.";
+            return;
+        }
+
+        _anonymousVisualAnalysisAuthorization =
+            AnonymousVisualAnalysisAuthorization.GrantForSession(
+                selection!,
+                sessionId,
+                AnonymousVisualAnalysisScope.ActivityAndAvailabilityIntervals);
+        _anonymousVisualAnalysisStatus = AnonymousVisualAnalysisStatus.Authorized;
+        UpdateVisualCaptureUi();
+        AnonymousVisualAnalysisStatusText.Focus();
+    }
+
     private async void Start_Click(object sender, RoutedEventArgs e) => await RunExclusiveAsync(StartSessionAsync);
 
     private async Task StartSessionAsync()
@@ -298,6 +350,10 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         var audioStarted = false;
         try
         {
+            InvalidateAnonymousVisualAnalysisAuthorization();
+            _anonymousVisualAnalysisStatus = AnonymousVisualAnalysisStatus.Off;
+            _anonymousVisualAnalysisProfileValidationState = null;
+            Interlocked.Exchange(ref _anonymousVisualAnalysisFailureReported, 0);
             await EnsureModelAsync();
             _lifetime.Token.ThrowIfCancellationRequested();
             _settings = AudioRetentionPolicy.Enforce(ReadSettings());
@@ -459,6 +515,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         }
         if (_meetingWindowSelection.CheckWhileRecording() != MeetingWindowAvailability.Lost) return;
         _meetingWindowMonitorTimer.Stop();
+        InvalidateVisualAuthorization();
         UpdateMeetingWindowUi();
         StatusText.Text = "La ventana asociada se cerró o cambió. La captura de audio y la transcripción continúan sin reasignarla.";
     }
@@ -495,7 +552,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         {
             await StopAndDisposeVisualCaptureAsync(VisualCaptureState.Failed);
             if (!_closing)
-                StatusText.Text = "El análisis visual no pudo continuar. El audio y la transcripción siguen activos.";
+                StatusText.Text = "La captura o la evidencia visual no pudo continuar. El audio y la transcripción siguen activos.";
         }
         finally
         {
@@ -509,27 +566,64 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     {
         if (!VisualCaptureActivationPolicy.CanStart(_recording, _recordingPaused, _closing) ||
             _visualCaptureController is not null) return;
-        var authorization = _visualCaptureAuthorization;
-        if (authorization is null) return;
+        var captureAuthorization = _visualCaptureAuthorization;
+        if (captureAuthorization is null) return;
 
         var sessionIdText = _coordinator?.ActiveSessionId;
         if (!Guid.TryParseExact(sessionIdText, "N", out var sessionId) ||
             _meetingWindowSelection.Selection != selection ||
             !IsCurrentVisualSelectionAvailable(selection) ||
-            !authorization.TryConsume(selection, sessionId, out var consent) ||
+            !captureAuthorization.TryConsume(selection, sessionId, out var consent) ||
             consent is null)
         {
             InvalidateVisualAuthorization();
             SetVisualCaptureState(VisualCaptureState.Off);
-            StatusText.Text = "No se activó el análisis visual porque la sesión o la ventana seleccionada cambió.";
+            StatusText.Text = "No se activó la captura visual porque la sesión o la ventana seleccionada cambió.";
             return;
         }
 
         _visualCaptureAuthorization = null;
+        var timelineContext = _coordinator?.ActiveSessionTimelineContext;
+        var analysisAuthorization = _anonymousVisualAnalysisAuthorization;
+        var activation = AnonymousVisualAnalysisActivator.TryCreate(
+            _settings.CaptureSystemOutput,
+            selection,
+            sessionIdText,
+            timelineContext,
+            _store,
+            analysisAuthorization,
+            new AnonymousVisualAnalysisComponentFactory(OnAnonymousVisualAnalysisFailure));
+        if (analysisAuthorization is not null)
+            _anonymousVisualAnalysisAuthorization = null;
+
+        IVisualMeetingCapture capture;
+        if (activation.IsActivated)
+        {
+            _anonymousVisualAnalysisSession = activation.Session;
+            _anonymousVisualAnalysisContext = timelineContext;
+            _anonymousVisualAnalysisProfileValidationState = activation.ProfileValidationState;
+            _anonymousVisualAnalysisStatus = activation.ProfileValidationState == VisualProbeProfileValidationState.Validated
+                ? AnonymousVisualAnalysisStatus.Running
+                : AnonymousVisualAnalysisStatus.ProfileUnavailable;
+            capture = new WindowsGraphicsCaptureService(selection, activation.Session);
+        }
+        else
+        {
+            if (analysisAuthorization is not null)
+            {
+                _anonymousVisualAnalysisStatus = activation.Failure ==
+                    AnonymousVisualAnalysisActivationFailure.ComponentCreationFailed
+                        ? AnonymousVisualAnalysisStatus.Failed
+                        : AnonymousVisualAnalysisStatus.Off;
+                StatusText.Text = AnonymousVisualAnalysisFailureMessage(activation.Failure);
+            }
+            capture = new WindowsGraphicsCaptureService(selection);
+        }
+
         var observer = new WeakVisualCaptureStateObserver<MainWindow>(this);
         var controller = new VisualCaptureSessionController(
             sessionId,
-            new WindowsGraphicsCaptureService(selection),
+            capture,
             observer);
         _visualCaptureController = controller;
         _visualCaptureStateTracker.Reset(controller.Identity);
@@ -543,8 +637,13 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         InvalidateVisualAuthorization();
         _visualPausedByRecording = false;
         var controller = _visualCaptureController;
+        var analysisSession = _anonymousVisualAnalysisSession;
+        var analysisContext = _anonymousVisualAnalysisContext;
         _visualCaptureController = null;
+        _anonymousVisualAnalysisSession = null;
+        _anonymousVisualAnalysisContext = null;
         _visualCaptureStateTracker.Reset(Guid.Empty);
+        var visualCleanupFailed = false;
         if (controller is not null)
         {
             try
@@ -554,9 +653,37 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
             }
             catch
             {
-                // Visual cleanup is isolated from audio, transcription, and application shutdown.
+                visualCleanupFailed = true;
             }
         }
+
+        if (analysisSession is not null)
+        {
+            try
+            {
+                if (analysisContext?.TryGetCurrentOffset(out var finalOffset) == true)
+                    await analysisSession.CompleteAt(finalOffset);
+                await analysisSession.DisposeAsync();
+                visualCleanupFailed |=
+                    analysisSession.DetectorFailureCount > 0 ||
+                    analysisSession.SinkFailureCount > 0 ||
+                    analysisSession.ExtractionFailureCount > 0;
+            }
+            catch
+            {
+                visualCleanupFailed = true;
+                try { await analysisSession.DisposeAsync(); } catch { }
+            }
+        }
+
+        _anonymousVisualAnalysisProfileValidationState = null;
+        _anonymousVisualAnalysisStatus = visualCleanupFailed || finalState == VisualCaptureState.Failed
+            ? AnonymousVisualAnalysisStatus.Failed
+            : finalState == VisualCaptureState.Off
+                ? AnonymousVisualAnalysisStatus.Off
+                : AnonymousVisualAnalysisStatus.Stopped;
+        if (visualCleanupFailed && !_closing)
+            StatusText.Text = "La parte visual informó un problema. El audio y la transcripción continúan.";
         SetVisualCaptureState(finalState);
     }
 
@@ -587,13 +714,114 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         }
     }
 
-    private void InvalidateVisualAuthorization() => _visualCaptureAuthorization = null;
+    private bool TryResolveAnonymousVisualAnalysisContext(
+        MeetingWindowSelection? selection,
+        out string sessionId,
+        out ISessionTimelineContext timelineContext)
+    {
+        sessionId = string.Empty;
+        timelineContext = null!;
+        if (!_recording || _recordingPaused || !_settings.CaptureSystemOutput ||
+            _visualCaptureController is not null || _visualCaptureState != VisualCaptureState.Off ||
+            _anonymousVisualAnalysisAuthorization is not null ||
+            _anonymousVisualAnalysisStatus != AnonymousVisualAnalysisStatus.Off ||
+            _store is null || !IsCurrentVisualSelectionAvailable(selection) ||
+            selection!.Provider is not (MeetingProvider.GoogleMeet or MeetingProvider.MicrosoftTeams))
+            return false;
+
+        var currentSessionId = _coordinator?.ActiveSessionId;
+        var currentTimelineContext = _coordinator?.ActiveSessionTimelineContext;
+        if (string.IsNullOrWhiteSpace(currentSessionId) ||
+            currentTimelineContext is null ||
+            !string.Equals(currentTimelineContext.SessionId, currentSessionId, StringComparison.Ordinal) ||
+            !currentTimelineContext.TryGetCurrentOffset(out _))
+            return false;
+
+        sessionId = currentSessionId;
+        timelineContext = currentTimelineContext;
+        return true;
+    }
+
+    private void InvalidateVisualAuthorization()
+    {
+        _visualCaptureAuthorization = null;
+        InvalidateAnonymousVisualAnalysisAuthorization();
+    }
+
+    private void InvalidateAnonymousVisualAnalysisAuthorization()
+    {
+        _anonymousVisualAnalysisAuthorization = null;
+        if (_anonymousVisualAnalysisStatus == AnonymousVisualAnalysisStatus.Authorized)
+            _anonymousVisualAnalysisStatus = AnonymousVisualAnalysisStatus.Off;
+    }
 
     private void SetVisualCaptureState(VisualCaptureState state)
     {
         _visualCaptureState = state;
+        UpdateAnonymousVisualAnalysisStateForCaptureState(state);
         UpdateVisualCaptureUi();
     }
+
+    private void UpdateAnonymousVisualAnalysisStateForCaptureState(VisualCaptureState state)
+    {
+        if (_anonymousVisualAnalysisSession is null) return;
+        if (_anonymousVisualAnalysisStatus == AnonymousVisualAnalysisStatus.Failed) return;
+
+        if (_anonymousVisualAnalysisProfileValidationState != VisualProbeProfileValidationState.Validated)
+        {
+            _anonymousVisualAnalysisStatus = AnonymousVisualAnalysisStatus.ProfileUnavailable;
+            return;
+        }
+
+        _anonymousVisualAnalysisStatus = state switch
+        {
+            VisualCaptureState.Active => AnonymousVisualAnalysisStatus.Running,
+            VisualCaptureState.Pausing or VisualCaptureState.Paused or VisualCaptureState.TargetMinimized =>
+                AnonymousVisualAnalysisStatus.Paused,
+            VisualCaptureState.NotSupported or VisualCaptureState.TargetUnavailable or
+                VisualCaptureState.ProtectedContent or VisualCaptureState.Stopped =>
+                AnonymousVisualAnalysisStatus.Stopped,
+            VisualCaptureState.Failed => AnonymousVisualAnalysisStatus.Failed,
+            _ => _anonymousVisualAnalysisStatus
+        };
+    }
+
+    private void OnAnonymousVisualAnalysisFailure(VisualProbeFailureKind failure)
+    {
+        if (Interlocked.Exchange(ref _anonymousVisualAnalysisFailureReported, 1) != 0) return;
+        if (_closing || Dispatcher.HasShutdownStarted) return;
+        _ = Dispatcher.BeginInvoke(DispatcherPriority.DataBind, new Action(() =>
+        {
+            if (_closing) return;
+            _anonymousVisualAnalysisStatus = AnonymousVisualAnalysisStatus.Failed;
+            StatusText.Text = failure switch
+            {
+                VisualProbeFailureKind.Extraction =>
+                    "La evidencia visual no pudo extraerse. El audio y la transcripción continúan.",
+                VisualProbeFailureKind.Detector =>
+                    "La actividad visual anónima no pudo evaluarse. El audio y la transcripción continúan.",
+                _ =>
+                    "La evidencia visual cifrada no pudo guardarse. El audio y la transcripción continúan."
+            };
+            UpdateVisualCaptureUi();
+        }));
+    }
+
+    private static string AnonymousVisualAnalysisFailureMessage(
+        AnonymousVisualAnalysisActivationFailure failure) => failure switch
+    {
+        AnonymousVisualAnalysisActivationFailure.SystemOutputRequired =>
+            "El análisis anónimo no se inició porque esta sesión no captura audio del equipo.",
+        AnonymousVisualAnalysisActivationFailure.ProviderUnsupported =>
+            "El análisis anónimo solo se admite para Google Meet o Microsoft Teams.",
+        AnonymousVisualAnalysisActivationFailure.TimelineMismatch =>
+            "El análisis anónimo no se inició porque la sesión cambió.",
+        AnonymousVisualAnalysisActivationFailure.StoreUnavailable or
+            AnonymousVisualAnalysisActivationFailure.ComponentCreationFailed =>
+            "La evidencia visual no está disponible por un problema local. El audio y la transcripción continúan.",
+        _ =>
+            "El análisis anónimo no se inició porque su autorización ya no es válida."
+    };
 
     private void UpdateVisualCaptureUi()
     {
@@ -619,6 +847,20 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         VisualCaptureActiveIndicator.Visibility = state.ShowActiveIndicator
             ? Visibility.Visible
             : Visibility.Collapsed;
+
+        var anonymousState = AnonymousVisualAnalysisPresenter.Create(
+            _anonymousVisualAnalysisStatus,
+            hasValidSelection,
+            selection?.Provider ?? MeetingProvider.NotSelected,
+            _recording,
+            _settings.CaptureSystemOutput,
+            _visualCaptureState,
+            _initialized && !_busy && !_closing,
+            _recordingPaused,
+            _visualCaptureActionInProgress);
+        if (!string.Equals(AnonymousVisualAnalysisStatusText.Text, anonymousState.Status, StringComparison.Ordinal))
+            AnonymousVisualAnalysisStatusText.Text = anonymousState.Status;
+        AuthorizeAnonymousVisualAnalysisButton.IsEnabled = anonymousState.CanAuthorize;
     }
 
     private void BrowseModel_Click(object sender, RoutedEventArgs e)

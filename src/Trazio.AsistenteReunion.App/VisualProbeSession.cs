@@ -23,7 +23,7 @@ internal interface IVisualProbeFrameConsumer
     bool MarkUnavailable(long surfaceRevision);
 }
 
-internal sealed class VisualProbeSession : IVisualProbeFrameConsumer, IAsyncDisposable
+internal sealed class VisualProbeSession : IAnonymousVisualAnalysisSession
 {
     private readonly object _gate = new();
     private readonly ISessionTimelineContext _timelineContext;
@@ -31,6 +31,7 @@ internal sealed class VisualProbeSession : IVisualProbeFrameConsumer, IAsyncDisp
     private readonly IVisualProbeProfile _profile;
     private readonly IVisualProbeExtractor _extractor;
     private readonly VisualProbePipeline _pipeline;
+    private readonly Action<VisualProbeFailureKind>? _failureObserver;
     private readonly Task _runTask;
     private VisualProbeFeatureLease? _pendingObservation;
     private TimeSpan? _lastObservationOffset;
@@ -43,14 +44,17 @@ internal sealed class VisualProbeSession : IVisualProbeFrameConsumer, IAsyncDisp
         ISessionTimelineContext timelineContext,
         IVisualProbeProfile profile,
         IVisualProbeExtractor extractor,
+        IVisualProbeDetector detector,
         IVisualProbeEvidenceSink sink,
-        TimeSpan? samplingInterval)
+        TimeSpan? samplingInterval,
+        Action<VisualProbeFailureKind>? failureObserver)
     {
         _timelineContext = timelineContext;
         _profile = profile;
         _extractor = extractor;
+        _failureObserver = failureObserver;
         _rateGate = new(timelineContext, samplingInterval);
-        _pipeline = new(new DeterministicVisualActivityDetector(timelineContext.SessionId), sink);
+        _pipeline = new(detector, sink, NotifyFailure);
         _runTask = _pipeline.RunAsync();
 
         if (!_rateGate.TryAcquire(out var startOffset) ||
@@ -71,13 +75,17 @@ internal sealed class VisualProbeSession : IVisualProbeFrameConsumer, IAsyncDisp
         ISessionTimelineContext timelineContext,
         MeetingProvider provider,
         IVisualProbeEvidenceSink sink,
-        TimeSpan? samplingInterval = null) =>
-        Start(
+        TimeSpan? samplingInterval = null)
+    {
+        ArgumentNullException.ThrowIfNull(timelineContext);
+        return Start(
             timelineContext,
             VisualProbeProfiles.GetProduction(provider),
             new D3D11VisualProbeExtractor(),
+            new DeterministicVisualActivityDetector(timelineContext.SessionId),
             sink,
             samplingInterval);
+    }
 
     internal static VisualProbeSession Start(
         ISessionTimelineContext timelineContext,
@@ -87,13 +95,40 @@ internal sealed class VisualProbeSession : IVisualProbeFrameConsumer, IAsyncDisp
         TimeSpan? samplingInterval = null)
     {
         ArgumentNullException.ThrowIfNull(timelineContext);
+        return Start(
+            timelineContext,
+            profile,
+            extractor,
+            new DeterministicVisualActivityDetector(timelineContext.SessionId),
+            sink,
+            samplingInterval);
+    }
+
+    internal static VisualProbeSession Start(
+        ISessionTimelineContext timelineContext,
+        IVisualProbeProfile profile,
+        IVisualProbeExtractor extractor,
+        IVisualProbeDetector detector,
+        IVisualProbeEvidenceSink sink,
+        TimeSpan? samplingInterval = null,
+        Action<VisualProbeFailureKind>? failureObserver = null)
+    {
+        ArgumentNullException.ThrowIfNull(timelineContext);
         ArgumentNullException.ThrowIfNull(profile);
         ArgumentNullException.ThrowIfNull(extractor);
+        ArgumentNullException.ThrowIfNull(detector);
         ArgumentNullException.ThrowIfNull(sink);
         if (string.IsNullOrWhiteSpace(timelineContext.SessionId))
             throw new ArgumentException("The timeline context must identify a session.", nameof(timelineContext));
 
-        return new(timelineContext, profile, extractor, sink, samplingInterval);
+        return new(
+            timelineContext,
+            profile,
+            extractor,
+            detector,
+            sink,
+            samplingInterval,
+            failureObserver);
     }
 
     public bool BeginSurface(out long surfaceRevision)
@@ -160,6 +195,7 @@ internal sealed class VisualProbeSession : IVisualProbeFrameConsumer, IAsyncDisp
             catch
             {
                 Interlocked.Increment(ref _extractionFailureCount);
+                NotifyFailure(VisualProbeFailureKind.Extraction);
                 TryWriteUnavailableUnderGate(offset, surfaceRevision);
                 return VisualProbeFrameResult.ExtractionFailed;
             }
@@ -318,6 +354,18 @@ internal sealed class VisualProbeSession : IVisualProbeFrameConsumer, IAsyncDisp
         catch
         {
             // Probe ownership cleanup remains isolated from capture and audio.
+        }
+    }
+
+    private void NotifyFailure(VisualProbeFailureKind failure)
+    {
+        try
+        {
+            _failureObserver?.Invoke(failure);
+        }
+        catch
+        {
+            // Diagnostics must remain isolated from capture and audio.
         }
     }
 }

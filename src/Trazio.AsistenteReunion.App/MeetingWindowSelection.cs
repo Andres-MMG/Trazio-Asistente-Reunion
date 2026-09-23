@@ -161,8 +161,8 @@ public static class MeetingWindowSelectionPresenter
         var provider = MeetingProviderPresentation.Name(selection.Provider);
         return new(
             isRecording
-                ? $"{provider} asociado a esta sesión. Solo se conserva el proveedor; el análisis visual requiere una autorización separada y no guarda el título."
-                : $"{provider} seleccionado para la próxima sesión. Asociarlo no inicia el análisis visual ni guarda el título.",
+                ? $"{provider} asociado a esta sesión. Solo se conserva el proveedor; la captura visual y el análisis anónimo requieren autorizaciones separadas y no guardan el título."
+                : $"{provider} seleccionado para la próxima sesión. Asociarlo no inicia la captura visual ni el análisis anónimo, y no guarda el título.",
             "Cambiar…",
             !isRecording && isReady,
             !isRecording && isReady);

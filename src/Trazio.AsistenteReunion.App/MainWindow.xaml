@@ -43,28 +43,42 @@
                                     <Button x:Name="SelectMeetingWindowButton" Content="Seleccionar…" Click="SelectMeetingWindow_Click" ToolTip="Elige una ventana superior visible para asociar su proveedor a esta sesión."/>
                                     <Button x:Name="ClearMeetingWindowButton" Content="Quitar" Click="ClearMeetingWindow_Click" IsEnabled="False" ToolTip="Quita la asociación antes de iniciar."/>
                                 </WrapPanel>
-                                <TextBlock Text="Asociar una ventana solo identifica la aplicación: no inicia el análisis visual, no guarda el título y no limita el audio a esa ventana." Foreground="#556070" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                <TextBlock Text="Asociar una ventana solo identifica la aplicación: no inicia la captura visual ni el análisis anónimo, no guarda el título y no limita el audio a esa ventana." Foreground="#556070" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                 <Border BorderBrush="#DDE2EA" BorderThickness="0,1,0,0" Padding="0,9,0,0" Margin="0,9,0,0">
                                     <StackPanel>
-                                        <TextBlock Text="Análisis visual temporal" FontWeight="SemiBold"/>
-                                        <TextBlock x:Name="VisualCaptureStatusText" Text="Análisis visual desactivado. Selecciona una ventana para poder autorizarlo."
+                                        <TextBlock Text="Captura visual" FontWeight="SemiBold"/>
+                                        <TextBlock x:Name="VisualCaptureStatusText" Text="Captura visual desactivada. Selecciona una ventana para poder autorizarla."
                                                    Foreground="#556070" TextWrapping="Wrap" Margin="0,3,0,5" Focusable="True"
-                                                   automation:AutomationProperties.Name="Estado del análisis visual"
+                                                   automation:AutomationProperties.Name="Estado de la captura visual"
                                                    automation:AutomationProperties.LiveSetting="Polite"/>
                                         <Border x:Name="VisualCaptureActiveIndicator" Visibility="Collapsed" Background="#E7F5EC" BorderBrush="#2E7D32" BorderThickness="1" CornerRadius="4" Padding="7" Margin="0,0,0,5">
-                                            <TextBlock Text="Análisis visual activo · no se guardan imágenes" Foreground="#1B5E20" FontWeight="SemiBold"/>
+                                            <TextBlock Text="Captura visual activa · no se guardan imágenes" Foreground="#1B5E20" FontWeight="SemiBold"/>
                                         </Border>
                                         <WrapPanel>
-                                            <Button x:Name="AuthorizeVisualCaptureButton" Content="Autorizar…" Click="AuthorizeVisualCapture_Click"
-                                                    ToolTip="Revisa y autoriza el análisis temporal de la ventana seleccionada para esta sesión."
-                                                    automation:AutomationProperties.Name="Autorizar análisis visual"/>
+                                            <Button x:Name="AuthorizeVisualCaptureButton" Content="Autorizar captura visual" Click="AuthorizeVisualCapture_Click"
+                                                    ToolTip="Revisa y autoriza la captura temporal de la ventana seleccionada para esta sesión."
+                                                    automation:AutomationProperties.Name="Autorizar captura visual"/>
                                             <Button x:Name="PauseVisualCaptureButton" Content="Pausar visual" Click="PauseVisualCapture_Click" IsEnabled="False"
-                                                    automation:AutomationProperties.Name="Pausar solo el análisis visual"/>
+                                                    automation:AutomationProperties.Name="Pausar solo la captura visual"/>
                                             <Button x:Name="ResumeVisualCaptureButton" Content="Reanudar visual" Click="ResumeVisualCapture_Click" IsEnabled="False"
-                                                    automation:AutomationProperties.Name="Reanudar solo el análisis visual"/>
+                                                    automation:AutomationProperties.Name="Reanudar solo la captura visual"/>
                                             <Button x:Name="StopVisualCaptureButton" Content="Detener visual" Click="StopVisualCapture_Click" IsEnabled="False" Visibility="Collapsed"
-                                                    automation:AutomationProperties.Name="Detener el análisis visual para esta sesión"/>
+                                                    automation:AutomationProperties.Name="Detener la captura visual para esta sesión"/>
                                         </WrapPanel>
+                                        <Border BorderBrush="#DDE2EA" BorderThickness="0,1,0,0" Padding="0,9,0,0" Margin="0,9,0,0">
+                                            <StackPanel>
+                                                <TextBlock Text="Actividad visual anónima" FontWeight="SemiBold"/>
+                                                <TextBlock x:Name="AnonymousVisualAnalysisStatusText"
+                                                           Text="Actividad visual anónima desactivada. Inicia una sesión con audio del equipo para autorizarla."
+                                                           Foreground="#556070" TextWrapping="Wrap" Margin="0,3,0,5" Focusable="True"
+                                                           automation:AutomationProperties.Name="Estado de la actividad visual anónima"
+                                                           automation:AutomationProperties.LiveSetting="Polite"/>
+                                                <Button x:Name="AuthorizeAnonymousVisualAnalysisButton" Content="Autorizar análisis anónimo"
+                                                        Click="AuthorizeAnonymousVisualAnalysis_Click"
+                                                        ToolTip="Revisa y autoriza el análisis visual anónimo para esta sesión y esta ventana."
+                                                        automation:AutomationProperties.Name="Autorizar análisis anónimo"/>
+                                            </StackPanel>
+                                        </Border>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>

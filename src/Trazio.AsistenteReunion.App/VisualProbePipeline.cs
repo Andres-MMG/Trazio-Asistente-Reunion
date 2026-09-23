@@ -4,6 +4,7 @@ internal sealed class VisualProbePipeline : IAsyncDisposable
 {
     private readonly IVisualProbeDetector _detector;
     private readonly IVisualProbeEvidenceSink _sink;
+    private readonly Action<VisualProbeFailureKind>? _failureObserver;
     private readonly BoundedDropOldestProcessor<VisualProbeFeatureLease> _processor = new();
     private readonly object _writeGate = new();
     private int _completionRequested;
@@ -12,10 +13,12 @@ internal sealed class VisualProbePipeline : IAsyncDisposable
 
     public VisualProbePipeline(
         IVisualProbeDetector detector,
-        IVisualProbeEvidenceSink sink)
+        IVisualProbeEvidenceSink sink,
+        Action<VisualProbeFailureKind>? failureObserver = null)
     {
         _detector = detector ?? throw new ArgumentNullException(nameof(detector));
         _sink = sink ?? throw new ArgumentNullException(nameof(sink));
+        _failureObserver = failureObserver;
     }
 
     public long DroppedCount => _processor.DroppedCount;
@@ -67,6 +70,7 @@ internal sealed class VisualProbePipeline : IAsyncDisposable
         catch
         {
             Interlocked.Increment(ref _detectorFailureCount);
+            NotifyFailure(VisualProbeFailureKind.Detector);
             return;
         }
 
@@ -79,7 +83,20 @@ internal sealed class VisualProbePipeline : IAsyncDisposable
             catch
             {
                 Interlocked.Increment(ref _sinkFailureCount);
+                NotifyFailure(VisualProbeFailureKind.Sink);
             }
+        }
+    }
+
+    private void NotifyFailure(VisualProbeFailureKind failure)
+    {
+        try
+        {
+            _failureObserver?.Invoke(failure);
+        }
+        catch
+        {
+            // Diagnostics must never affect the visual pipeline.
         }
     }
 
