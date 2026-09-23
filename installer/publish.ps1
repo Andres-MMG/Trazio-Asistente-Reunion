@@ -1,7 +1,7 @@
 param([string]$Configuration = "Release")
 
 $ErrorActionPreference = "Stop"
-$expectedVersion = "0.2.0-beta.3"
+$expectedVersion = "0.2.0-beta.4"
 $expectedArchiveName = "Trazio-Asistente-Reunion-v$expectedVersion-win-x64.zip"
 $expectedChecksumName = "$expectedArchiveName.sha256"
 $root = Split-Path -Parent $PSScriptRoot
@@ -135,6 +135,9 @@ $requiredCapabilities = @(
     [pscustomobject]@{ Id = "meeting-window-provider-association-v1"; Version = 1; Label = "meeting-window-provider-association-v1" }
     [pscustomobject]@{ Id = "consented-ephemeral-window-capture-v1"; Version = 1; Label = "consented-ephemeral-window-capture-v1" }
 )
+if ($capabilities.Count -ne $requiredCapabilities.Count) {
+    throw "Published capability manifest must declare exactly $($requiredCapabilities.Count) capabilities. Found $($capabilities.Count)."
+}
 $missingCapabilities = @(
     foreach ($requiredCapability in $requiredCapabilities) {
         $match = @(

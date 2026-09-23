@@ -4,7 +4,7 @@
 
 ## Evidencia actual
 
-La versión actual es [`v0.2.0-beta.3`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.3). La base funcional de 7.2a se verificó en `b075958`; la publicación añade metadatos y endurecimiento del paquete, sin convertir las comprobaciones automatizadas en evidencia física.
+La versión publicada actual es [`v0.2.0-beta.3`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.3). Se conserva a continuación su evidencia histórica y se registra por separado la verificación local completada del candidato fuente `v0.2.0-beta.4`. Beta 4 todavía no tiene ZIP, tamaño, SHA-256, tag ni release finales: el paquete debe reconstruirse después del commit de preparación para incorporar sus metadatos definitivos. Ninguna comprobación automatizada sustituye evidencia física.
 
 | Evidencia | Resultado registrado / límite |
 |---|---|
@@ -13,9 +13,18 @@ La versión actual es [`v0.2.0-beta.3`](https://github.com/Andres-MMG/Trazio-Asi
 | Base funcional beta 3 (`b075958`), pruebas enfocadas `Area=VisualCapture` | 54/54 aprobadas; no es evidencia física |
 | Base funcional beta 3 (`b075958`), conjunto Release serial | 250/250 aprobadas; compilación Release con 0 errores y 0 advertencias |
 | Metadatos/capacidad de beta 3 | 3/3 pruebas de `VersionMetadataTests`; manifiesto con 5 capacidades únicas |
-| Conjunto de pruebas paralelo predeterminado | Fallos intermitentes de bloqueo de archivos al limpiar pruebas SQLite; sin resolver |
-| Paquete combinado App + Worker | Publicado; prueba básica de salud por canal con nombre aprobada |
-| Distribución pública | ZIP/suma de comprobación disponibles como versión preliminar sin firma |
+| Implementación fuente 7.2b del candidato beta 4 | Consentimiento adicional de un solo uso, sondeo WGC/D3D11 agregado y acotado, intervalos cifrados de cobertura/actividad, correlación `SystemOutput` y presentación fail-closed en vivo/Historial presentes en código |
+| Perfiles de producción Meet/Teams | `Unvalidated`, sin política de detección: el procesamiento se abstiene y la evidencia se presenta como **No disponible** |
+| Metadatos/capacidades del candidato beta 4 | `VersionMetadataTests`: 4/4 aprobadas; el conjunto empaquetable permanece exactamente en 5 capacidades y no anuncia actividad/correlación visual anónima ni identificación de hablantes |
+| Pruebas visuales del candidato beta 4 | `Area=VisualCapture`: 132/132 aprobadas; no es evidencia de WGC/GPU físico |
+| Conjunto Release serial del candidato beta 4 | 371/371 aprobadas |
+| Conjunto Release paralelo predeterminado del candidato beta 4 | 371/371 aprobadas |
+| Compilación Release del candidato beta 4 | 0 advertencias y 0 errores |
+| Contrato de publicación y prueba básica del candidato beta 4 | Contrato aprobado; prueba por canal con nombre aprobada. No demuestran inferencia, captura ni publicación reales |
+| Layout del paquete candidato beta 4 | 494/494 archivos coinciden byte a byte; 0 hallazgos prohibidos y 0 rutas fuente locales. Es evidencia del layout candidato, no del ZIP final |
+| Paquete combinado App + Worker de beta 3 | Publicado; prueba básica de salud por canal con nombre aprobada; evidencia histórica |
+| Distribución pública beta 3 | ZIP/suma de comprobación disponibles como versión preliminar sin firma; evidencia histórica |
+| Paquete/distribución final beta 4 | Pendiente: reconstruir después del commit de preparación y recién entonces registrar ZIP, tamaño, SHA-256, tag y release. No hay publicación ni prueba física que registrar todavía |
 | Aceptación de captura/reproducción entre equipos de prueba | Todavía requiere una matriz de aceptación registrada |
 | Prueba prolongada de dos / cinco horas | Aplazada; no aprobada por inferencia desde pruebas unitarias |
 | Instalador firmado, actualización y reversión automáticas | No implementados/validados |
@@ -31,11 +40,11 @@ El comando habitual de desarrollo es:
 dotnet test .\Trazio.AsistenteReunion.slnx -c Release
 ```
 
-Problema conocido: las colecciones paralelas dejan intermitentemente archivos de bases SQLite de prueba bloqueados durante la limpieza (`ReviewStoreTests` / `SqliteSessionStoreTests` son ejemplos observados). No repitas hasta obtener verde descartando los fallos. Registra el resultado, compáralo con una ejecución en serie y mantén abierta la corrección del aislamiento de pruebas en la etapa 5.
+Antecedente resuelto: algunas colecciones paralelas dejaban intermitentemente archivos SQLite de prueba bloqueados durante la limpieza. La causa se corrigió mediante disposición determinista de cada `SqliteCommand` y limpieza de conexiones segura ante excepciones. La ejecución Release paralela predeterminada actual aprobó **371/371 pruebas**, respaldada por las regresiones de ciclo de vida de [SqliteCommandLifetimeTests](../tests/Trazio.AsistenteReunion.Tests/SqliteCommandLifetimeTests.cs), que ejercitan operaciones concurrentes y eliminación inmediata de los archivos de prueba. Un nuevo bloqueo debe registrarse como regresión, sin ocultarlo mediante reintentos ni atribuirlo automáticamente al problema histórico.
 
 ### Reproducir la base en serie
 
-Este archivo temporal de configuración de ejecución desactiva el paralelismo entre colecciones xUnit; no cambia el comportamiento de producción ni corrige la causa subyacente. Ejecuta desde la raíz del repositorio después de cerrar Trazio normalmente:
+Este archivo temporal de configuración desactiva el paralelismo entre colecciones xUnit y conserva una base reproducible para comparar resultados o diagnosticar una regresión. No cambia el comportamiento de producción y no es una solución alternativa para el bloqueo histórico, que ya fue corregido. Ejecuta desde la raíz del repositorio después de cerrar Trazio normalmente:
 
 ```powershell
 $settings = Join-Path ([IO.Path]::GetTempPath()) ("trazio-tests-" + [guid]::NewGuid().ToString('N') + ".runsettings")
@@ -59,6 +68,7 @@ finally { Remove-Item -LiteralPath $settings -ErrorAction SilentlyContinue }
 | Navegación / comparación / revisiones de inferencia | [SegmentAudioNavigatorTests](../tests/Trazio.AsistenteReunion.Tests/SegmentAudioNavigatorTests.cs), [TranscriptComparisonTests](../tests/Trazio.AsistenteReunion.Tests/TranscriptComparisonTests.cs), [HistoryRetranscriptionServiceTests](../tests/Trazio.AsistenteReunion.Tests/HistoryRetranscriptionServiceTests.cs) |
 | Contratos de proceso auxiliar / paquete | [IpcTests](../tests/Trazio.AsistenteReunion.Tests/IpcTests.cs), [HistoryWorkspacePublicationTests](../tests/Trazio.AsistenteReunion.Tests/HistoryWorkspacePublicationTests.cs), [VersionMetadataTests](../tests/Trazio.AsistenteReunion.Tests/VersionMetadataTests.cs) |
 | Captura visual efímera / consentimiento / estado | [BoundedDropOldestProcessorTests](../tests/Trazio.AsistenteReunion.Tests/BoundedDropOldestProcessorTests.cs), [VisualCaptureSessionControllerTests](../tests/Trazio.AsistenteReunion.Tests/VisualCaptureSessionControllerTests.cs), [WindowsGraphicsCaptureServiceTests](../tests/Trazio.AsistenteReunion.Tests/WindowsGraphicsCaptureServiceTests.cs), [VisualCapturePresentationTests](../tests/Trazio.AsistenteReunion.Tests/VisualCapturePresentationTests.cs) |
+| Actividad visual anónima / cifrado / correlación / presentación | [AnonymousVisualAnalysisActivationTests](../tests/Trazio.AsistenteReunion.Tests/AnonymousVisualAnalysisActivationTests.cs), [D3D11VisualProbeExtractorTests](../tests/Trazio.AsistenteReunion.Tests/D3D11VisualProbeExtractorTests.cs), [VisualProbePipelineTests](../tests/Trazio.AsistenteReunion.Tests/VisualProbePipelineTests.cs), [VisualProbeProfileTests](../tests/Trazio.AsistenteReunion.Tests/VisualProbeProfileTests.cs), [DeterministicVisualActivityDetectorTests](../tests/Trazio.AsistenteReunion.Tests/DeterministicVisualActivityDetectorTests.cs), [SqliteVisualProbeEvidenceSinkTests](../tests/Trazio.AsistenteReunion.Tests/SqliteVisualProbeEvidenceSinkTests.cs), [AnonymousVisualActivityCorrelatorTests](../tests/Trazio.AsistenteReunion.Tests/AnonymousVisualActivityCorrelatorTests.cs), [AnonymousVisualEvidencePresentationTests](../tests/Trazio.AsistenteReunion.Tests/AnonymousVisualEvidencePresentationTests.cs) |
 
 Estas pruebas no reemplazan controladores físicos, interacción con el escritorio renderizado ni precisión de voz medida.
 
@@ -97,9 +107,12 @@ El cierre funcional de la etapa 6 no marca estos controles como aprobados. La in
 - [ ] Abrir el selector no enumera hasta **Actualizar lista**; verificar exclusión de Trazio y que Meet/Teams/Otra se presenten sin afirmar reunión activa.
 - [ ] Iniciar sin ventana; iniciar con Meet/Teams/Otra; confirmar en Historial solo el proveedor normalizado y que el título visible de la ventana no aparezca en la base.
 - [ ] Cerrar la ventana antes de iniciar y durante una grabación: aviso no modal, ninguna reasignación, audio continuo y proveedor inmutable de la sesión ya iniciada.
-- [ ] Confirmar que asociar una ventana superior no activa WGC y no limita WASAPI; autorizar visual por separado y validar Cancelar predeterminado, teclado, Enter, Escape, foco y lector de pantalla.
-- [ ] Con WGC autorizado: verificar borde del sistema, redimensión, minimizar/restaurar/cerrar, controles visuales separados y continuidad de audio/transcripción ante cada salida.
-- [ ] Inspeccionar almacenamiento, registros y paquete después de la sesión: no deben existir videos, screenshots ni bytes de imagen retenidos por 7.2a.
+- [ ] Confirmar que asociar una ventana superior no activa WGC y no limita WASAPI; autorizar captura visual por separado y validar Cancelar predeterminado, teclado, Enter, Escape, foco y lector de pantalla.
+- [ ] Con una sesión activa que capture `SystemOutput`, abrir el segundo consentimiento de análisis anónimo; comprobar que es explícito, de un solo uso, ligado a la ventana/sesión exactas y que no se hereda ni se reactiva.
+- [ ] Con WGC autorizado: verificar borde del sistema, GPU/dispositivo, redimensión, minimizar/restaurar/cerrar, controles visuales separados y continuidad de audio/transcripción ante cada salida.
+- [ ] En Meet y Teams reales, confirmar que los perfiles de producción siguen `Unvalidated`, el procesamiento se abstiene y la evidencia se muestra como **No disponible** tanto en vivo como en Historial; no marcar coincidencia ni actividad hasta calibrar/validar un perfil.
+- [ ] Confirmar que la evidencia visual solo aparece en filas `SystemOutput`; el micrófono queda oculto y transcripción, `SpeakerName`, TXT, Markdown y Obsidian permanecen idénticos.
+- [ ] Inspeccionar almacenamiento, registros y paquete después de la sesión: no deben existir píxeles, video, screenshots ni bytes de imagen retenidos por 7.2a/7.2b. Solo pueden existir intervalos cifrados derivados de cobertura/actividad; no OCR, rostros, nombres, chat, subtítulos ni documentos.
 - [ ] Pausar/reanudar/detener; no confundir intervalos pausados con sonido capturado; la finalización informa errores.
 - [ ] Navegar entre fragmentos/huecos; usar la acción de audio de cada segmento, pausa y saltos de 10 segundos.
 - [ ] Corregir/deshacer; guardar solo términos modificados del glosario; comparar original/nueva revisión sin sobrescrituras.
@@ -121,6 +134,7 @@ El cierre funcional de la etapa 6 no marca estos controles como aprobados. La in
 
 - [ ] Reunión de micrófono/salida de **dos horas** en un equipo representativo.
 - [ ] Reunión de **cinco horas** con pausa/reanudación y carga pendiente realista de inferencia.
+- [ ] Matriz física WGC/GPU/accesibilidad con Google Meet y Microsoft Teams reales antes de cambiar cualquier perfil de `Unvalidated` a `Validated`.
 - [ ] Mediciones periódicas de CPU/memoria/disco/espacio libre y marcas de referencia para detectar contenido faltante.
 - [ ] Reabrir la reunión larga; comprobar inicio/medio/final de ambas pistas y cobertura de transcripción.
 - [ ] Instalación limpia/actualización del paquete completo en otra cuenta/equipo Windows con datos sintéticos.

@@ -47,7 +47,7 @@ Cierra primero la aplicación; no finalices la grabación activa de otra persona
 1. Reemplaza únicamente `artifacts\publish` después de comprobar que esté dentro de `artifacts`.
 2. Publica App y Worker como `win-x64`, autocontenidos, **no como archivo único**, en la misma carpeta.
 3. Copia el README y los avisos de terceros.
-4. Comprueba ejecutables/dependencias necesarios, coincidencia de versiones `0.2.0-beta.3` y el manifiesto de capacidades del paquete. El manifiesto `trazio-capabilities.json`, versionado junto al proyecto WPF y copiado al publicar, sustituye el escaneo frágil de cadenas dentro de la DLL; la publicación exige las capacidades de historial, audio cifrado, exportación Obsidian, asociación de proveedor por ventana y captura efímera consentida. La validación rechaza identificadores duplicados o versiones inválidas.
+4. Comprueba ejecutables/dependencias necesarios, coincidencia de versiones `0.2.0-beta.4` y el manifiesto de capacidades del paquete. El manifiesto `trazio-capabilities.json`, versionado junto al proyecto WPF y copiado al publicar, sustituye el escaneo frágil de cadenas dentro de la DLL; la publicación exige **exactamente las cinco capacidades existentes** de historial, audio cifrado, exportación Obsidian, asociación de proveedor por ventana y captura efímera consentida. La validación rechaza identificadores duplicados o versiones inválidas. La infraestructura fuente 7.2b no agrega una capacidad empaquetada de actividad/correlación anónima ni de identificación de hablantes: sus perfiles de producción permanecen `Unvalidated` y fallan de forma segura.
 5. Rechaza tipos y metadatos no incluidos en la lista permitida del layout, incluidos datos de usuario, bases SQLite, audio, modelos GGML/GGUF, imágenes, video, volcados, registros y material de claves. Los recursos visuales legítimos futuros requieren una autorización explícita en el empaquetado; no se aceptan por extensión de manera silenciosa. El ZIP final también debe inspeccionarse antes del SHA-256 y la subida.
 6. Ejecuta la comprobación de salud del proceso auxiliar mediante canal con nombre.
 
@@ -67,7 +67,9 @@ Después de publicar, con Inno Setup 6 instalado:
 
 ## Disciplina de versiones y publicación
 
-Versión fuente: **0.2.0-beta.3** (`VersionPrefix` 0.2.0 + `VersionSuffix` beta.3); versión de ensamblado/archivo: **0.2.0.0**. [Directory.Build.props](../Directory.Build.props) es la autoridad compartida de versión. El script de publicación, la definición del instalador y las [pruebas de versión](../tests/Trazio.AsistenteReunion.Tests/VersionMetadataTests.cs) también contienen comprobaciones; actualízalos juntos para una nueva versión.
+Versión fuente: **0.2.0-beta.4** (`VersionPrefix` 0.2.0 + `VersionSuffix` beta.4); versión de ensamblado/archivo: **0.2.0.0**. [Directory.Build.props](../Directory.Build.props) es la autoridad compartida de versión. El script de publicación, la definición del instalador y las [pruebas de versión](../tests/Trazio.AsistenteReunion.Tests/VersionMetadataTests.cs) también contienen comprobaciones; actualízalos juntos para una nueva versión.
+
+El candidato fuente beta 4 completó localmente `VersionMetadataTests` (4/4), `Area=VisualCapture` (132/132), el conjunto Release serial (371/371), el conjunto Release paralelo predeterminado (371/371) y la compilación (0 advertencias, 0 errores). También aprobaron el contrato de publicación, la prueba básica por canal con nombre y la comparación del layout candidato (494/494 archivos byte a byte, 0 hallazgos prohibidos y 0 rutas fuente locales). Esta evidencia no demuestra un paquete final ni publicación en GitHub. Después del commit de preparación se debe reconstruir e inspeccionar el paquete para incorporar sus metadatos definitivos; solo entonces corresponde registrar ZIP, tamaño, SHA-256, tag y release finales. No reutilices el tamaño/hash preliminar ni cifras, hash o recursos de beta 3 como evidencia final de beta 4.
 
 - [ ] Registrar commit, versión, evidencia de pruebas y límites de validación pendientes.
 - [ ] Publicar ambos ejecutables; verificar inferencia real antes de afirmar que un modelo funciona.
@@ -80,10 +82,10 @@ Versión fuente: **0.2.0-beta.3** (`VersionPrefix` 0.2.0 + `VersionSuffix` beta.
 Ejemplo de suma de comprobación para un ZIP preparado:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\artifacts\Trazio-Asistente-Reunion-v0.2.0-beta.3-win-x64.zip
+Get-FileHash -Algorithm SHA256 .\artifacts\Trazio-Asistente-Reunion-v0.2.0-beta.4-win-x64.zip
 ```
 
-El recurso esperado es `Trazio-Asistente-Reunion-v0.2.0-beta.3-win-x64.zip` junto a `Trazio-Asistente-Reunion-v0.2.0-beta.3-win-x64.zip.sha256`. Este comando no crea un ZIP ni una versión publicada. Publicar, firmar y enviar cambios requieren autorización explícita del mantenedor.
+El recurso esperado es `Trazio-Asistente-Reunion-v0.2.0-beta.4-win-x64.zip` junto a `Trazio-Asistente-Reunion-v0.2.0-beta.4-win-x64.zip.sha256`. Este comando no crea un ZIP ni una versión publicada. El ZIP, tamaño, hash, tag y URL final están pendientes hasta reconstruir el paquete después del commit de preparación y ejecutar el flujo de publicación autorizado. Publicar, firmar y enviar cambios requieren autorización explícita del mantenedor.
 
 ## Límites de contribución
 

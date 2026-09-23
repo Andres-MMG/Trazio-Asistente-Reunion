@@ -9,8 +9,8 @@ namespace Trazio.AsistenteReunion.Tests;
 
 public sealed class VersionMetadataTests
 {
-    private const string ExpectedVersion = "0.2.0-beta.3";
-    private const string ExpectedReleaseArchive = "Trazio-Asistente-Reunion-v0.2.0-beta.3-win-x64.zip";
+    private const string ExpectedVersion = "0.2.0-beta.4";
+    private const string ExpectedReleaseArchive = "Trazio-Asistente-Reunion-v0.2.0-beta.4-win-x64.zip";
 
     [Fact]
     public void Assemblies_UseBetaVersionAndProductName()
@@ -61,6 +61,9 @@ public sealed class VersionMetadataTests
         Assert.Equal(
             capabilities.Length,
             capabilities.Select(capability => capability.GetProperty("id").GetString()).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(5, capabilities.Length);
+        AssertCapability(capabilities, "history-review-workspace", 1);
+        AssertCapability(capabilities, "encrypted-audio-retention", 1);
         AssertCapability(capabilities, "obsidian-markdown-export", 1);
         AssertCapability(capabilities, "meeting-window-provider-association-v1", 1);
         AssertCapability(capabilities, "consented-ephemeral-window-capture-v1", 1);
@@ -101,6 +104,8 @@ public sealed class VersionMetadataTests
             archiveTemplateMatch.Groups[1].Value.Replace("$expectedVersion", versionMatch.Groups[1].Value, StringComparison.Ordinal));
         Assert.Contains("$expectedChecksumName = \"$expectedArchiveName.sha256\"", script, StringComparison.Ordinal);
         Assert.Contains("consented-ephemeral-window-capture-v1", script, StringComparison.Ordinal);
+        Assert.Contains("$capabilities.Count -ne $requiredCapabilities.Count", script, StringComparison.Ordinal);
+        Assert.Contains("must declare exactly", script, StringComparison.Ordinal);
         Assert.Contains("HashSet[string]", script, StringComparison.Ordinal);
         Assert.Contains("StringComparer]::Ordinal", script, StringComparison.Ordinal);
         Assert.Contains("$match.Count -ne 1", script, StringComparison.Ordinal);

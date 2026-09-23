@@ -2,7 +2,7 @@
 
 **La aplicación de escritorio controla captura, coordinación, revisión y almacenamiento. Un proceso local independiente controla la inferencia de voz.** El entorno de ejecución actual no requiere servidor web, extensión de navegador, servicio de servidor en la nube, cliente de calendario ni LLM externo.
 
-La base publicada corresponde a `0.2.0-beta.3` e incorpora el sustrato 7.2a. La identificación de hablantes y los adaptadores posteriores continúan como capacidades futuras en la [hoja de ruta](../ROADMAP.md).
+El candidato fuente local `0.2.0-beta.4`, todavía no publicado, incorpora 7.2a y la infraestructura de 7.2b; la versión pública actual sigue siendo `0.2.0-beta.3`. Los perfiles de producción para Google Meet y Microsoft Teams permanecen `Unvalidated`, por lo que el detector se abstiene y la interfaz presenta **No disponible**. No existe identificación de hablantes; la validación física WGC/GPU/accesibilidad/Meet/Teams/2 h/5 h y el empaquetado final posterior al commit de preparación siguen pendientes.
 
 ## Mapa de componentes
 
@@ -13,6 +13,11 @@ flowchart TB
     Catalog --> UI
     UI --> Visual["Controlador visual consentido por sesión"]
     Visual --> WGC["Windows Graphics Capture · frames efímeros"]
+    WGC --> Probe["Sondeo D3D11 acotado · agregados"]
+    Probe --> Evidence["Cobertura/actividad derivada · cifrada"]
+    Evidence --> Presentation["En vivo + Historial · fail-closed"]
+    Evidence --> DB
+    Presentation --> UI
     UI --> RC["RecordingCoordinator"]
     Mic["Micrófono seleccionado"] --> Capture["AudioCaptureService / WASAPI"]
     Output["Dispositivo de salida seleccionado"] --> Capture
@@ -38,7 +43,7 @@ flowchart TB
 
 | Proyecto | Responsabilidad | Puntos de entrada importantes |
 |---|---|---|
-| `Trazio.AsistenteReunion.App` | Interfaz WPF, audio de Windows, ciclo de vida de sesión, captura visual efímera consentida e historial/revisión por fuente | [App.xaml.cs](../src/Trazio.AsistenteReunion.App/App.xaml.cs), [MainWindow.xaml.cs](../src/Trazio.AsistenteReunion.App/MainWindow.xaml.cs), [RecordingCoordinator.cs](../src/Trazio.AsistenteReunion.App/RecordingCoordinator.cs), [MeetingWindowSelection.cs](../src/Trazio.AsistenteReunion.App/MeetingWindowSelection.cs), [VisualCaptureSessionController.cs](../src/Trazio.AsistenteReunion.App/VisualCaptureSessionController.cs) |
+| `Trazio.AsistenteReunion.App` | Interfaz WPF, audio de Windows, ciclo de vida de sesión, captura visual efímera consentida, sondeo agregado 7.2b y presentación fail-closed en vivo/Historial | [App.xaml.cs](../src/Trazio.AsistenteReunion.App/App.xaml.cs), [MainWindow.xaml.cs](../src/Trazio.AsistenteReunion.App/MainWindow.xaml.cs), [RecordingCoordinator.cs](../src/Trazio.AsistenteReunion.App/RecordingCoordinator.cs), [MeetingWindowSelection.cs](../src/Trazio.AsistenteReunion.App/MeetingWindowSelection.cs), [VisualCaptureSessionController.cs](../src/Trazio.AsistenteReunion.App/VisualCaptureSessionController.cs), [AnonymousVisualAnalysis.cs](../src/Trazio.AsistenteReunion.App/AnonymousVisualAnalysis.cs), [AnonymousVisualEvidencePresentation.cs](../src/Trazio.AsistenteReunion.App/AnonymousVisualEvidencePresentation.cs) |
 | `Trazio.AsistenteReunion.Core` | Registros de dominio, cifrado, persistencia, traslado de almacenamiento, catálogo de modelos, recuperación e IPC | [Domain.cs](../src/Trazio.AsistenteReunion.Core/Domain.cs), [SqliteSessionStore.cs](../src/Trazio.AsistenteReunion.Core/SqliteSessionStore.cs), [StorageLocation.cs](../src/Trazio.AsistenteReunion.Core/StorageLocation.cs) |
 | `Trazio.AsistenteReunion.Worker` | Cargar un modelo local, inferir segmentos transcritos y responder solicitudes acotadas por canal | [Program.cs](../src/Trazio.AsistenteReunion.Worker/Program.cs) |
 | `Trazio.AsistenteReunion.Tests` | Comprobaciones unitarias/de integración para contratos y rutas de fallo | [Proyecto de pruebas](../tests/Trazio.AsistenteReunion.Tests/Trazio.AsistenteReunion.Tests.csproj) |
@@ -53,9 +58,17 @@ El candidato mostrado dentro del modal contiene temporalmente HWND, PID, título
 
 Esta asociación no es captura por proceso. WASAPI sigue grabando el dispositivo de salida completo; asociar la ventana no activa WGC ni inspecciona pestañas, URL, DOM, subtítulos o hablantes.
 
-### Límite visual efímero 7.2a
+### Límite visual efímero 7.2a y evidencia anónima 7.2b
 
-La autorización visual es una acción distinta y no persistida, ligada a la selección HWND/PID exacta y consumida por la sesión de audio activa. [VisualCaptureSessionController](../src/Trazio.AsistenteReunion.App/VisualCaptureSessionController.cs) serializa inicio, pausa, reanudación, detención y disposición; callbacks antiguos se rechazan por identidad/revisión. [WindowsGraphicsCaptureService](../src/Trazio.AsistenteReunion.App/WindowsGraphicsCaptureService.cs) revalida el objetivo antes de `CreateForWindow`, usa un frame pool libre de dos buffers BGRA8 y cierra cada frame inmediatamente. 7.2a no lee superficies, analiza píxeles ni guarda imágenes. Cualquier fallo visual queda fuera de `RecordingCoordinator`, por lo que audio y transcripción continúan.
+La autorización de captura visual 7.2a es una acción distinta y no persistida, ligada a la selección HWND/PID exacta y consumida por la sesión de audio activa. [VisualCaptureSessionController](../src/Trazio.AsistenteReunion.App/VisualCaptureSessionController.cs) serializa inicio, pausa, reanudación, detención y disposición; callbacks antiguos se rechazan por identidad/revisión. [WindowsGraphicsCaptureService](../src/Trazio.AsistenteReunion.App/WindowsGraphicsCaptureService.cs) revalida el objetivo antes de `CreateForWindow`, usa un frame pool de dos buffers BGRA8 y entrega referencias temporales que se liberan dentro del ciclo de vida del frame.
+
+7.2b exige una **segunda autorización**, separada de seleccionar la ventana y de autorizar WGC. [AnonymousVisualAnalysisAuthorization](../src/Trazio.AsistenteReunion.App/AnonymousVisualAnalysis.cs) es de un solo uso, versión 1 y queda ligada a la selección, sesión y alcance exactos. La activación también exige captura de `SystemOutput`; nunca proyecta evidencia sobre segmentos de micrófono.
+
+[VisualProbeSession](../src/Trazio.AsistenteReunion.App/VisualProbeSession.cs) muestrea a frecuencia acotada, mantiene una sola observación pendiente y usa una canalización de eventos limitada. Para perfiles `Validated`, [D3D11VisualProbeExtractor](../src/Trazio.AsistenteReunion.App/D3D11VisualProbeExtractor.cs) copia únicamente parches de 16 × 16 a un atlas de staging acotado y devuelve agregados numéricos de coincidencia, contenido no negro y luminancia media; no serializa ni retiene píxeles. El detector determinista aplica política versionada, histéresis y coherencia para producir intervalos anónimos de cobertura/actividad. Los perfiles de producción [VisualProbeProfiles](../src/Trazio.AsistenteReunion.App/VisualProbeProfiles.cs) de Meet y Teams están `Unvalidated`, sin parches ni política: la sesión registra indisponibilidad y se abstiene antes de leer superficies.
+
+[SqliteSessionStore](../src/Trazio.AsistenteReunion.Core/SqliteVisualEvidenceStore.cs) cifra el payload completo de cada intervalo derivado con AES-256-GCM y datos asociados por sesión/ID; la FK elimina la evidencia con la sesión. [AnonymousVisualEvidenceProjector](../src/Trazio.AsistenteReunion.App/AnonymousVisualEvidencePresentation.cs) mantiene instantáneas separadas para sesión activa e Historial y falla de forma segura ante evidencia ausente, corrupta, no compatible o sin política validada: muestra **No disponible**. La etiqueta explica que es actividad visual anónima; no escribe `SpeakerName`, no identifica personas y no modifica transcripción ni exportaciones TXT/Markdown/Obsidian.
+
+El límite excluye OCR, rostros, nombres, chat, subtítulos y documentos. La retención de píxeles, imágenes y video es cero; solo persisten intervalos derivados cifrados. Cualquier fallo visual queda fuera de `RecordingCoordinator`, por lo que audio y transcripción continúan. Falta validar físicamente WGC/GPU, accesibilidad, Meet/Teams reales y sesiones de 2/5 horas.
 
 ## Captura y procesamiento duradero
 
@@ -93,6 +106,7 @@ sequenceDiagram
 |---|---|
 | Sesión | Título, estado del ciclo de vida, inicio/fin, instantánea de identidad local y proveedor de reunión normalizado; nunca título/PID/HWND/proceso de la ventana |
 | Segmento transcrito | Fuente, tiempos, identificador estable y texto original del modelo |
+| Evidencia visual anónima | Intervalos cifrados de cobertura/actividad, confianza y procedencia versionada; solo aplicables a `SystemOutput`, nunca nombres ni píxeles |
 | Audio pendiente | Trabajo cifrado a la espera de transcripción exitosa; separado del archivo de reproducción |
 | Audio archivado | Secuencia de fuente, tiempos, ruta relativa del archivo cifrado y cantidad de bytes |
 | Corrección de transcripción | Revisión SetText/Undo por anexado; el texto efectivo se superpone al original inmutable |
@@ -141,6 +155,7 @@ Fuentes oficiales de versiones: [App](../src/Trazio.AsistenteReunion.App/Trazio.
 |---|---|---|
 | Aplicación nativa de Windows, no solo extensión | Captura independiente y persistencia local | Específica de Windows; captura de salida a nivel de dispositivo |
 | Selector Win32 explícito de ventana superior | Asocia un proveedor sin extensión ni captura visual | No elige pestañas ni aísla audio; títulos y procesos son señales transitorias y falibles |
+| Sondeo WGC/D3D11 acotado con perfiles fail-closed | Puede producir agregados anónimos sin retener imágenes y conserva evidencia derivada cifrada | Meet/Teams siguen `Unvalidated`; se abstiene y muestra **No disponible** hasta completar calibración y validación física |
 | Reconocimiento en proceso separado | La inferencia puede fallar/reiniciarse independientemente | Ambos ejecutables y las dependencias nativas deben distribuirse juntos |
 | Whisper local en CPU | No requiere subir la transcripción para inferencia | Latencia dependiente del hardware; la precisión del dominio necesita evaluación |
 | Pistas de micrófono/salida separadas | Preserva la identidad de fuente | Sin mezcla automática ni cancelación de eco |

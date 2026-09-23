@@ -1,6 +1,6 @@
 # Documentación de ingeniería
 
-**Trazio Asistente Reunión** es un producto de escritorio para Windows, independiente de Trazio Platforms. La versión actual es `0.2.0-beta.3`; incorpora 7.2a sin presentar las rebanadas posteriores como capacidades disponibles.
+**Trazio Asistente Reunión** es un producto de escritorio para Windows, independiente de Trazio Platforms. La versión publicada actual es [`0.2.0-beta.3`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.3). El candidato fuente local `0.2.0-beta.4` incorpora 7.2a y la infraestructura de 7.2b sin afirmar identificación de hablantes ni validación de producción.
 
 ## Elige el siguiente paso
 
@@ -9,7 +9,7 @@
 | Descargar la aplicación y grabar mi primera reunión | [Guía de uso](user-guide.md) |
 | Entender qué está construido y qué viene después | [Hoja de ruta del producto](../ROADMAP.md) |
 | Entender los componentes, el flujo de datos y las decisiones de ingeniería | [Arquitectura](architecture.md) |
-| Revisar el diseño, la implementación parcial 7.2a y los límites del análisis visual | [Plan técnico de la etapa 7.2](stage-7-visual-speaker-plan.md) |
+| Revisar el diseño, la implementación 7.2a/7.2b y los límites del análisis visual | [Plan técnico de la etapa 7.2](stage-7-visual-speaker-plan.md) |
 | Compilar, empaquetar o contribuir | [Guía de desarrollo](development.md) |
 | Entender el cifrado, las exportaciones y los límites de recuperación | [Seguridad y privacidad](security.md) |
 | Reproducir comprobaciones o validar una versión | [Guía de validación](validation.md) |
@@ -23,4 +23,4 @@
 
 La [hoja de ruta](../ROADMAP.md) es el plan canónico de etapas. Las versiones de dependencias provienen de los archivos de proyecto; los metadatos de versión provienen de [Directory.Build.props](../Directory.Build.props). El [registro de validación](validation.md#evidencia-actual) separa la evidencia automatizada de las comprobaciones de hardware y larga duración pendientes.
 
-Última revisión de la documentación contra el código fuente: **2026-09-23**. Versión documentada: `v0.2.0-beta.3`; la validación física de 7.2a y las rebanadas 7.2b–7.2e siguen pendientes.
+Última revisión de la documentación contra el código fuente: **2026-09-23**. Versión fuente candidata documentada: `v0.2.0-beta.4`; versión pública actual: `v0.2.0-beta.3`. 7.2b requiere un consentimiento separado de un solo uso y contiene sondeo agregado WGC/D3D11 acotado, evidencia cifrada de cobertura/actividad y presentación fail-closed solo para `SystemOutput`; no modifica transcripción, `SpeakerName` ni exportaciones. Los perfiles Meet/Teams permanecen `Unvalidated`, se abstienen y muestran **No disponible**. La verificación automatizada del candidato está completa y se detalla en el [registro de validación](validation.md#evidencia-actual); la validación física WGC/GPU/accesibilidad/Meet/Teams/2 h/5 h, el ZIP/SHA-256/tag/release finales y 7.2c–7.2e siguen pendientes.

@@ -1,14 +1,14 @@
 # Etapa 7.2 — Plan de análisis visual y evidencia de hablante activo
 
-> **Decisión:** la siguiente rebanada debe analizar temporalmente **solo la ventana que el usuario ya eligió**, a baja frecuencia y con consentimiento por sesión. Trazio no grabará video, no guardará capturas por defecto y no asignará un nombre cuando la evidencia no alcance.
+> **Decisión:** 7.2b analiza temporalmente **solo la ventana que el usuario ya eligió**, a baja frecuencia y con un consentimiento adicional de un solo uso. Trazio no graba video, no conserva píxeles/imágenes y no asigna un nombre a partir de esta evidencia.
 >
-> **Puerta de autorización:** el usuario autorizó e implementó únicamente la rebanada 7.2a. Esa autorización no se extiende a 7.2b, identificación de hablantes, adaptadores ni persistencia de evidencia derivada.
+> **Puerta de autorización:** seleccionar la ventana, autorizar la captura WGC 7.2a y autorizar el análisis anónimo 7.2b son acciones distintas. La autorización 7.2b se consume una sola vez y queda ligada a la ventana, proveedor, sesión y alcance exactos. No autoriza identificación de hablantes ni adaptadores 7.2c/7.2d.
 
-> **Estado de 7.2a:** incluida en `v0.2.0-beta.3` con consentimiento efímero por sesión, controles separados, WGC sobre el HWND/PID revalidado y cierre inmediato de frames sin analizar ni persistir píxeles. Siguen pendientes la validación WGC/GUI/lector de pantalla en hardware real y la prueba de dos horas. 7.2b no está implementada.
+> **Estado:** 7.2a está incluida en la versión publicada `v0.2.0-beta.3`. El candidato fuente local `v0.2.0-beta.4`, todavía no publicado, agrega la implementación de 7.2b: sondeo agregado WGC/D3D11 acotado, intervalos cifrados de cobertura/actividad, correlación exclusiva con `SystemOutput` y presentación fail-closed en vivo/Historial. Los perfiles de producción Meet/Teams permanecen `Unvalidated`, se abstienen y muestran **No disponible**. No existe identificación de hablantes. Siguen pendientes WGC/GPU/accesibilidad/Meet/Teams físicos, 2/5 horas y el empaquetado final posterior al commit de preparación.
 
 ## Resultado esperado
 
-La etapa 7.2 producirá evidencia temporal que permita responder, con un nivel de confianza visible: «hay actividad de un hablante remoto» y, solo cuando un adaptador fiable lo respalde, «la interfaz muestra esta etiqueta como hablante activo».
+La infraestructura 7.2b puede representar evidencia temporal anónima de cobertura/actividad. Solo un perfil previamente calibrado y marcado `Validated` podría producir una coincidencia; en producción, Meet/Teams siguen `Unvalidated` y la respuesta es **No disponible**. La futura atribución con nombre requiere adaptadores y autorización independientes.
 
 | Tema | Decisión |
 |---|---|
@@ -16,8 +16,8 @@ La etapa 7.2 producirá evidencia temporal que permita responder, con un nivel d
 | Superficie | Únicamente la ventana superior revalidada que eligió el usuario |
 | Frecuencia | 1 fps por defecto; máximo provisional de 2 fps |
 | Memoria | Canal acotado a 2 fotogramas con `DropOldest`; descarte inmediato después del análisis |
-| Persistencia | Solo eventos derivados cifrados; nunca píxeles, URL, HWND, PID o título de ventana |
-| Degradación | `Hablante remoto`; el audio y la transcripción continúan sin depender del análisis visual |
+| Persistencia | Solo intervalos derivados cifrados de cobertura/actividad; nunca píxeles, URL, HWND, PID o título de ventana |
+| Degradación | **No disponible**; el audio y la transcripción continúan sin depender del análisis visual |
 | Estrategia | Híbrida: WGC como cobertura de escritorio/respaldo y extensión de navegador para señales web fiables |
 
 ## Objetivo y límites
@@ -25,30 +25,30 @@ La etapa 7.2 producirá evidencia temporal que permita responder, con un nivel d
 ### Objetivo
 
 - Analizar visualmente solo la ventana seleccionada para detectar evidencia temporal de hablante activo.
-- Correlacionar esa evidencia exclusivamente con segmentos de `ComputerOutput`.
+- Correlacionar esa evidencia exclusivamente con segmentos de `SystemOutput`.
 - Conservar procedencia, versión del adaptador y confianza para que la interfaz pueda distinguir evidencia de inferencia.
-- Fallar de forma segura: ante duda, pérdida de ventana o cambio de interfaz, usar `Hablante remoto`.
+- Fallar de forma segura: ante duda, perfil no validado, pérdida de ventana o cambio de interfaz, mostrar **No disponible** y abstenerse.
 
 ### No objetivos
 
 - Grabar video o reconstruir visualmente una reunión.
-- Guardar fotogramas o capturas para depuración, auditoría o entrenamiento.
-- Analizar el escritorio completo, ventanas no elegidas, cámara, chat o documentos compartidos.
+- Guardar píxeles, fotogramas, imágenes o capturas para depuración, auditoría o entrenamiento.
+- Analizar el escritorio completo, ventanas no elegidas, cámara, OCR, rostros, nombres, chat, subtítulos o documentos compartidos.
 - Aislar el audio por ventana; WASAPI seguirá capturando el dispositivo configurado.
 - Prometer identificación perfecta, biometría facial/voz, diarización con nombres reales o asistencia automática a reuniones.
 - Sustituir una corrección humana con una decisión automática irreversible.
 
 ## Flujo de consentimiento por sesión
 
-Seleccionar una ventana y autorizar análisis visual son **dos acciones distintas**. Una selección previa nunca activa captura visual de manera implícita.
+Seleccionar una ventana, autorizar captura WGC y autorizar análisis anónimo son **tres acciones distintas**. Una selección previa nunca activa captura ni análisis de manera implícita.
 
 1. El usuario selecciona la ventana mediante el flujo 7.1a.
-2. Trazio muestra **Autorizar…** sin marcarlo ni activarlo por defecto.
-3. Al pulsarlo, Trazio explica superficie, frecuencia, datos derivados, descarte de imágenes y degradación segura.
-4. El usuario acepta o cancela. La elección se consume al terminar la sesión y no se hereda a otra reunión.
-5. Mientras esté activo, Trazio mantiene un indicador persistente y no intenta ocultar el borde que Windows presente alrededor de la superficie capturada.
-6. **Pausar análisis visual** y **Detener análisis visual** permanecen disponibles durante toda la sesión.
-7. Al pausar, detener o fallar el análisis, el audio y la transcripción continúan sin interrupción.
+2. Trazio ofrece **Autorizar captura visual** para 7.2a; cancelar sigue siendo la opción predeterminada.
+3. El usuario inicia una sesión que captura `SystemOutput`. Sin esa fuente, 7.2b no se puede activar.
+4. Trazio ofrece **Autorizar análisis anónimo** en un diálogo separado. Explica que no identifica personas, no lee OCR/rostros/nombres/chat/subtítulos/documentos, no guarda imágenes/video y solo conserva intervalos derivados cifrados.
+5. Al aceptar, se crea una autorización versión 1 de un solo uso, ligada a la selección, sesión y alcance `ActivityAndAvailabilityIntervals`. Se consume al activar; no se hereda, persiste ni reutiliza.
+6. Mientras WGC esté activo, Trazio mantiene un indicador persistente y no intenta ocultar el borde que Windows presente alrededor de la superficie capturada.
+7. **Pausar visual**, **Reanudar visual** y **Detener visual** controlan WGC. Al pausar, detener o fallar el análisis, el audio y la transcripción continúan sin interrupción.
 
 El permiso de una automatización futura de calendario no puede reemplazar este consentimiento sin una regla visual específica, explícita y revocable diseñada en la etapa 11.
 
@@ -56,22 +56,24 @@ El permiso de una automatización futura de calendario no puede reemplazar este 
 
 ```mermaid
 flowchart LR
-    Selection["Ventana seleccionada en 7.1a"] --> Consent["Consentimiento visual por sesión"]
-    Consent --> Capture["WGC · HWND revalidado"]
-    Capture --> Frames["Canal de fotogramas<br/>capacidad 2 · DropOldest"]
-    Frames --> Adapter["Adaptador versionado"]
+    Selection["Ventana seleccionada en 7.1a"] --> CaptureConsent["Consentimiento de captura 7.2a"]
+    CaptureConsent --> Capture["WGC · HWND revalidado"]
+    Capture --> AnalysisConsent["Consentimiento de análisis 7.2b<br/>un solo uso"]
+    AnalysisConsent --> Frames["Canal de fotogramas<br/>capacidad 2 · DropOldest"]
+    Frames --> Probe["Sondeo D3D11 acotado<br/>agregados, no píxeles"]
+    Probe --> Adapter["Perfil/política versionados"]
     Extension["Extensión web opcional<br/>Meet / Teams"] --> Adapter
     UIA["UI Automation<br/>señal secundaria"] -.-> Adapter
     Adapter --> Events["Eventos derivados<br/>sin píxeles"]
-    Events --> Correlation["Correlación temporal<br/>ComputerOutput"]
+    Events --> Correlation["Correlación temporal<br/>SystemOutput"]
     Correlation --> Store["Persistencia cifrada"]
-    Correlation --> Fallback["Hablante remoto<br/>si la evidencia no alcanza"]
+    Correlation --> Fallback["No disponible<br/>si la evidencia no alcanza"]
 ```
 
 | Rebanada | Entrega | Criterio para avanzar |
 |---|---|---|
 | 7.2a | Sustrato WGC seguro y acotado | Captura elegida, estados de fallo y descarte de fotogramas demostrados sin tocar audio/transcripción |
-| 7.2b | Actividad visual anónima y correlación temporal | Solo eventos derivados cifrados; abstención fiable cuando no hay evidencia |
+| 7.2b | Actividad visual anónima y correlación temporal | Infraestructura fuente implementada; perfiles de producción aún `Unvalidated`, con abstención y **No disponible** |
 | 7.2c | Adaptador Google Meet web | Contrato versionado probado en layouts soportados; extensión con permiso mínimo |
 | 7.2d | Adaptador Microsoft Teams web/escritorio | Web cubierto por extensión; escritorio cubierto por WGC y señal secundaria acotada |
 | 7.2e | Evaluación, rendimiento y duración | Matriz física aprobada y prueba de 2 horas antes de intentar la de 5 horas |
@@ -80,7 +82,7 @@ flowchart LR
 
 Esta rebanada no identifica personas. Solo demuestra una captura visual efímera, segura y controlable.
 
-**Estado:** implementada en código e incluida en la beta 3. La aceptación continúa abierta hasta completar WGC físico, teclado/lector de pantalla y duración. La recuperación ante pérdida del dispositivo se normaliza como fallo visual seguro; una recreación controlada del dispositivo queda pendiente.
+**Estado:** implementada en código e incluida desde beta 3. La aceptación continúa abierta hasta completar WGC/GPU físico, teclado/lector de pantalla y duración. La recuperación ante pérdida del dispositivo se normaliza como fallo visual seguro; una recreación controlada del dispositivo queda pendiente.
 
 - Revalidar HWND y PID inmediatamente antes de crear el `GraphicsCaptureItem`; no reasignar otra ventana si falla.
 - Crear el objetivo con `IGraphicsCaptureItemInterop::CreateForWindow` sobre el HWND seleccionado.
@@ -101,20 +103,21 @@ Esta rebanada no identifica personas. Solo demuestra una captura visual efímera
 | Ventana minimizada | Pausar análisis y permitir reanudar al recuperarla | Audio/transcripción continúan |
 | Cambio de tamaño/DPI | Recrear buffers de forma acotada | Puede omitir frames, no audio |
 | Dispositivo gráfico perdido | Un intento controlado de recreación; después detener análisis | Audio/transcripción continúan |
-| Contenido protegido/inútil | Abstenerse y mostrar estado | `Hablante remoto` |
+| Contenido protegido/inútil | Abstenerse y mostrar estado | **No disponible** |
 | Consumidor lento | Descartar el frame más antiguo | Memoria acotada; sin contrapresión hacia audio |
 
 ### 7.2b — Actividad visual anónima
 
-La primera inferencia visual debe ser determinista y anónima: detectar cambios coherentes en una región de participante/resaltado, no reconocer rostros ni leer nombres.
+**Estado:** infraestructura fuente implementada para beta 4; comportamiento de producción deliberadamente abstencionista. La inferencia visual es determinista y anónima: evalúa cambios coherentes en parches declarados por un perfil validado, sin reconocer rostros ni leer nombres. Los perfiles de Meet/Teams incluidos están `Unvalidated`, con cero parches y sin política; por tanto, no leen superficies para inferencia, producen cobertura no disponible y no generan actividad positiva.
 
-- Adaptar por proveedor y layout; no usar un detector universal que confunda presentaciones, chat o animaciones.
-- Aplicar umbral, histéresis y duración mínima para evitar alternancia por ruido visual.
-- Emitir rangos temporales con confianza y tipo de evidencia; nunca emitir una etiqueta personal desde actividad visual sola.
-- Correlacionar con segmentos `ComputerOutput` usando tiempo monotónico de sesión y una tolerancia medida.
-- No atribuir eventos visuales a segmentos de micrófono; esos segmentos conservan el perfil local confirmado.
-- Si el evento no cubre de forma suficiente el segmento, conservar `Hablante remoto`.
-- Persistir únicamente el evento derivado cifrado y sus metadatos no visuales.
+- [D3D11VisualProbeExtractor](../src/Trazio.AsistenteReunion.App/D3D11VisualProbeExtractor.cs) acepta como máximo parches acotados de 16 × 16, los copia a un atlas de staging limitado y devuelve únicamente agregados numéricos de coincidencia, contenido no negro y luminancia media. Los bytes mapeados se limpian y no se serializan.
+- [VisualProbeSession](../src/Trazio.AsistenteReunion.App/VisualProbeSession.cs) limita la frecuencia, conserva como máximo una observación pendiente y descarta o combina trabajo obsoleto sin bloquear audio. La canalización de evidencia también es acotada.
+- [DeterministicVisualActivityDetector](../src/Trazio.AsistenteReunion.App/DeterministicVisualActivityDetector.cs) exige un perfil `Validated`, política versionada, coherencia mínima, histéresis y duraciones de activación/liberación. Un perfil no validado produce abstención.
+- Emitir rangos temporales de cobertura/actividad con confianza y procedencia versionada; nunca una etiqueta personal.
+- Correlacionar solo con segmentos `SystemOutput` usando el reloj monotónico de sesión. Los segmentos de micrófono permanecen ocultos para esta evidencia y conservan el perfil local confirmado.
+- Si falta cobertura, la evidencia está corrupta/no compatible o no existe una política validada, mostrar **No disponible**. Una cobertura suficiente sin actividad puede mostrar **Insuficiente**; solo evidencia validada podría mostrar **Coincidente**.
+- Persistir únicamente el intervalo derivado cifrado y sus metadatos no visuales. La presentación en vivo y en Historial usa instantáneas separadas y descarta resultados obsoletos.
+- La transcripción, `SpeakerName` y las exportaciones TXT, Markdown y Obsidian permanecen sin cambios.
 
 ### 7.2c — Adaptador Google Meet web
 
@@ -148,21 +151,21 @@ La primera inferencia visual debe ser determinista y anónima: detectar cambios 
 
 **Recomendación híbrida:** comenzar con WGC para demostrar captura efímera y actividad anónima. Después, una extensión entrega señales semánticas para Meet/Teams web; WGC cubre Teams escritorio y sirve de degradación. UI Automation solo puede aumentar confianza cuando coincide con otra evidencia.
 
-## Modelo de datos derivado propuesto
+## Modelo de datos derivado
 
-El contrato `SpeakerEvidenceEvent` debe representar evidencia, no una afirmación absoluta.
+El contrato implementado `AnonymousVisualEvidenceInterval` representa evidencia anónima, no una afirmación de identidad. Una futura etiqueta personal requeriría otro contrato y otra autorización.
 
 | Campo conceptual | Regla |
 |---|---|
 | Rango temporal | Inicio y fin relativos a la sesión; reloj monotónico para correlación |
-| Etiqueta de hablante | Opcional y cifrada; ausente para actividad visual anónima |
+| Etiqueta de hablante | No existe en 7.2b; la actividad visual anónima nunca escribe `SpeakerName` |
 | Proveedor | Enum normalizado existente: Meet, Teams u otro/no seleccionado |
 | Confianza | Valor normalizado de 0 a 1 junto con política/umbral versionado |
-| Tipo de evidencia | Actividad visual, señal DOM del proveedor, señal de accesibilidad, corrección humana u otra clase explícita |
-| Versión del adaptador | Identifica el contrato que produjo el evento |
-| Procedencia | Sesión y fuente `ComputerOutput`; creación/revisión cifrada cuando corresponda |
+| Tipo de evidencia | `Activity` o `Coverage`; la cobertura declara disponibilidad o indisponibilidad |
+| Versiones de procedencia | Perfil, evidencia, detector y política que produjeron el intervalo |
+| Procedencia | Sesión y fuente `SystemOutput`; creación/revisión cifrada cuando corresponda |
 
-No se persistirán píxeles, superficies Direct3D, URL, HWND, PID, título de ventana, nombre de proceso, DOM, subtítulos, chat ni listas de participantes. Eliminar una sesión debe eliminar también su evidencia derivada.
+No se persisten píxeles, superficies Direct3D, imágenes, video, URL, HWND, PID, título de ventana, nombre de proceso, DOM, OCR, rostros, nombres, subtítulos, chat, documentos ni listas de participantes. La tabla de evidencia usa FK `ON DELETE CASCADE`, por lo que eliminar una sesión elimina también sus intervalos derivados cifrados.
 
 ## Privacidad y seguridad
 
@@ -185,8 +188,8 @@ No se persistirán píxeles, superficies Direct3D, URL, HWND, PID, título de ve
 
 - Retención de píxeles: **cero**; los frames existen solo durante su procesamiento.
 - Los eventos derivados siguen el ciclo de vida cifrado de la sesión y se eliminan con ella.
-- Una etiqueta solo sale del almacenamiento local mediante una exportación explícita iniciada por el usuario.
-- Las exportaciones deben marcar la procedencia y confianza; no pueden convertir una inferencia en hecho confirmado.
+- La evidencia visual anónima no se exporta en beta 4. TXT, Markdown y Obsidian mantienen la transcripción y `SpeakerName` existentes sin agregar actividad visual.
+- Una exportación futura de evidencia requeriría diseño y consentimiento explícitos, procedencia/confianza visibles y nunca podría convertir una inferencia en hecho confirmado.
 - Las capturas de depuración están prohibidas. Una futura opción para conservar imágenes requeriría diseño, consentimiento, cifrado, retención y eliminación independientes; no se incluye en 7.2.
 
 ## Estados y textos de interfaz
@@ -206,6 +209,8 @@ El estado no puede depender solo del color. Debe incluir icono, texto accesible 
 | Contenido protegido | **El contenido no permite análisis visual. Trazio no intentará omitir esta protección.** | Detener análisis |
 | Detenido | **Análisis visual detenido. El audio y la transcripción continúan.** | Sin reactivación silenciosa |
 
+La evidencia por segmento tiene estados separados: **Analizando**, **Coincidente**, **Insuficiente** y **No disponible**. Solo se muestra en filas `SystemOutput`; para micrófono permanece oculta. **Analizando/Coincidente/Insuficiente** requieren una política validada. Con los perfiles de producción actuales, o ante errores/formatos desconocidos, la salida fail-closed es **No disponible** en vivo y en Historial.
+
 ### Accesibilidad
 
 - Todos los controles deben ser alcanzables por teclado, con orden de foco estable y nombres de automatización descriptivos.
@@ -213,20 +218,24 @@ El estado no puede depender solo del color. Debe incluir icono, texto accesible 
 - Los cambios críticos se anuncian mediante una región accesible; métricas o frames descartados no generan anuncios repetitivos.
 - Pausar y detener no dependen de iconos ni color. El borde del sistema no reemplaza el indicador textual de Trazio.
 
-## Contratos técnicos de 7.2a y propuestas posteriores
+## Contratos técnicos de 7.2a/7.2b y propuestas posteriores
 
-`IVisualMeetingCapture`, `IFrameSampler` y el controlador de sesión ya delimitan la implementación 7.2a. Los adaptadores, correlación y almacenamiento siguientes continúan como propuesta:
+`IVisualMeetingCapture`, `IFrameSampler` y el controlador de sesión delimitan 7.2a. 7.2b añade contratos de perfil, extractor, detector, canalización, persistencia y proyección. Los adaptadores con nombres continúan como propuesta:
 
 | Abstracción | Responsabilidad |
 |---|---|
 | `IVisualMeetingCapture` | Iniciar/detener WGC sobre un objetivo revalidado y emitir estados de ciclo de vida |
 | `IFrameSampler` | Reducir la corriente de WGC a 1–2 fps, conservar capacidad 2 y entregar ownership temporal del frame |
-| `IActiveSpeakerAdapter` | Convertir un frame o señal de proveedor en cero o más eventos derivados con evidencia/confianza |
-| `ISpeakerEvidenceCorrelator` | Relacionar eventos temporales con segmentos `ComputerOutput` sin tocar segmentos de micrófono |
-| `ISpeakerEvidenceStore` | Persistir/leer eventos cifrados y eliminarlos junto con la sesión |
-| `IVisualAnalysisTelemetry` | Registrar solo contadores, tiempos, estados y códigos de fallo locales |
+| `IVisualProbeProfile` / `VisualProbeDetectionPolicy` | Declarar proveedor/layout/versiones/parches/umbrales; solo `Validated` habilita extracción positiva |
+| `IVisualProbeExtractor` | Convertir parches D3D11 acotados en agregados; no entregar píxeles fuera del frame |
+| `IVisualProbeDetector` | Convertir observaciones en intervalos anónimos de cobertura/actividad o abstención explícita |
+| `AnonymousVisualActivityCorrelator` | Relacionar intervalos temporales con segmentos `SystemOutput` sin tocar micrófono ni `SpeakerName` |
+| `SqliteVisualProbeEvidenceSink` / `SqliteSessionStore` | Persistir/leer intervalos cifrados y eliminarlos junto con la sesión |
+| `AnonymousVisualEvidenceProjector` | Presentar estados fail-closed con instantáneas independientes para sesión activa e Historial |
+| Futuro adaptador de hablante | Requerirá contrato/consentimiento propios; no forma parte de 7.2b |
+| Futuro `IVisualAnalysisTelemetry` | Podría registrar solo contadores, tiempos, estados y códigos de fallo locales; no está implementado en 7.2b |
 | Canal de frames acotado | Capacidad 2, `DropOldest`, productor WGC separado del consumidor visual |
-| Canal de eventos acotado | Capacidad provisional 64 con espera en el analizador; una demora descarta frames aguas arriba y nunca bloquea audio |
+| Canal de observaciones acotado | Capacidad 2 con `DropOldest`; el productor mantiene además una sola observación pendiente y nunca bloquea audio |
 
 Los resultados esperados (no soporte, permiso cancelado, objetivo perdido o contenido protegido) deben modelarse como estados explícitos. Las excepciones quedan para fallos inesperados de infraestructura y deben cerrar recursos de manera idempotente.
 
@@ -234,16 +243,24 @@ Los resultados esperados (no soporte, permiso cancelado, objetivo perdido o cont
 
 ### Pruebas automatizadas
 
-La unidad 7.2a registra **54/54 pruebas enfocadas** (`Area=VisualCapture`) y la base funcional `b075958` registra **250/250 pruebas seriales** con compilación Release sin errores ni advertencias. Cubren ciclo de vida, autorización consumible, callbacks obsoletos, descarte/disposición, revalidación WGC, presentación, manifiesto y controles compilados. Esta evidencia no ejecuta una captura WGC real ni valida el escritorio renderizado.
+La evidencia histórica de 7.2a registra **54/54 pruebas enfocadas** (`Area=VisualCapture`) y la base funcional beta 3 `b075958` registra **250/250 pruebas seriales** con compilación Release sin errores ni advertencias. El candidato local beta 4 completó **4/4 `VersionMetadataTests`**, **132/132 pruebas `Area=VisualCapture`**, **371/371 pruebas Release seriales**, **371/371 pruebas Release en paralelo predeterminado** y una compilación con **0 advertencias y 0 errores**. El contrato de publicación y la prueba básica por canal con nombre aprobaron; el layout candidato coincidió en **494/494 archivos byte a byte**, con **0** hallazgos prohibidos y **0** rutas fuente locales. El ZIP, tamaño, SHA-256, tag y release finales siguen pendientes porque el paquete debe reconstruirse después del commit de preparación. Esta evidencia no ejecuta una captura WGC/GPU real ni valida el escritorio renderizado, accesibilidad, Meet/Teams o duración.
 
 - [VisualCaptureSessionControllerTests](../tests/Trazio.AsistenteReunion.Tests/VisualCaptureSessionControllerTests.cs)
 - [BoundedDropOldestProcessorTests](../tests/Trazio.AsistenteReunion.Tests/BoundedDropOldestProcessorTests.cs)
 - [WindowsGraphicsCaptureServiceTests](../tests/Trazio.AsistenteReunion.Tests/WindowsGraphicsCaptureServiceTests.cs)
 - [VisualCapturePresentationTests](../tests/Trazio.AsistenteReunion.Tests/VisualCapturePresentationTests.cs)
+- [AnonymousVisualAnalysisActivationTests](../tests/Trazio.AsistenteReunion.Tests/AnonymousVisualAnalysisActivationTests.cs)
+- [D3D11VisualProbeExtractorTests](../tests/Trazio.AsistenteReunion.Tests/D3D11VisualProbeExtractorTests.cs)
+- [VisualProbeProfileTests](../tests/Trazio.AsistenteReunion.Tests/VisualProbeProfileTests.cs)
+- [VisualProbePipelineTests](../tests/Trazio.AsistenteReunion.Tests/VisualProbePipelineTests.cs)
+- [DeterministicVisualActivityDetectorTests](../tests/Trazio.AsistenteReunion.Tests/DeterministicVisualActivityDetectorTests.cs)
+- [SqliteVisualProbeEvidenceSinkTests](../tests/Trazio.AsistenteReunion.Tests/SqliteVisualProbeEvidenceSinkTests.cs)
+- [AnonymousVisualActivityCorrelatorTests](../tests/Trazio.AsistenteReunion.Tests/AnonymousVisualActivityCorrelatorTests.cs)
+- [AnonymousVisualEvidencePresentationTests](../tests/Trazio.AsistenteReunion.Tests/AnonymousVisualEvidencePresentationTests.cs)
 
 - **Unitarias con frames sintéticos:** actividad estable, ruido, dos regiones, presentación, cuadro negro, variación de brillo, histéresis y abstención.
-- **Canales:** capacidad máxima 2, política `DropOldest`, cancelación, ownership/disposición y consumidor lento.
-- **Correlación:** límites temporales, solapamiento, segmentos sin evidencia y prohibición de atribuir a micrófono.
+- **Canales:** capacidad máxima 2, política `DropOldest`, una sola observación pendiente, cancelación, ownership/disposición y consumidor lento.
+- **Correlación:** límites temporales, solapamiento, segmentos sin evidencia y prohibición de atribuir a cualquier fuente distinta de `SystemOutput`.
 - **Persistencia:** cifrado de etiqueta, eliminación en cascada, versiones desconocidas y prueba negativa que impida almacenar bytes de imagen/campos prohibidos.
 - **Adaptadores:** fixtures sintéticos por layout y contrato; una interfaz no reconocida debe abstenerse.
 - **UX/presentación:** transición de todos los estados, foco, teclado, nombres accesibles y audio independiente.
@@ -284,15 +301,17 @@ La cobertura/recall no será criterio inicial: un adaptador puede abstenerse. Pr
 
 ## Criterios de aceptación
 
-- [x] Existe consentimiento explícito en código por sesión, separado de seleccionar ventana y desactivado por defecto; falta validación física de la interfaz.
+- [x] Existen en código consentimientos separados para captura 7.2a y análisis anónimo 7.2b; el segundo es de un solo uso, por sesión/ventana/alcance y está desactivado por defecto. Falta validación física de la interfaz.
 - [ ] El indicador visual permanece visible y Pausar/Detener funciona por teclado y lector de pantalla.
 - [x] El backend solo crea captura para la ventana HWND/PID revalidada y no reasigna; falta demostrarlo físicamente.
-- [x] El canal genérico no supera dos elementos y garantiza disposición exactamente una vez; WGC 7.2a cierra cada frame inmediatamente.
-- [x] El código 7.2a no crea videos, screenshots, dumps propios, logs sensibles ni registros de píxeles; el script rechaza esas clases en el layout publicable. Falta inspeccionar la ejecución física y el ZIP final publicado.
+- [x] La infraestructura 7.2b mantiene canales/observaciones acotados y disposición determinista; el extractor entrega agregados numéricos, no buffers de píxeles persistibles.
+- [x] El código 7.2a/7.2b no crea videos, screenshots, dumps propios, logs sensibles ni registros de píxeles; el script rechaza esas clases en el layout publicable. Falta inspeccionar la ejecución física y el ZIP final beta 4.
 - [ ] Minimizar, cerrar, proteger o perder la ventana no detiene audio/transcripción.
-- [ ] Solo `ComputerOutput` recibe evidencia remota; el micrófono conserva la identidad local.
+- [x] La correlación en código solo admite `SystemOutput`; el micrófono queda oculto y conserva la identidad local. Falta aceptación en la interfaz física.
+- [x] Los perfiles de producción Meet/Teams permanecen `Unvalidated`, se abstienen y proyectan **No disponible**; falta validarlo con aplicaciones reales.
+- [x] La presentación de evidencia no modifica transcripción, `SpeakerName`, TXT, Markdown ni Obsidian.
 - [ ] Las etiquetas con nombre siempre incluyen proveedor, evidencia, confianza y versión de adaptador.
-- [ ] La evidencia insuficiente produce `Hablante remoto`, no una conjetura.
+- [ ] Una futura atribución con nombre usa un fallback anónimo, no una conjetura; 7.2b actual muestra **Insuficiente** o **No disponible**.
 - [ ] Cada adaptador declara y prueba sus layouts/versiones compatibles.
 - [ ] Las pruebas automatizadas e integración pasan antes de la matriz física.
 - [ ] La prueba de 2 horas cumple recursos/estabilidad antes de autorizar la de 5 horas.
@@ -302,17 +321,17 @@ La cobertura/recall no será criterio inicial: un adaptador puede abstenerse. Pr
 | Riesgo | Mitigación / reversión |
 |---|---|
 | Regresión en captura de audio | Módulo y canales independientes; kill switch visual no toca `RecordingCoordinator` de audio |
-| Cambio de UI de Meet/Teams | Desactivar solo el adaptador afectado y volver a `Hablante remoto` |
+| Cambio de UI de Meet/Teams | Mantener/desactivar el perfil afectado como `Unvalidated` y volver a **No disponible** |
 | Sobrecarga o fuga gráfica | Límites duros, métricas locales, prueba de 2 h y apagado idempotente |
-| Problema de privacidad | OFF por defecto, consentimiento consumible, cero retención de frames y exportación explícita |
+| Problema de privacidad | OFF por defecto, consentimiento consumible, cero retención de frames y ninguna exportación de evidencia en beta 4 |
 | Falso positivo | Umbral conservador, versión de política, abstención y corrección humana |
 | Incompatibilidad de Windows/GPU | Detección de soporte previa y fallback sin análisis visual |
 
-El módulo permanece OFF por sesión hasta una autorización explícita que no se persiste. La reversión consiste en retirar el cableado/capability visual y conservar intactos grabación, transcripción e historial; no existe un ajuste persistente que pueda activarlo silenciosamente.
+El módulo permanece OFF por sesión hasta dos autorizaciones explícitas: captura 7.2a y análisis 7.2b. Ninguna se persiste y la segunda es de un solo uso. La reversión consiste en retirar el cableado visual y conservar intactos grabación, transcripción e historial; no existe un ajuste persistente que pueda activarlo silenciosamente. El manifiesto empaquetado sigue declarando exactamente cinco capacidades existentes y no anuncia actividad/correlación visual anónima ni identificación de hablantes.
 
-## Decisiones pendientes para continuar después de 7.2a
+## Decisiones pendientes para continuar después de 7.2b
 
-- [x] Autorización explícita limitada a 7.2a.
+- [x] Autorización explícita de un solo uso para 7.2b, separada de selección y captura 7.2a.
 - [x] Base técnica: Windows 10 `19041`, WPF directo, WGC y CsWin32 `0.3.333` con bindings mínimos.
 - [ ] Confirmar físicamente el comportamiento en los equipos actualmente distribuidos.
 - [ ] Definir el conjunto inicial de layouts soportados y el corpus sintético/físico de evaluación.
@@ -333,4 +352,4 @@ El módulo permanece OFF por sesión hasta una autorización explícita que no s
 
 ## Siguiente paso
 
-Validar 7.2a en una ventana de prueba real: consentimiento, teclado/lector de pantalla, borde del sistema, redimensión, minimización, restauración, cierre, independencia del audio y ausencia de archivos/imágenes retenidas. Después ejecutar una sesión de dos horas. No iniciar 7.2b ni intentar identificar o nombrar hablantes sin una autorización posterior.
+Validar físicamente 7.2a/7.2b en una ventana de prueba y con Meet/Teams reales: ambos consentimientos, teclado/lector de pantalla, WGC/GPU, borde del sistema, redimensión, minimización, restauración, cierre, independencia del audio, **No disponible** para perfiles `Unvalidated` y ausencia de píxeles/imágenes/video retenidos. Después calibrar un corpus/perfil sin habilitarlo en producción hasta cumplir los criterios acordados, ejecutar 2 horas y solo entonces 5 horas. No intentar identificar ni nombrar hablantes desde actividad visual anónima.

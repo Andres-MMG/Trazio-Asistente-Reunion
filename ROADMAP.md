@@ -2,9 +2,9 @@
 
 - Fecha del estado: 2026-09-23
 - Madurez actual: MVP funcional avanzado / versión preliminar pública
-- Versión actual: [`0.2.0-beta.3`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.3)
+- Versión publicada actual: [`0.2.0-beta.3`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.3)
 
-Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funcional implementada; 7.1a y 7.2a están implementadas en código y forman parte de la beta 3, todavía pendientes de validación física. Las rebanadas 7.2b–7.2e y el fortalecimiento de la distribución de la etapa 5 siguen pendientes.** La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
+Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funcional implementada; 7.1a, 7.2a y la infraestructura fuente de 7.2b están implementadas, todavía pendientes de validación física. 7.2b forma parte del candidato fuente local `0.2.0-beta.4`, no de la beta 3 publicada, y falla de forma segura en producción porque los perfiles Meet/Teams permanecen `Unvalidated`: se abstiene y presenta la evidencia como No disponible. Las rebanadas 7.2c–7.2e y el fortalecimiento de la distribución de la etapa 5 siguen pendientes.** No existe identificación de hablantes y la etapa 7 no está completa. La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
 
 ## Principios del producto
 
@@ -25,7 +25,7 @@ Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funciona
 | 5 | Beta distribuible y mantenible | En curso |
 | 5.5 | Identidad del usuario local y atribución del micrófono | Implementada — validación física de interfaz pendiente |
 | 6 | Revisión, corrección, glosario de procedencia y retranscripción versionada | Línea base funcional implementada — validación física pendiente |
-| 7 | Fuente de reunión y atribución de hablantes | 7.1a y 7.2a implementadas en código — validación física pendiente; 7.2b+ planificadas |
+| 7 | Fuente de reunión y atribución de hablantes | 7.1a/7.2a y la infraestructura fuente de 7.2b implementadas — perfiles de producción no validados, sin identificación de hablantes y con validación física pendiente; 7.2c+ planificadas |
 | 8 | Búsqueda, revisión por lotes, glosario global y productividad | Planificada — edición y navegación de audio básicas ya entregadas en la etapa 6 |
 | 9 | Inteligencia de reuniones opcional | Planificada |
 | 10 | Integración organizacional/con plataforma opcional | Futura |
@@ -42,13 +42,13 @@ Permitir instalar, actualizar, diagnosticar y recuperar la aplicación existente
 
 ### Base implementada
 
-- Código público en GitHub y flujo de ZIP completo para Windows con suma de comprobación; `0.2.0-beta.3` incorpora la asociación opcional de ventana y la captura visual efímera consentida de 7.2a.
+- Código público en GitHub y flujo de ZIP completo para Windows con suma de comprobación; `0.2.0-beta.3` continúa como versión publicada. El candidato fuente local `0.2.0-beta.4` agrega la infraestructura de actividad visual anónima de 7.2b y completó la verificación automatizada documentada. Su ZIP, SHA-256, tag y release finales permanecen pendientes porque el paquete debe reconstruirse después del commit de preparación.
 - Script de publicación combinada de aplicación/proceso auxiliar con comprobaciones de paquete y prueba básica de salud por canal con nombre.
 - Existe la definición de Inno Setup por usuario; la validación de instalación/actualización/reversión sigue pendiente.
 
 ### Alcance pendiente
 
-- Validar la instalación y actualización de la beta `0.2.0-beta.3` en equipos representativos.
+- Validar la instalación y actualización de la beta `0.2.0-beta.4` en equipos representativos.
 - Producir un instalador por usuario que detecte versiones anteriores y preserve los datos del usuario.
 - Implementar actualizaciones de la aplicación completa con manifiesto firmado, verificación SHA-256, cierre controlado, reemplazo atómico y reversión.
 - Actualizar la aplicación y el modelo Whisper de forma independiente cuando el modelo no haya cambiado.
@@ -121,7 +121,7 @@ Esto identifica a la persona que usa el micrófono configurado. No demuestra qui
 
 ## Etapa 7 — Fuente de reunión y atribución de hablantes
 
-**Estado: en curso.** La rebanada 7.1a asocia opcionalmente una ventana superior. La 7.2a agrega consentimiento por sesión y captura WGC efímera sin persistir imágenes. Ambas requieren validación física; 7.2b todavía no identifica hablantes remotos ni lee una pestaña, URL, DOM o subtítulos.
+**Estado: en curso.** La rebanada 7.1a asocia opcionalmente una ventana superior. La 7.2a agrega consentimiento por sesión y captura WGC efímera. La infraestructura fuente de 7.2b agrega un consentimiento adicional de un solo uso, sondeo agregado WGC/D3D11 acotado, evidencia cifrada de cobertura/actividad y presentación fail-closed en vivo/Historial. Los perfiles de producción Meet/Teams permanecen `Unvalidated`, no tienen política de detección y se abstienen: la evidencia aparece como **No disponible**. No existe identificación de hablantes.
 
 ### Objetivo
 
@@ -145,12 +145,14 @@ Esta primera rebanada selecciona una **ventana superior**, no una pestaña indiv
 
 ### 7.2 Análisis visual y adaptadores de proveedores
 
-**7.2a implementada en código; validación física pendiente.** El [plan técnico de la etapa 7.2](docs/stage-7-visual-speaker-plan.md) se implementó hasta el consentimiento no persistido por sesión, estado OFF por defecto, ciclo de vida independiente y captura WGC efímera de la ventana seleccionada. Los fotogramas se cierran sin analizarlos ni persistirlos. 7.2b y las rebanadas posteriores siguen planificadas y no están autorizadas por este avance.
+**7.2a y la infraestructura fuente de 7.2b están implementadas; la validación física continúa pendiente.** El [plan técnico de la etapa 7.2](docs/stage-7-visual-speaker-plan.md) mantiene la captura WGC y el análisis anónimo como consentimientos separados. La autorización de análisis es consumible una sola vez y está ligada a la ventana/sesión/alcance exactos. El extractor D3D11 trabaja con parches y solo entrega agregados; no retiene píxeles, imágenes o video. Los intervalos derivados de cobertura/actividad se cifran y solo se correlacionan con `SystemOutput`. La transcripción, `SpeakerName` y las exportaciones TXT/Markdown/Obsidian no cambian.
+
+7.2b no lee OCR, rostros, nombres, chat, subtítulos ni documentos. Su presentación de actividad anónima no equivale a atribución de hablante. Hasta validar y calibrar físicamente perfiles de Meet/Teams, el procesamiento de producción se abstiene y tanto la vista en vivo como Historial muestran **No disponible**.
 
 El trabajo se divide en rebanadas verificables:
 
-1. **7.2a:** incluida en la beta 3: HWND/PID revalidado, consentimiento separado, frame pool de dos buffers, ciclo de vida y descarte inmediato; faltan WGC físico, interfaz/lector de pantalla y prueba de dos horas.
-2. **7.2b:** actividad visual anónima, eventos derivados cifrados y correlación exclusiva con `ComputerOutput`.
+1. **7.2a:** incluida desde beta 3: HWND/PID revalidado, consentimiento separado, frame pool de dos buffers, ciclo de vida y descarte inmediato; faltan WGC físico, interfaz/lector de pantalla y prueba de dos horas.
+2. **7.2b:** infraestructura incluida en el candidato fuente local beta 4, todavía no publicado: consentimiento adicional de un solo uso, sondeo agregado D3D11 acotado, eventos derivados cifrados, correlación exclusiva con `SystemOutput` y presentación fail-closed. Los perfiles de producción siguen `Unvalidated`; faltan calibración, WGC/GPU/accesibilidad, Meet/Teams reales y pruebas de 2/5 horas.
 3. **7.2c:** adaptador versionado de Google Meet web mediante una extensión con permiso mínimo y WGC como respaldo.
 4. **7.2d:** adaptador de Microsoft Teams web/escritorio; extensión para web y WGC para escritorio/respaldo.
 5. **7.2e:** evaluación de precisión, accesibilidad, recursos y duración; aprobar 2 horas antes de intentar 5 horas.
@@ -181,10 +183,10 @@ La diarización de audio separa voces, pero no revela nombres reales. Asociar un
 ### Criterios de salida
 
 - El usuario puede seleccionar una ventana superior y ver el proveedor detectado; la validación física de 7.1a sigue pendiente. La selección de pestaña individual permanece fuera de esta rebanada.
-- El consentimiento visual de 7.2a es por sesión, separado de la selección de ventana y no conserva imágenes; su aceptación física sigue pendiente.
+- Los consentimientos de captura 7.2a y análisis anónimo 7.2b son distintos de la selección y entre sí; el de análisis es de un solo uso. No se conservan píxeles, imágenes o video y su aceptación física sigue pendiente.
 - Trazio continúa de forma segura cuando los metadatos del proveedor no están disponibles o falla un adaptador.
 - Las etiquetas de hablantes remotos con nombre incluyen evidencia y confianza; los segmentos inciertos permanecen anónimos.
-- Los fotogramas de 7.2a no se persisten; la futura evidencia derivada de 7.2b deberá cifrarse, acotarse y eliminarse con la sesión.
+- Los fotogramas de 7.2a/7.2b no se persisten; los intervalos derivados de cobertura/actividad de 7.2b se cifran, se acotan por sesión y se eliminan con ella.
 
 ## Etapa 8 — Historial y productividad
 
@@ -307,6 +309,7 @@ Antes de publicar en producción:
 - Validar físicamente la identidad local y la atribución del micrófono implementadas en la etapa 5.5.
 - Validar la interfaz de revisión y la exportación manual hacia una bóveda de Obsidian de prueba.
 - Definir perfiles de calidad y un conjunto repetible de evaluación con audio/texto representativo del español de Chile; registrar métricas reproducibles antes de afirmar mejoras de precisión.
+- Validar físicamente WGC/GPU, teclado/lector de pantalla y accesibilidad; calibrar perfiles de Meet/Teams reales antes de cambiar su estado `Unvalidated` o mostrar evidencia distinta de **No disponible**.
 - Ejecutar una prueba de reunión de dos horas.
 - Ejecutar una prueba de reunión de cinco horas.
 - Verificar CPU, memoria, crecimiento de almacenamiento, pausa/reanudación, cambios de dispositivos, recuperación de fallos, cifrado, reproducción, exportación e integridad de segmentos.
@@ -317,7 +320,7 @@ Antes de publicar en producción:
 1. Continuar fortaleciendo la distribución de la etapa 5 desde la base existente de código público/ZIP; mantener pendientes los requisitos de producción.
 2. Mantener la línea base funcional de la etapa 6 y completar su validación física pendiente sin ampliar silenciosamente su alcance.
 3. Validar físicamente la selección de fuente 7.1a antes de intentar atribuir nombres a hablantes remotos.
-4. Validar físicamente 7.2a con WGC/interfaz/lector de pantalla y una sesión de dos horas antes de proponer 7.2b; no guardar imágenes por defecto.
+4. Validar físicamente 7.2a/7.2b con WGC/GPU, interfaz/lector de pantalla, Meet/Teams reales y una sesión de dos horas antes de validar perfiles de producción; mantener `Unvalidated`, la abstención y la retención cero de píxeles/imágenes/video hasta contar con evidencia. Ejecutar la prueba de cinco horas solo después.
 5. Implementar en la etapa 8 la navegación avanzada y la aplicación controlada del glosario.
 6. Completar las etapas 8–10 y la validación prolongada aplazada antes de publicar en producción.
 7. Implementar las cuentas conectadas, calendarios y automatización de reuniones con activación voluntaria de la etapa 11.
