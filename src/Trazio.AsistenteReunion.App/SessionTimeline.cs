@@ -80,14 +80,14 @@ internal sealed class VisualProbeRateGate
     public static readonly TimeSpan DefaultInterval = TimeSpan.FromSeconds(1);
     public static readonly TimeSpan MinimumInterval = TimeSpan.FromMilliseconds(500);
 
-    private readonly SessionTimeline _timeline;
+    private readonly ISessionTimelineContext _timelineContext;
     private readonly TimeSpan _interval;
     private readonly object _gate = new();
     private TimeSpan? _lastAcceptedOffset;
 
-    public VisualProbeRateGate(SessionTimeline timeline, TimeSpan? interval = null)
+    public VisualProbeRateGate(ISessionTimelineContext timelineContext, TimeSpan? interval = null)
     {
-        _timeline = timeline ?? throw new ArgumentNullException(nameof(timeline));
+        _timelineContext = timelineContext ?? throw new ArgumentNullException(nameof(timelineContext));
         _interval = interval ?? DefaultInterval;
         if (_interval < MinimumInterval)
             throw new ArgumentOutOfRangeException(nameof(interval), "Sampling cannot exceed two observations per second.");
@@ -95,11 +95,20 @@ internal sealed class VisualProbeRateGate
 
     public bool TryAcquire(out TimeSpan offset)
     {
-        offset = _timeline.GetCurrentOffset();
+        offset = default;
+        if (!_timelineContext.TryGetCurrentOffset(out var candidate)) return false;
+
         lock (_gate)
         {
-            if (_lastAcceptedOffset is { } prior && offset - prior < _interval) return false;
-            _lastAcceptedOffset = offset;
+            if (!_timelineContext.TryGetCurrentOffset(out candidate)) return false;
+            if (_lastAcceptedOffset is { } prior && candidate - prior < _interval)
+            {
+                offset = candidate;
+                return false;
+            }
+
+            _lastAcceptedOffset = candidate;
+            offset = candidate;
             return true;
         }
     }

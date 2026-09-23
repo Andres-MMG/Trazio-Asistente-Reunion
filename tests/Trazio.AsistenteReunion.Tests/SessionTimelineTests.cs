@@ -55,7 +55,7 @@ public sealed class SessionTimelineTests
     public void TryAcquire_WithDefaultInterval_AllowsAtMostOneSamplePerSecond()
     {
         var time = new ManualTimeProvider(DateTimeOffset.UtcNow);
-        var gate = new VisualProbeRateGate(new SessionTimeline(time));
+        var gate = new VisualProbeRateGate(CreateContext(time));
 
         Assert.True(gate.TryAcquire(out var first));
         time.AdvanceTimestamp(TimeSpan.FromMilliseconds(999));
@@ -73,18 +73,35 @@ public sealed class SessionTimelineTests
     public void Constructor_WithIntervalBelowAbsoluteMinimum_RejectsMoreThanTwoSamplesPerSecond()
     {
         var time = new ManualTimeProvider(DateTimeOffset.UtcNow);
-        var timeline = new SessionTimeline(time);
+        var context = CreateContext(time);
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new VisualProbeRateGate(timeline, TimeSpan.FromMilliseconds(499)));
+            new VisualProbeRateGate(context, TimeSpan.FromMilliseconds(499)));
 
-        var gate = new VisualProbeRateGate(timeline, TimeSpan.FromMilliseconds(500));
+        var gate = new VisualProbeRateGate(context, TimeSpan.FromMilliseconds(500));
         Assert.True(gate.TryAcquire(out _));
         time.AdvanceTimestamp(TimeSpan.FromMilliseconds(499));
         Assert.False(gate.TryAcquire(out _));
         time.AdvanceTimestamp(TimeSpan.FromMilliseconds(1));
         Assert.True(gate.TryAcquire(out _));
     }
+
+    [Fact]
+    [Trait("Area", "VisualCapture")]
+    public void TryAcquire_AfterTimelineContextIsRevoked_FailsClosed()
+    {
+        var context = CreateContext(new ManualTimeProvider(DateTimeOffset.UtcNow));
+        var gate = new VisualProbeRateGate(context);
+        context.Revoke();
+
+        var acquired = gate.TryAcquire(out var offset);
+
+        Assert.False(acquired);
+        Assert.Equal(TimeSpan.Zero, offset);
+    }
+
+    private static SessionTimelineContext CreateContext(TimeProvider timeProvider) =>
+        new("timeline-test-session", 1, new SessionTimeline(timeProvider));
 
     private sealed class ManualTimeProvider(DateTimeOffset utcNow) : TimeProvider
     {

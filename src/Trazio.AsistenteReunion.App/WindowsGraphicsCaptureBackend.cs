@@ -20,7 +20,8 @@ internal sealed class WindowsGraphicsCaptureFactory : IWindowsGraphicsCaptureFac
 
     public IVisualCaptureLease CreateForWindow(
         MeetingWindowSelection selection,
-        IVisualCaptureTargetValidator targetValidator)
+        IVisualCaptureTargetValidator targetValidator,
+        IVisualProbeFrameConsumer? frameConsumer)
     {
         using var activationFactory =
             WinRT.ActivationFactory.Get("Windows.Graphics.Capture.GraphicsCaptureItem");
@@ -68,7 +69,7 @@ internal sealed class WindowsGraphicsCaptureFactory : IWindowsGraphicsCaptureFac
 
         try
         {
-            return WindowsGraphicsCaptureLease.Start(item, selection, targetValidator);
+            return WindowsGraphicsCaptureLease.Start(item, selection, targetValidator, frameConsumer);
         }
         catch (VisualCaptureStartException)
         {
@@ -116,10 +117,12 @@ internal sealed class WindowsGraphicsCaptureLease : IVisualCaptureLease
     private readonly GraphicsCaptureItem _item;
     private readonly Direct3D11CaptureFramePool _framePool;
     private readonly GraphicsCaptureSession _session;
+    private readonly WindowsGraphicsCaptureProbeBridge _probeBridge;
     private Task _targetMonitor = Task.CompletedTask;
     private Task? _disposeTask;
     private SizeInt32 _frameSize;
     private bool _disposed;
+    private bool _ended;
 
     private WindowsGraphicsCaptureLease(
         D3D11CaptureDevice device,
@@ -128,6 +131,7 @@ internal sealed class WindowsGraphicsCaptureLease : IVisualCaptureLease
         GraphicsCaptureSession session,
         MeetingWindowSelection selection,
         IVisualCaptureTargetValidator targetValidator,
+        IVisualProbeFrameConsumer? frameConsumer,
         SizeInt32 initialSize)
     {
         _device = device;
@@ -136,6 +140,7 @@ internal sealed class WindowsGraphicsCaptureLease : IVisualCaptureLease
         _session = session;
         _selection = selection;
         _targetValidator = targetValidator;
+        _probeBridge = new(frameConsumer);
         _frameSize = initialSize;
 
         _item.Closed += OnItemClosed;
@@ -147,7 +152,8 @@ internal sealed class WindowsGraphicsCaptureLease : IVisualCaptureLease
     public static WindowsGraphicsCaptureLease Start(
         GraphicsCaptureItem item,
         MeetingWindowSelection selection,
-        IVisualCaptureTargetValidator targetValidator)
+        IVisualCaptureTargetValidator targetValidator,
+        IVisualProbeFrameConsumer? frameConsumer = null)
     {
         var initialSize = item.Size;
         if (initialSize.Width <= 0 || initialSize.Height <= 0)
@@ -167,8 +173,17 @@ internal sealed class WindowsGraphicsCaptureLease : IVisualCaptureLease
                 initialSize);
             session = framePool.CreateCaptureSession(item);
             session.IsCursorCaptureEnabled = false;
-            lease = new(device, item, framePool, session, selection, targetValidator, initialSize);
+            lease = new(
+                device,
+                item,
+                framePool,
+                session,
+                selection,
+                targetValidator,
+                frameConsumer,
+                initialSize);
             session.StartCapture();
+            lease._probeBridge.BeginSurface();
             lease.StartTargetMonitor();
             return lease;
         }
@@ -195,6 +210,7 @@ internal sealed class WindowsGraphicsCaptureLease : IVisualCaptureLease
             if (_disposeTask is not null) return new(_disposeTask);
 
             _disposed = true;
+            _probeBridge.Stop();
             targetMonitor = _targetMonitor;
             disposeCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
             _disposeTask = disposeCompletion.Task;
@@ -231,7 +247,7 @@ internal sealed class WindowsGraphicsCaptureLease : IVisualCaptureLease
     {
         lock (_gate)
         {
-            if (_disposed) return;
+            if (_disposed || _ended) return;
             _targetMonitor = MonitorTargetAsync(_targetMonitorCancellation.Token);
         }
     }
@@ -240,31 +256,49 @@ internal sealed class WindowsGraphicsCaptureLease : IVisualCaptureLease
     {
         lock (_gate)
         {
-            if (_disposed) return;
+            if (_disposed || _ended) return;
 
             try
             {
-                SizeInt32 contentSize;
-                using (var frame = sender.TryGetNextFrame())
+                Direct3D11CaptureFrame? frame = null;
+                try
                 {
-                    contentSize = frame.ContentSize;
-                }
+                    frame = sender.TryGetNextFrame();
+                    var contentSize = frame.ContentSize;
 
-                if (contentSize.Width <= 0 || contentSize.Height <= 0)
+                    if (contentSize.Width <= 0 || contentSize.Height <= 0)
+                    {
+                        CompleteUnderGate(VisualCaptureExitReason.Minimized);
+                        return;
+                    }
+
+                    if (contentSize.Width == _frameSize.Width && contentSize.Height == _frameSize.Height)
+                    {
+                        _probeBridge.ObserveFrame(() => frame.Surface);
+                        return;
+                    }
+
+                    var transitionFrame = frame;
+                    frame = null;
+                    WindowsGraphicsCaptureResizeTransition.DisposeFrameBeforeRecreate(
+                        transitionFrame,
+                        () => sender.Recreate(
+                            _device.WinRtDevice,
+                            PixelFormat,
+                            BufferCount,
+                            contentSize));
+                    _frameSize = contentSize;
+                    _probeBridge.BeginSurface();
+                }
+                finally
                 {
-                    Complete(VisualCaptureExitReason.Minimized);
-                    return;
+                    frame?.Dispose();
                 }
-
-                if (contentSize.Width == _frameSize.Width && contentSize.Height == _frameSize.Height) return;
-
-                sender.Recreate(_device.WinRtDevice, PixelFormat, BufferCount, contentSize);
-                _frameSize = contentSize;
             }
             catch (Exception exception)
             {
                 // Device recovery is deliberately deferred until it can be exercised with a physical harness.
-                Complete(VisualCaptureFailureClassifier.ForFrame(exception));
+                CompleteUnderGate(VisualCaptureFailureClassifier.ForFrame(exception));
             }
         }
     }
@@ -297,8 +331,18 @@ internal sealed class WindowsGraphicsCaptureLease : IVisualCaptureLease
         }
     }
 
-    private void Complete(VisualCaptureExitReason reason) =>
+    private void Complete(VisualCaptureExitReason reason)
+    {
+        lock (_gate) CompleteUnderGate(reason);
+    }
+
+    private void CompleteUnderGate(VisualCaptureExitReason reason)
+    {
+        if (_ended) return;
+        _ended = true;
+        _probeBridge.Stop();
         _completion.TrySetResult(new(reason));
+    }
 
     private void TryDetachEvents()
     {
@@ -339,6 +383,81 @@ internal sealed class WindowsGraphicsCaptureLease : IVisualCaptureLease
         catch
         {
             // Visual cleanup is isolated from audio and transcription.
+        }
+    }
+}
+
+internal static class WindowsGraphicsCaptureResizeTransition
+{
+    public static void DisposeFrameBeforeRecreate(
+        IDisposable frame,
+        Action recreate)
+    {
+        ArgumentNullException.ThrowIfNull(frame);
+        ArgumentNullException.ThrowIfNull(recreate);
+        frame.Dispose();
+        recreate();
+    }
+}
+
+internal sealed class WindowsGraphicsCaptureProbeBridge
+{
+    private readonly object _gate = new();
+    private readonly IVisualProbeFrameConsumer? _consumer;
+    private long _surfaceRevision;
+    private bool _stopped;
+
+    public WindowsGraphicsCaptureProbeBridge(IVisualProbeFrameConsumer? consumer) =>
+        _consumer = consumer;
+
+    public void BeginSurface()
+    {
+        lock (_gate)
+        {
+            if (_stopped || _consumer is null) return;
+            try
+            {
+                _surfaceRevision = _consumer.BeginSurface(out var revision) ? revision : 0;
+            }
+            catch
+            {
+                _surfaceRevision = 0;
+            }
+        }
+    }
+
+    public void ObserveFrame(Func<IDirect3DSurface> getSurface)
+    {
+        ArgumentNullException.ThrowIfNull(getSurface);
+        lock (_gate)
+        {
+            if (_stopped || _consumer is null || _surfaceRevision <= 0) return;
+            try
+            {
+                _consumer.ObserveFrame(_surfaceRevision, getSurface);
+            }
+            catch
+            {
+                // Probe failures cannot alter WGC lease classification or lifetime.
+            }
+        }
+    }
+
+    public void Stop()
+    {
+        lock (_gate)
+        {
+            if (_stopped) return;
+            _stopped = true;
+            if (_consumer is null || _surfaceRevision <= 0) return;
+            try
+            {
+                _consumer.MarkUnavailable(_surfaceRevision);
+            }
+            catch
+            {
+                // Probe teardown is isolated from capture, audio, and transcription.
+            }
         }
     }
 }

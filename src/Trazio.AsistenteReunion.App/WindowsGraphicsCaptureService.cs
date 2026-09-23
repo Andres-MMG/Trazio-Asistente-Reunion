@@ -19,7 +19,8 @@ internal interface IWindowsGraphicsCaptureFactory
     bool IsSupported();
     IVisualCaptureLease CreateForWindow(
         MeetingWindowSelection selection,
-        IVisualCaptureTargetValidator targetValidator);
+        IVisualCaptureTargetValidator targetValidator,
+        IVisualProbeFrameConsumer? frameConsumer);
 }
 
 internal sealed class WindowsGraphicsCaptureService : IVisualMeetingCapture
@@ -27,12 +28,25 @@ internal sealed class WindowsGraphicsCaptureService : IVisualMeetingCapture
     private readonly MeetingWindowSelection _selection;
     private readonly IVisualCaptureTargetValidator _targetValidator;
     private readonly IWindowsGraphicsCaptureFactory _factory;
+    private readonly IVisualProbeFrameConsumer? _frameConsumer;
 
     public WindowsGraphicsCaptureService(MeetingWindowSelection selection)
         : this(
             selection,
             new Win32VisualCaptureTargetValidator(new Win32MeetingWindowCatalog()),
-            new WindowsGraphicsCaptureFactory())
+            new WindowsGraphicsCaptureFactory(),
+            frameConsumer: null)
+    {
+    }
+
+    internal WindowsGraphicsCaptureService(
+        MeetingWindowSelection selection,
+        IVisualProbeFrameConsumer? frameConsumer)
+        : this(
+            selection,
+            new Win32VisualCaptureTargetValidator(new Win32MeetingWindowCatalog()),
+            new WindowsGraphicsCaptureFactory(),
+            frameConsumer)
     {
     }
 
@@ -40,10 +54,20 @@ internal sealed class WindowsGraphicsCaptureService : IVisualMeetingCapture
         MeetingWindowSelection selection,
         IVisualCaptureTargetValidator targetValidator,
         IWindowsGraphicsCaptureFactory factory)
+        : this(selection, targetValidator, factory, frameConsumer: null)
+    {
+    }
+
+    internal WindowsGraphicsCaptureService(
+        MeetingWindowSelection selection,
+        IVisualCaptureTargetValidator targetValidator,
+        IWindowsGraphicsCaptureFactory factory,
+        IVisualProbeFrameConsumer? frameConsumer)
     {
         _selection = selection ?? throw new ArgumentNullException(nameof(selection));
         _targetValidator = targetValidator ?? throw new ArgumentNullException(nameof(targetValidator));
         _factory = factory ?? throw new ArgumentNullException(nameof(factory));
+        _frameConsumer = frameConsumer;
     }
 
     public ValueTask<IVisualCaptureLease> StartValidatedAsync(CancellationToken cancellationToken)
@@ -61,7 +85,10 @@ internal sealed class WindowsGraphicsCaptureService : IVisualMeetingCapture
                 return ValueTask.FromResult<IVisualCaptureLease>(
                     CompletedVisualCaptureLease.For(MapTargetStatus(targetStatus)));
 
-            return ValueTask.FromResult(_factory.CreateForWindow(_selection, _targetValidator));
+            return ValueTask.FromResult(_factory.CreateForWindow(
+                _selection,
+                _targetValidator,
+                _frameConsumer));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

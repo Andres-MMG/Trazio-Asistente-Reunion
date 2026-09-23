@@ -8,7 +8,16 @@ using Windows.Win32.Graphics.Dxgi.Common;
 
 namespace Trazio.AsistenteReunion.App;
 
-internal sealed class D3D11VisualProbeExtractor
+internal interface IVisualProbeExtractor
+{
+    VisualProbeFeatureLease Extract(
+        IDirect3DSurface surface,
+        VisualProbeLayoutProfile profile,
+        TimeSpan offset,
+        long surfaceRevision);
+}
+
+internal sealed class D3D11VisualProbeExtractor : IVisualProbeExtractor
 {
     public const int MaxPatches = 16;
     public const int AtlasWidth = MaxPatches * VisualProbePatch.Width;

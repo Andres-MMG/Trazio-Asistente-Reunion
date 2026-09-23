@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using Trazio.AsistenteReunion.App;
 using Trazio.AsistenteReunion.Core;
+using Windows.Graphics.DirectX.Direct3D11;
 
 namespace Trazio.AsistenteReunion.Tests;
 
@@ -40,6 +41,34 @@ public sealed class WindowsGraphicsCaptureServiceTests
         Assert.Equal(1, validator.ValidateCount);
         Assert.Equal(1, factory.CreateCount);
         await lease.DisposeAsync();
+    }
+
+    [Fact]
+    [Trait("Area", "VisualCapture")]
+    public async Task StartValidatedAsync_ForwardsOptionalProbeConsumerWithoutTakingOwnership()
+    {
+        var validator = new FakeTargetValidator(VisualCaptureTargetStatus.Available);
+        var factory = new FakeCaptureFactory();
+        var consumer = new FakeProbeConsumer();
+        var service = CreateService(validator, factory, consumer);
+
+        await using var lease = await service.StartValidatedAsync(CancellationToken.None);
+
+        Assert.Same(consumer, factory.FrameConsumer);
+        Assert.Equal(0, consumer.DisposeCount);
+    }
+
+    [Fact]
+    [Trait("Area", "VisualCapture")]
+    public async Task StartValidatedAsync_ExistingConstructorForwardsNullProbeConsumer()
+    {
+        var validator = new FakeTargetValidator(VisualCaptureTargetStatus.Available);
+        var factory = new FakeCaptureFactory();
+        var service = CreateService(validator, factory);
+
+        await using var lease = await service.StartValidatedAsync(CancellationToken.None);
+
+        Assert.Null(factory.FrameConsumer);
     }
 
     [Theory]
@@ -188,10 +217,72 @@ public sealed class WindowsGraphicsCaptureServiceTests
         Assert.Equal(expectedReason, result);
     }
 
+    [Fact]
+    [Trait("Area", "VisualCapture")]
+    public void ProbeBridge_ResizeThenTerminalStop_UsesNewRevisionAndRejectsLateCallbacks()
+    {
+        var consumer = new FakeProbeConsumer();
+        var bridge = new WindowsGraphicsCaptureProbeBridge(consumer);
+        var surfaceAccessCount = 0;
+        Func<IDirect3DSurface> getSurface = () =>
+        {
+            surfaceAccessCount++;
+            return null!;
+        };
+
+        bridge.BeginSurface();
+        bridge.ObserveFrame(getSurface);
+        bridge.BeginSurface();
+        bridge.ObserveFrame(getSurface);
+        bridge.Stop();
+        bridge.ObserveFrame(getSurface);
+        bridge.BeginSurface();
+        bridge.Stop();
+
+        Assert.Equal([1L, 2L], consumer.ObservedRevisions);
+        Assert.Equal([2L], consumer.UnavailableRevisions);
+        Assert.Equal(2, surfaceAccessCount);
+    }
+
+    [Fact]
+    [Trait("Area", "VisualCapture")]
+    public void ResizeTransition_DisposesCurrentFrameBeforeRecreate()
+    {
+        var calls = new List<string>();
+        var frame = new CallbackDisposable(() => calls.Add("frame-disposed"));
+
+        WindowsGraphicsCaptureResizeTransition.DisposeFrameBeforeRecreate(
+            frame,
+            () => calls.Add("recreate"));
+
+        Assert.Equal(["frame-disposed", "recreate"], calls);
+    }
+
+    [Fact]
+    [Trait("Area", "VisualCapture")]
+    public void ProbeBridge_ConsumerFailure_DoesNotEscapeCaptureBoundary()
+    {
+        var consumer = new FakeProbeConsumer { ThrowOnCall = true };
+        var bridge = new WindowsGraphicsCaptureProbeBridge(consumer);
+
+        var beginException = Record.Exception(bridge.BeginSurface);
+        var observeException = Record.Exception(() => bridge.ObserveFrame(() => null!));
+        var stopException = Record.Exception(bridge.Stop);
+
+        Assert.Null(beginException);
+        Assert.Null(observeException);
+        Assert.Null(stopException);
+    }
+
     private static WindowsGraphicsCaptureService CreateService(
         IVisualCaptureTargetValidator validator,
-        IWindowsGraphicsCaptureFactory factory) =>
-        new(new MeetingWindowSelection((nint)42, 7, MeetingProvider.GoogleMeet), validator, factory);
+        IWindowsGraphicsCaptureFactory factory,
+        IVisualProbeFrameConsumer? frameConsumer = null) =>
+        new(
+            new MeetingWindowSelection((nint)42, 7, MeetingProvider.GoogleMeet),
+            validator,
+            factory,
+            frameConsumer);
 
     private sealed class FakeTargetValidator(
         VisualCaptureTargetStatus status,
@@ -218,6 +309,7 @@ public sealed class WindowsGraphicsCaptureServiceTests
         public IVisualCaptureLease Lease { get; init; } = new FakeCaptureLease();
         public int SupportCount { get; private set; }
         public int CreateCount { get; private set; }
+        public IVisualProbeFrameConsumer? FrameConsumer { get; private set; }
 
         public bool IsSupported()
         {
@@ -228,10 +320,12 @@ public sealed class WindowsGraphicsCaptureServiceTests
 
         public IVisualCaptureLease CreateForWindow(
             MeetingWindowSelection selection,
-            IVisualCaptureTargetValidator targetValidator)
+            IVisualCaptureTargetValidator targetValidator,
+            IVisualProbeFrameConsumer? frameConsumer)
         {
             CreateCount++;
             _calls?.Add("create");
+            FrameConsumer = frameConsumer;
             if (Exception is not null) throw Exception;
             return Lease;
         }
@@ -248,6 +342,52 @@ public sealed class WindowsGraphicsCaptureServiceTests
         {
             _completion.TrySetResult(new(VisualCaptureExitReason.Completed));
             return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class FakeProbeConsumer : IVisualProbeFrameConsumer, IDisposable
+    {
+        private long _nextRevision;
+
+        public bool ThrowOnCall { get; init; }
+        public int DisposeCount { get; private set; }
+        public List<long> ObservedRevisions { get; } = [];
+        public List<long> UnavailableRevisions { get; } = [];
+
+        public bool BeginSurface(out long surfaceRevision)
+        {
+            if (ThrowOnCall) throw new InvalidOperationException("probe begin failure");
+            surfaceRevision = Interlocked.Increment(ref _nextRevision);
+            return true;
+        }
+
+        public VisualProbeFrameResult ObserveFrame(
+            long surfaceRevision,
+            Func<IDirect3DSurface> getSurface)
+        {
+            if (ThrowOnCall) throw new InvalidOperationException("probe frame failure");
+            ObservedRevisions.Add(surfaceRevision);
+            _ = getSurface();
+            return VisualProbeFrameResult.Observed;
+        }
+
+        public bool MarkUnavailable(long surfaceRevision)
+        {
+            if (ThrowOnCall) throw new InvalidOperationException("probe stop failure");
+            UnavailableRevisions.Add(surfaceRevision);
+            return true;
+        }
+
+        public void Dispose() => DisposeCount++;
+    }
+
+    private sealed class CallbackDisposable(Action onDispose) : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0) onDispose();
         }
     }
 
