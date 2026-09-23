@@ -267,6 +267,58 @@ public sealed class VisualCaptureSessionControllerTests
         Assert.Equal(1, lease.DisposeCount);
     }
 
+    [Fact]
+    [Trait("Area", "VisualCapture")]
+    public async Task StateObserver_CallbackRunsOutsideLifecycleGateAndCanPauseCapture()
+    {
+        var sessionId = Guid.NewGuid();
+        var capture = new FakeVisualMeetingCapture();
+        VisualCaptureSessionController? controller = null;
+        var paused = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var observer = new DelegatingStateObserver(change =>
+        {
+            if (change.State != VisualCaptureState.Active) return;
+            controller!.PauseAsync().AsTask().GetAwaiter().GetResult();
+            paused.TrySetResult();
+        });
+        await using var ownedController = controller = new(sessionId, capture, observer);
+
+        await controller.StartAsync(VisualCaptureConsent.GrantForSession(sessionId));
+        await paused.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.Equal(VisualCaptureState.Paused, controller.State);
+        Assert.Equal(1, capture.Leases.Single().DisposeCount);
+    }
+
+    [Fact]
+    [Trait("Area", "VisualCapture")]
+    public async Task StateObserver_ReportsMinimizedTargetWithOrderedRevisions()
+    {
+        var changes = new List<VisualCaptureStateChange>();
+        var minimized = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var observer = new DelegatingStateObserver(change =>
+        {
+            lock (changes) changes.Add(change);
+            if (change.State == VisualCaptureState.TargetMinimized) minimized.TrySetResult();
+        });
+        var sessionId = Guid.NewGuid();
+        var capture = new FakeVisualMeetingCapture();
+        await using var controller = new VisualCaptureSessionController(sessionId, capture, observer);
+        await controller.StartAsync(VisualCaptureConsent.GrantForSession(sessionId));
+
+        capture.Leases.Single().Complete(VisualCaptureExitReason.Minimized);
+        await minimized.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        VisualCaptureStateChange[] snapshot;
+        lock (changes) snapshot = [.. changes];
+        Assert.All(snapshot, change => Assert.Equal(controller.Identity, change.SourceId));
+        Assert.Equal(snapshot.Select(change => change.Revision).Order().ToArray(), snapshot.Select(change => change.Revision).ToArray());
+        Assert.Contains(snapshot, change => change.State == VisualCaptureState.Starting);
+        Assert.Contains(snapshot, change => change.State == VisualCaptureState.Active);
+        Assert.Contains(snapshot, change => change.State == VisualCaptureState.Pausing);
+        Assert.Equal(VisualCaptureState.TargetMinimized, snapshot[^1].State);
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
         var timeout = DateTime.UtcNow + TimeSpan.FromSeconds(2);
@@ -298,6 +350,12 @@ public sealed class VisualCaptureSessionControllerTests
             Leases.Add(lease);
             return ValueTask.FromResult<IVisualCaptureLease>(lease);
         }
+    }
+
+    private sealed class DelegatingStateObserver(Action<VisualCaptureStateChange> callback)
+        : IVisualCaptureStateObserver
+    {
+        public void OnStateChanged(VisualCaptureStateChange change) => callback(change);
     }
 
     private sealed class FakeVisualCaptureLease : IVisualCaptureLease

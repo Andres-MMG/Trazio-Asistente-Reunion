@@ -139,7 +139,7 @@ public sealed class WindowsGraphicsCaptureServiceTests
     }
 
     [Theory]
-    [InlineData((int)VisualCaptureTargetStatus.Minimized, VisualCaptureState.Paused)]
+    [InlineData((int)VisualCaptureTargetStatus.Minimized, VisualCaptureState.TargetMinimized)]
     [InlineData((int)VisualCaptureTargetStatus.Lost, VisualCaptureState.TargetUnavailable)]
     [Trait("Area", "VisualCapture")]
     public async Task SessionController_MapsUnavailableTargetToNormalizedState(

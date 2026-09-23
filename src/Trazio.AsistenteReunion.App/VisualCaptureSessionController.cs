@@ -1,10 +1,14 @@
+using System.Collections.Concurrent;
+
 namespace Trazio.AsistenteReunion.App;
 
 public sealed class VisualCaptureSessionController : IAsyncDisposable
 {
     private readonly Guid _sessionId;
     private readonly IVisualMeetingCapture _capture;
+    private readonly IVisualCaptureStateObserver? _observer;
     private readonly SemaphoreSlim _lifecycle = new(1, 1);
+    private readonly ConcurrentQueue<VisualCaptureStateChange> _stateNotifications = new();
     private IVisualCaptureLease? _activeCapture;
     private CancellationTokenSource? _captureCancellation;
     private Task _startCompletion = Task.CompletedTask;
@@ -12,15 +16,23 @@ public sealed class VisualCaptureSessionController : IAsyncDisposable
     private bool _authorized;
     private bool _disposed;
     private long _generation;
+    private long _stateRevision;
+    private int _notificationPumpScheduled;
     private int _state = (int)VisualCaptureState.Off;
 
-    public VisualCaptureSessionController(Guid sessionId, IVisualMeetingCapture capture)
+    public VisualCaptureSessionController(
+        Guid sessionId,
+        IVisualMeetingCapture capture,
+        IVisualCaptureStateObserver? observer = null)
     {
         if (sessionId == Guid.Empty) throw new ArgumentException("A session identifier is required.", nameof(sessionId));
         _sessionId = sessionId;
         _capture = capture ?? throw new ArgumentNullException(nameof(capture));
+        _observer = observer;
+        Identity = Guid.NewGuid();
     }
 
+    public Guid Identity { get; }
     public VisualCaptureState State => (VisualCaptureState)Volatile.Read(ref _state);
 
     public async ValueTask<VisualCaptureState> StartAsync(
@@ -132,7 +144,7 @@ public sealed class VisualCaptureSessionController : IAsyncDisposable
                 {
                     pendingTransition = _teardownCompletion;
                 }
-                else if (State != VisualCaptureState.Paused || !_authorized)
+                else if (State is not (VisualCaptureState.Paused or VisualCaptureState.TargetMinimized) || !_authorized)
                 {
                     return State;
                 }
@@ -338,7 +350,7 @@ public sealed class VisualCaptureSessionController : IAsyncDisposable
 
             transitionGeneration = ++_generation;
             finalState = MapExit(exit.Reason);
-            transientState = finalState == VisualCaptureState.Paused
+            transientState = finalState is VisualCaptureState.Paused or VisualCaptureState.TargetMinimized
                 ? VisualCaptureState.Pausing
                 : VisualCaptureState.Stopping;
             transition = BeginTeardown(TakeCancellation(), TakeCapture(), _startCompletion);
@@ -450,13 +462,48 @@ public sealed class VisualCaptureSessionController : IAsyncDisposable
         return cancellation;
     }
 
-    private void SetState(VisualCaptureState state) => Volatile.Write(ref _state, (int)state);
+    private void SetState(VisualCaptureState state)
+    {
+        var previous = (VisualCaptureState)Interlocked.Exchange(ref _state, (int)state);
+        if (previous == state || _observer is null) return;
+
+        var revision = Interlocked.Increment(ref _stateRevision);
+        _stateNotifications.Enqueue(new(Identity, revision, state));
+        ScheduleNotificationPump();
+    }
+
+    private void ScheduleNotificationPump()
+    {
+        if (Interlocked.CompareExchange(ref _notificationPumpScheduled, 1, 0) != 0) return;
+        ThreadPool.UnsafeQueueUserWorkItem(
+            static controller => controller.DrainStateNotifications(),
+            this,
+            preferLocal: false);
+    }
+
+    private void DrainStateNotifications()
+    {
+        while (_stateNotifications.TryDequeue(out var change))
+        {
+            try
+            {
+                _observer?.OnStateChanged(change);
+            }
+            catch
+            {
+                // Presentation callbacks never affect visual capture or recording state.
+            }
+        }
+
+        Volatile.Write(ref _notificationPumpScheduled, 0);
+        if (!_stateNotifications.IsEmpty) ScheduleNotificationPump();
+    }
 
     private static VisualCaptureState MapExit(VisualCaptureExitReason reason) => reason switch
     {
         VisualCaptureExitReason.Completed => VisualCaptureState.Stopped,
         VisualCaptureExitReason.Cancelled => VisualCaptureState.Paused,
-        VisualCaptureExitReason.Minimized => VisualCaptureState.Paused,
+        VisualCaptureExitReason.Minimized => VisualCaptureState.TargetMinimized,
         VisualCaptureExitReason.TargetLost => VisualCaptureState.TargetUnavailable,
         VisualCaptureExitReason.ProtectedContent => VisualCaptureState.ProtectedContent,
         VisualCaptureExitReason.NotSupported => VisualCaptureState.NotSupported,

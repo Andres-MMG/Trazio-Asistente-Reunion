@@ -14,7 +14,7 @@ using Trazio.AsistenteReunion.Core;
 
 namespace Trazio.AsistenteReunion.App;
 
-public partial class MainWindow : Window
+public partial class MainWindow : Window, IVisualCaptureStateSink
 {
     private readonly AudioCaptureService _capture = new();
     private readonly IDataRootLocator _dataRootLocator;
@@ -37,6 +37,13 @@ public partial class MainWindow : Window
     private readonly IMeetingWindowCatalog _meetingWindowCatalog;
     private readonly MeetingWindowSelectionController _meetingWindowSelection;
     private readonly DispatcherTimer _meetingWindowMonitorTimer;
+    private readonly VisualCaptureStateTracker _visualCaptureStateTracker = new();
+    private readonly SemaphoreSlim _visualCaptureActions = new(1, 1);
+    private VisualCaptureAuthorization? _visualCaptureAuthorization;
+    private VisualCaptureSessionController? _visualCaptureController;
+    private VisualCaptureState _visualCaptureState = VisualCaptureState.Off;
+    private bool _visualCaptureActionInProgress;
+    private bool _visualPausedByRecording;
     private bool _historySelectedSourceAudioComplete;
     private bool _suppressHistorySegmentPlayback;
     private bool _historyPlaybackPaused;
@@ -53,6 +60,7 @@ public partial class MainWindow : Window
     private RecordingCoordinator? _coordinator;
     private AppSettings _settings = new();
     private bool _recording;
+    private bool _recordingPaused;
     private bool _closingConfirmed;
     private bool _closing;
     private bool _busy;
@@ -126,6 +134,7 @@ public partial class MainWindow : Window
         _initialized = true;
         RefreshHistoryButton.IsEnabled = true;
         UpdateStorageControls();
+        UpdateVisualCaptureUi();
         await OfferPendingRecoveryAsync(recoverableSessions);
     }
 
@@ -133,7 +142,7 @@ public partial class MainWindow : Window
     {
         if (_busy || _closing) return;
         _busy = true;
-        SetRecordingButtons(_recording, false);
+        SetRecordingButtons(_recording, _recordingPaused);
         _operation = ExecuteAsync();
         await _operation;
         async Task ExecuteAsync()
@@ -141,7 +150,7 @@ public partial class MainWindow : Window
             try { await action(); }
             catch (OperationCanceledException) { ModelStatus.Text = "Configuración del modelo cancelada. Puedes intentarlo nuevamente."; }
             catch (Exception ex) { if (!_closing) ShowError("No se pudo completar la operación", ex.Message); }
-            finally { _busy = false; SetRecordingButtons(_recording, false); }
+            finally { _busy = false; SetRecordingButtons(_recording, _recordingPaused); }
         }
     }
 
@@ -218,7 +227,9 @@ public partial class MainWindow : Window
         if (_recording || _busy || _closing) return;
         var dialog = new MeetingWindowPickerWindow(_meetingWindowCatalog) { Owner = this };
         if (dialog.ShowDialog() != true || dialog.SelectedSelection is null) return;
+        InvalidateVisualAuthorization();
         _meetingWindowSelection.Select(dialog.SelectedSelection);
+        SetVisualCaptureState(VisualCaptureState.Off);
         UpdateMeetingWindowUi();
         StatusText.Text = $"{MeetingProviderPresentation.Name(dialog.SelectedSelection.Provider)} seleccionado para la próxima sesión";
     }
@@ -226,9 +237,56 @@ public partial class MainWindow : Window
     private void ClearMeetingWindow_Click(object sender, RoutedEventArgs e)
     {
         if (_recording || _busy || _closing) return;
+        InvalidateVisualAuthorization();
         _meetingWindowSelection.Clear();
+        SetVisualCaptureState(VisualCaptureState.Off);
         UpdateMeetingWindowUi();
         StatusText.Text = "Asociación de aplicación de reunión eliminada";
+    }
+
+    private async void AuthorizeVisualCapture_Click(object sender, RoutedEventArgs e)
+    {
+        if (_visualCaptureActionInProgress || _busy || _closing) return;
+        if (_recordingPaused)
+        {
+            StatusText.Text = "Reanuda la reunión antes de autorizar el análisis visual.";
+            UpdateVisualCaptureUi();
+            return;
+        }
+        var selection = _meetingWindowSelection.Selection;
+        if (!IsCurrentVisualSelectionAvailable(selection))
+        {
+            InvalidateVisualAuthorization();
+            UpdateVisualCaptureUi();
+            StatusText.Text = "Selecciona una ventana disponible antes de autorizar el análisis visual.";
+            return;
+        }
+
+        var dialog = new VisualCaptureConsentWindow { Owner = this };
+        if (dialog.ShowDialog() != true)
+        {
+            AuthorizeVisualCaptureButton.Focus();
+            StatusText.Text = "No se activó el análisis visual. La transcripción continuará sin cambios.";
+            return;
+        }
+
+        if (_meetingWindowSelection.Selection != selection || !IsCurrentVisualSelectionAvailable(selection))
+        {
+            InvalidateVisualAuthorization();
+            UpdateVisualCaptureUi();
+            StatusText.Text = "La ventana seleccionada cambió o dejó de estar disponible. Autoriza nuevamente.";
+            return;
+        }
+
+        _visualCaptureAuthorization = VisualCaptureAuthorization.GrantForSelection(selection!);
+        SetVisualCaptureState(VisualCaptureState.Off);
+        UpdateVisualCaptureUi();
+
+        if (_recording)
+        {
+            await RunVisualCaptureActionAsync(() => StartAuthorizedVisualCaptureAsync(selection!));
+        }
+        VisualCaptureStatusText.Focus();
     }
 
     private async void Start_Click(object sender, RoutedEventArgs e) => await RunExclusiveAsync(StartSessionAsync);
@@ -236,6 +294,8 @@ public partial class MainWindow : Window
     private async Task StartSessionAsync()
     {
         RecordingCoordinator? candidate = null;
+        MeetingWindowSelection? visualSelection = null;
+        var audioStarted = false;
         try
         {
             await EnsureModelAsync();
@@ -245,6 +305,10 @@ public partial class MainWindow : Window
             var hadSelectedWindow = _meetingWindowSelection.Selection is not null;
             var meetingProvider = _meetingWindowSelection.ResolveProviderForStart();
             var selectionLostAtStart = hadSelectedWindow && meetingProvider == MeetingProvider.NotSelected;
+            visualSelection = _meetingWindowSelection.Selection;
+            if (_visualCaptureAuthorization is not null &&
+                !_visualCaptureAuthorization.Matches(visualSelection))
+                InvalidateVisualAuthorization();
             UpdateMeetingWindowUi();
             if (_coordinator is not null) { await _coordinator.DisposeAsync(); _coordinator = null; }
             candidate = CreateCoordinator();
@@ -254,6 +318,8 @@ public partial class MainWindow : Window
             MeetingDisplayNameOverrideBox.Clear();
             _coordinator = candidate;
             _recording = true;
+            _recordingPaused = false;
+            audioStarted = true;
             if (_meetingWindowSelection.Selection is not null) _meetingWindowMonitorTimer.Start();
             SetRecordingButtons(true, false);
             if (selectionLostAtStart)
@@ -261,19 +327,79 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            InvalidateVisualAuthorization();
             _meetingWindowMonitorTimer.Stop();
             _meetingWindowSelection.FinishSession();
             if (candidate is not null) await candidate.DisposeAsync();
             _coordinator = null;
             _recording = false;
+            _recordingPaused = false;
             SetRecordingButtons(false, false);
             if (ex is OperationCanceledException) throw;
             if (!_closing) ShowError("No se pudo iniciar", ex.Message);
         }
+
+        if (audioStarted && visualSelection is not null)
+            await RunVisualCaptureActionAsync(() => StartAuthorizedVisualCaptureAsync(visualSelection));
     }
 
-    private void Pause_Click(object sender, RoutedEventArgs e) { _coordinator?.Pause(); SetRecordingButtons(true, true); }
-    private void Resume_Click(object sender, RoutedEventArgs e) { _coordinator?.Resume(); SetRecordingButtons(true, false); }
+    private async void Pause_Click(object sender, RoutedEventArgs e)
+    {
+        _coordinator?.Pause();
+        _recordingPaused = true;
+        SetRecordingButtons(true, true);
+        if (_visualCaptureController?.State is VisualCaptureState.Active or VisualCaptureState.Starting)
+        {
+            _visualPausedByRecording = true;
+            await RunVisualCaptureActionAsync(async () =>
+            {
+                if (_visualCaptureController is not null) await _visualCaptureController.PauseAsync();
+            });
+        }
+    }
+
+    private async void Resume_Click(object sender, RoutedEventArgs e)
+    {
+        _coordinator?.Resume();
+        _recordingPaused = false;
+        SetRecordingButtons(true, false);
+        var pendingSelection = _meetingWindowSelection.Selection;
+        if (_visualCaptureAuthorization?.Matches(pendingSelection) == true && pendingSelection is not null)
+        {
+            await RunVisualCaptureActionAsync(() => StartAuthorizedVisualCaptureAsync(pendingSelection));
+            return;
+        }
+        if (!_visualPausedByRecording) return;
+        _visualPausedByRecording = false;
+        await RunVisualCaptureActionAsync(async () =>
+        {
+            if (_visualCaptureController is not null) await _visualCaptureController.ResumeAsync(_lifetime.Token);
+        });
+    }
+
+    private async void PauseVisualCapture_Click(object sender, RoutedEventArgs e)
+    {
+        _visualPausedByRecording = false;
+        await RunVisualCaptureActionAsync(async () =>
+        {
+            if (_visualCaptureController is not null) await _visualCaptureController.PauseAsync();
+        });
+    }
+
+    private async void ResumeVisualCapture_Click(object sender, RoutedEventArgs e)
+    {
+        _visualPausedByRecording = false;
+        await RunVisualCaptureActionAsync(async () =>
+        {
+            if (_visualCaptureController is not null) await _visualCaptureController.ResumeAsync(_lifetime.Token);
+        });
+    }
+
+    private async void StopVisualCapture_Click(object sender, RoutedEventArgs e)
+    {
+        _visualPausedByRecording = false;
+        await RunVisualCaptureActionAsync(() => StopAndDisposeVisualCaptureAsync(VisualCaptureState.Stopped));
+    }
 
     private async void Stop_Click(object sender, RoutedEventArgs e) => await RunExclusiveAsync(StopSessionAsync);
 
@@ -281,14 +407,18 @@ public partial class MainWindow : Window
     {
         try
         {
-            await (_coordinator?.StopAsync() ?? Task.CompletedTask);
+            await VisualCaptureShutdown.RunVisualFirstAsync(
+                () => RunVisualCaptureActionAsync(() => StopAndDisposeVisualCaptureAsync(VisualCaptureState.Off)),
+                () => _coordinator?.StopAsync() ?? Task.CompletedTask);
         }
         catch (Exception ex) { ShowError("No se pudo detener correctamente", ex.Message); }
         finally
         {
             _meetingWindowMonitorTimer.Stop();
             _recording = false;
+            _recordingPaused = false;
             _meetingWindowSelection.FinishSession();
+            InvalidateVisualAuthorization();
             SetRecordingButtons(false, false);
             if (_coordinator is not null) { await _coordinator.DisposeAsync(); _coordinator = null; }
             TitleBox.Text = DefaultSessionTitle();
@@ -298,6 +428,7 @@ public partial class MainWindow : Window
 
     private void SetRecordingButtons(bool recording, bool paused)
     {
+        _recordingPaused = recording && paused;
         var ready = _initialized && !_busy && !_closing;
         StartButton.IsEnabled = !recording && ready;
         StopButton.IsEnabled = recording && !_busy && !_closing;
@@ -315,6 +446,7 @@ public partial class MainWindow : Window
         MeetingDisplayNameOverrideBox.IsEnabled = !recording && ready;
         RecordingAudioIndicator.Visibility = recording ? Visibility.Visible : Visibility.Collapsed;
         UpdateMeetingWindowUi();
+        UpdateVisualCaptureUi();
         UpdateStorageControls();
     }
 
@@ -343,6 +475,150 @@ public partial class MainWindow : Window
         SelectMeetingWindowButton.Content = state.SelectButtonText;
         SelectMeetingWindowButton.IsEnabled = state.CanSelect;
         ClearMeetingWindowButton.IsEnabled = state.CanClear;
+        UpdateVisualCaptureUi();
+    }
+
+    private async Task RunVisualCaptureActionAsync(Func<Task> action)
+    {
+        await _visualCaptureActions.WaitAsync();
+        try
+        {
+            _visualCaptureActionInProgress = true;
+            UpdateVisualCaptureUi();
+            await action();
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+        {
+            await StopAndDisposeVisualCaptureAsync(VisualCaptureState.Stopped);
+        }
+        catch
+        {
+            await StopAndDisposeVisualCaptureAsync(VisualCaptureState.Failed);
+            if (!_closing)
+                StatusText.Text = "El análisis visual no pudo continuar. El audio y la transcripción siguen activos.";
+        }
+        finally
+        {
+            _visualCaptureActionInProgress = false;
+            UpdateVisualCaptureUi();
+            _visualCaptureActions.Release();
+        }
+    }
+
+    private async Task StartAuthorizedVisualCaptureAsync(MeetingWindowSelection selection)
+    {
+        if (!VisualCaptureActivationPolicy.CanStart(_recording, _recordingPaused, _closing) ||
+            _visualCaptureController is not null) return;
+        var authorization = _visualCaptureAuthorization;
+        if (authorization is null) return;
+
+        var sessionIdText = _coordinator?.ActiveSessionId;
+        if (!Guid.TryParseExact(sessionIdText, "N", out var sessionId) ||
+            _meetingWindowSelection.Selection != selection ||
+            !IsCurrentVisualSelectionAvailable(selection) ||
+            !authorization.TryConsume(selection, sessionId, out var consent) ||
+            consent is null)
+        {
+            InvalidateVisualAuthorization();
+            SetVisualCaptureState(VisualCaptureState.Off);
+            StatusText.Text = "No se activó el análisis visual porque la sesión o la ventana seleccionada cambió.";
+            return;
+        }
+
+        _visualCaptureAuthorization = null;
+        var observer = new WeakVisualCaptureStateObserver<MainWindow>(this);
+        var controller = new VisualCaptureSessionController(
+            sessionId,
+            new WindowsGraphicsCaptureService(selection),
+            observer);
+        _visualCaptureController = controller;
+        _visualCaptureStateTracker.Reset(controller.Identity);
+        SetVisualCaptureState(VisualCaptureState.Off);
+
+        _ = await controller.StartAsync(consent, _lifetime.Token);
+    }
+
+    private async Task StopAndDisposeVisualCaptureAsync(VisualCaptureState finalState)
+    {
+        InvalidateVisualAuthorization();
+        _visualPausedByRecording = false;
+        var controller = _visualCaptureController;
+        _visualCaptureController = null;
+        _visualCaptureStateTracker.Reset(Guid.Empty);
+        if (controller is not null)
+        {
+            try
+            {
+                await controller.StopAsync();
+                await controller.DisposeAsync();
+            }
+            catch
+            {
+                // Visual cleanup is isolated from audio, transcription, and application shutdown.
+            }
+        }
+        SetVisualCaptureState(finalState);
+    }
+
+    private void OnVisualCaptureStateChanged(VisualCaptureStateChange change)
+    {
+        if (_closing || Dispatcher.HasShutdownStarted) return;
+        _ = Dispatcher.BeginInvoke(DispatcherPriority.DataBind, new Action(() =>
+        {
+            if (_closing || !_visualCaptureStateTracker.TryAccept(change)) return;
+            SetVisualCaptureState(change.State);
+        }));
+    }
+
+    void IVisualCaptureStateSink.ReceiveVisualCaptureState(VisualCaptureStateChange change) =>
+        OnVisualCaptureStateChanged(change);
+
+    private bool IsCurrentVisualSelectionAvailable(MeetingWindowSelection? selection)
+    {
+        if (selection is null || _meetingWindowSelection.IsLost ||
+            _meetingWindowSelection.Selection != selection) return false;
+        try
+        {
+            return _meetingWindowCatalog.IsAvailable(selection);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void InvalidateVisualAuthorization() => _visualCaptureAuthorization = null;
+
+    private void SetVisualCaptureState(VisualCaptureState state)
+    {
+        _visualCaptureState = state;
+        UpdateVisualCaptureUi();
+    }
+
+    private void UpdateVisualCaptureUi()
+    {
+        if (!IsInitialized) return;
+        var selection = _meetingWindowSelection.Selection;
+        var hasValidSelection = selection is not null && !_meetingWindowSelection.IsLost;
+        var hasAuthorization = _visualCaptureAuthorization?.Matches(selection) == true;
+        var state = VisualCapturePresenter.Create(
+            _visualCaptureState,
+            hasValidSelection,
+            hasAuthorization,
+            _initialized && !_busy && !_closing,
+            _recordingPaused,
+            _visualCaptureActionInProgress);
+
+        if (!string.Equals(VisualCaptureStatusText.Text, state.Status, StringComparison.Ordinal))
+            VisualCaptureStatusText.Text = state.Status;
+        AuthorizeVisualCaptureButton.IsEnabled = state.CanAuthorize;
+        PauseVisualCaptureButton.IsEnabled = state.CanPause;
+        ResumeVisualCaptureButton.IsEnabled = state.CanResume;
+        StopVisualCaptureButton.IsEnabled = state.CanStop;
+        StopVisualCaptureButton.Visibility = state.ShowStop ? Visibility.Visible : Visibility.Collapsed;
+        VisualCaptureActiveIndicator.Visibility = state.ShowActiveIndicator
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     private void BrowseModel_Click(object sender, RoutedEventArgs e)
@@ -1523,25 +1799,31 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
         if (_closing) return;
         if (_recording && MessageBox.Show(this, "Hay una transcripción activa. ¿Deseas detenerla y salir?", "Sesión activa", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
         _closing = true;
-        SetRecordingButtons(_recording, false);
+        SetRecordingButtons(_recording, _recordingPaused);
         _downloadCancellation?.Cancel();
         try
         {
-            if (!_recording) _lifetime.Cancel();
-            await _operation;
-            await _historyRetranscriptionOperation.CancelAndWaitAsync();
-            if (_recording) await (_coordinator?.StopAsync() ?? Task.CompletedTask);
-            if (_coordinator is not null) await _coordinator.DisposeAsync();
-            await _capture.DisposeAsync();
-            await _playback.DisposeAsync();
-            _historyRetranscriptionOperation.Dispose();
-            _protector?.Dispose();
+            await VisualCaptureShutdown.RunVisualFirstAsync(
+                () => RunVisualCaptureActionAsync(() => StopAndDisposeVisualCaptureAsync(VisualCaptureState.Stopped)),
+                async () =>
+                {
+                    if (!_recording) _lifetime.Cancel();
+                    await _operation;
+                    await _historyRetranscriptionOperation.CancelAndWaitAsync();
+                    if (_recording) await (_coordinator?.StopAsync() ?? Task.CompletedTask);
+                    if (_coordinator is not null) await _coordinator.DisposeAsync();
+                    await _capture.DisposeAsync();
+                    await _playback.DisposeAsync();
+                    _historyRetranscriptionOperation.Dispose();
+                    _protector?.Dispose();
+                });
         }
         catch (Exception ex) { StatusText.Text = "Cierre interrumpido: " + ex.Message; }
         finally
         {
             _meetingWindowMonitorTimer.Stop();
             _meetingWindowSelection.FinishSession();
+            InvalidateVisualAuthorization();
             _closingConfirmed = true;
             Close();
         }

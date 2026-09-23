@@ -7,6 +7,7 @@ public enum VisualCaptureState
     Active,
     Pausing,
     Paused,
+    TargetMinimized,
     Stopping,
     Stopped,
     NotSupported,
@@ -28,6 +29,16 @@ public enum VisualCaptureExitReason
 }
 
 public readonly record struct VisualCaptureExit(VisualCaptureExitReason Reason);
+
+public readonly record struct VisualCaptureStateChange(
+    Guid SourceId,
+    long Revision,
+    VisualCaptureState State);
+
+public interface IVisualCaptureStateObserver
+{
+    void OnStateChanged(VisualCaptureStateChange change);
+}
 
 public interface IVisualCaptureLease : IAsyncDisposable
 {
@@ -64,4 +75,58 @@ public sealed class VisualCaptureConsent
 
     internal bool TryConsume(Guid sessionId) =>
         sessionId == _sessionId && Interlocked.Exchange(ref _consumed, 1) == 0;
+}
+
+public sealed class VisualCaptureAuthorization
+{
+    private readonly MeetingWindowSelection _selection;
+    private int _consumed;
+
+    private VisualCaptureAuthorization(MeetingWindowSelection selection)
+    {
+        _selection = selection;
+        AuthorizationId = Guid.NewGuid();
+    }
+
+    public Guid AuthorizationId { get; }
+
+    public static VisualCaptureAuthorization GrantForSelection(MeetingWindowSelection selection) =>
+        new(selection ?? throw new ArgumentNullException(nameof(selection)));
+
+    public bool Matches(MeetingWindowSelection? selection) =>
+        selection is not null && selection == _selection && Volatile.Read(ref _consumed) == 0;
+
+    internal bool TryConsume(
+        MeetingWindowSelection selection,
+        Guid sessionId,
+        out VisualCaptureConsent? consent)
+    {
+        consent = null;
+        if (sessionId == Guid.Empty || selection != _selection) return false;
+        if (Interlocked.Exchange(ref _consumed, 1) != 0) return false;
+        consent = VisualCaptureConsent.GrantForSession(sessionId);
+        return true;
+    }
+}
+
+internal interface IVisualCaptureStateSink
+{
+    void ReceiveVisualCaptureState(VisualCaptureStateChange change);
+}
+
+internal sealed class WeakVisualCaptureStateObserver<TTarget> : IVisualCaptureStateObserver
+    where TTarget : class, IVisualCaptureStateSink
+{
+    private readonly WeakReference<TTarget> _target;
+
+    public WeakVisualCaptureStateObserver(TTarget target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        _target = new(target);
+    }
+
+    public void OnStateChanged(VisualCaptureStateChange change)
+    {
+        if (_target.TryGetTarget(out var target)) target.ReceiveVisualCaptureState(change);
+    }
 }
