@@ -48,20 +48,38 @@ catch {
 if ($capabilityManifest.schemaVersion -ne 1 -or $capabilityManifest.product -ne "Trazio Asistente Reunión") {
     throw "Published capability manifest has an unsupported schema or product."
 }
+$capabilities = @($capabilityManifest.capabilities)
+if ($capabilities.Count -eq 0) {
+    throw "Published capability manifest does not declare any capabilities."
+}
+$seenCapabilityIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+foreach ($capability in $capabilities) {
+    $capabilityId = [string]$capability.id
+    $parsedVersion = 0
+    if ([string]::IsNullOrWhiteSpace($capabilityId) -or
+        -not [int]::TryParse([string]$capability.version, [ref]$parsedVersion) -or
+        $parsedVersion -lt 1) {
+        throw "Published capability manifest contains an invalid capability id or version."
+    }
+    if (-not $seenCapabilityIds.Add($capabilityId)) {
+        throw "Published capability manifest contains duplicate capability id: $capabilityId"
+    }
+}
 $requiredCapabilities = @(
     [pscustomobject]@{ Id = "history-review-workspace"; Version = 1; Label = "history-review-workspace-v1" }
     [pscustomobject]@{ Id = "encrypted-audio-retention"; Version = 1; Label = "encrypted-audio-retention-v1" }
     [pscustomobject]@{ Id = "obsidian-markdown-export"; Version = 1; Label = "obsidian-markdown-export-v1" }
     [pscustomobject]@{ Id = "meeting-window-provider-association-v1"; Version = 1; Label = "meeting-window-provider-association-v1" }
+    [pscustomobject]@{ Id = "consented-ephemeral-window-capture-v1"; Version = 1; Label = "consented-ephemeral-window-capture-v1" }
 )
 $missingCapabilities = @(
     foreach ($requiredCapability in $requiredCapabilities) {
         $match = @(
-            $capabilityManifest.capabilities | Where-Object {
+            $capabilities | Where-Object {
                 $_.id -eq $requiredCapability.Id -and $_.version -eq $requiredCapability.Version
             }
         )
-        if ($match.Count -eq 0) {
+        if ($match.Count -ne 1) {
             $requiredCapability.Label
         }
     }

@@ -21,6 +21,7 @@ public sealed class VersionMetadataTests
     }
 
     [Fact]
+    [Trait("Area", "VisualCapture")]
     public void CapabilityManifest_DeclaresPackagedCapabilitiesImplementedByApplication()
     {
         var manifestPath = Path.Combine(AppContext.BaseDirectory, "trazio-capabilities.json");
@@ -30,18 +31,60 @@ public sealed class VersionMetadataTests
         var root = document.RootElement;
         Assert.Equal(1, root.GetProperty("schemaVersion").GetInt32());
         Assert.Equal("Trazio Asistente Reunión", root.GetProperty("product").GetString());
-        Assert.Contains(
-            root.GetProperty("capabilities").EnumerateArray(),
-            capability => capability.GetProperty("id").GetString() == "obsidian-markdown-export"
-                && capability.GetProperty("version").GetInt32() == 1);
-        Assert.Contains(
-            root.GetProperty("capabilities").EnumerateArray(),
-            capability => capability.GetProperty("id").GetString() == "meeting-window-provider-association-v1"
-                && capability.GetProperty("version").GetInt32() == 1);
+        var capabilities = root.GetProperty("capabilities").EnumerateArray().ToArray();
+        Assert.All(capabilities, capability =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(capability.GetProperty("id").GetString()));
+            Assert.True(capability.GetProperty("version").GetInt32() > 0);
+        });
+        Assert.Equal(
+            capabilities.Length,
+            capabilities.Select(capability => capability.GetProperty("id").GetString()).Distinct(StringComparer.Ordinal).Count());
+        AssertCapability(capabilities, "obsidian-markdown-export", 1);
+        AssertCapability(capabilities, "meeting-window-provider-association-v1", 1);
+        AssertCapability(capabilities, "consented-ephemeral-window-capture-v1", 1);
         Assert.NotNull(typeof(MainWindow).GetMethod("SelectMeetingWindow_Click", BindingFlags.Instance | BindingFlags.NonPublic));
         Assert.NotNull(typeof(MainWindow).GetMethod("ClearMeetingWindow_Click", BindingFlags.Instance | BindingFlags.NonPublic));
+        Assert.NotNull(typeof(MainWindow).GetMethod("AuthorizeVisualCapture_Click", BindingFlags.Instance | BindingFlags.NonPublic));
+        Assert.NotNull(typeof(MainWindow).GetMethod("PauseVisualCapture_Click", BindingFlags.Instance | BindingFlags.NonPublic));
+        Assert.NotNull(typeof(MainWindow).GetMethod("ResumeVisualCapture_Click", BindingFlags.Instance | BindingFlags.NonPublic));
+        Assert.NotNull(typeof(MainWindow).GetMethod("StopVisualCapture_Click", BindingFlags.Instance | BindingFlags.NonPublic));
+        Assert.Contains(typeof(IVisualMeetingCapture), typeof(WindowsGraphicsCaptureService).GetInterfaces());
         Assert.NotNull(typeof(MeetingWindowClassifier).GetMethod(nameof(MeetingWindowClassifier.Classify)));
         Assert.NotNull(typeof(MainWindow).GetMethod("ExportObsidian_Click", BindingFlags.Instance | BindingFlags.NonPublic));
         Assert.NotNull(typeof(ObsidianMarkdownExport).GetMethod(nameof(ObsidianMarkdownExport.Create)));
+    }
+
+    private static void AssertCapability(JsonElement[] capabilities, string id, int version)
+    {
+        var match = Assert.Single(
+            capabilities,
+            capability => string.Equals(capability.GetProperty("id").GetString(), id, StringComparison.Ordinal));
+        Assert.Equal(version, match.GetProperty("version").GetInt32());
+    }
+
+    [Fact]
+    [Trait("Area", "VisualCapture")]
+    public void PublishScript_RejectsDuplicateCapabilitiesAndRequiresVisualCaptureContract()
+    {
+        var root = FindRepositoryRoot();
+        var script = File.ReadAllText(Path.Combine(root, "installer", "publish.ps1"));
+
+        Assert.Contains("consented-ephemeral-window-capture-v1", script, StringComparison.Ordinal);
+        Assert.Contains("HashSet[string]", script, StringComparison.Ordinal);
+        Assert.Contains("StringComparer]::Ordinal", script, StringComparison.Ordinal);
+        Assert.Contains("$match.Count -ne 1", script, StringComparison.Ordinal);
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "installer", "publish.ps1")))
+                return directory.FullName;
+            directory = directory.Parent;
+        }
+        throw new DirectoryNotFoundException("Repository root was not found from the test output directory.");
     }
 }

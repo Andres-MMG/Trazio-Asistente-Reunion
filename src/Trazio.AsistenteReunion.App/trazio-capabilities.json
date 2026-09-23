@@ -17,6 +17,10 @@
     {
       "id": "meeting-window-provider-association-v1",
       "version": 1
+    },
+    {
+      "id": "consented-ephemeral-window-capture-v1",
+      "version": 1
     }
   ]
 }
