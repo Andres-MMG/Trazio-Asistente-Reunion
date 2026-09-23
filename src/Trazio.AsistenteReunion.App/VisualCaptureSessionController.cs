@@ -253,6 +253,13 @@ public sealed class VisualCaptureSessionController : IAsyncDisposable
         try
         {
             startedCapture = await _capture.StartValidatedAsync(captureCancellation.Token);
+            if (startedCapture.Completion.IsCompleted)
+            {
+                var exit = await ReadCompletedExitAsync(startedCapture);
+                var completedCapture = startedCapture;
+                startedCapture = null;
+                return await NormalizeStartFailureAsync(generation, MapExit(exit.Reason), completedCapture);
+            }
 
             await _lifecycle.WaitAsync();
             try
@@ -282,6 +289,22 @@ public sealed class VisualCaptureSessionController : IAsyncDisposable
         {
             if (startedCapture is not null) await DisposeCaptureSafelyAsync(startedCapture);
             startCompletion.TrySetResult();
+        }
+    }
+
+    private static async Task<VisualCaptureExit> ReadCompletedExitAsync(IVisualCaptureLease capture)
+    {
+        try
+        {
+            return await capture.Completion;
+        }
+        catch (OperationCanceledException)
+        {
+            return new(VisualCaptureExitReason.Cancelled);
+        }
+        catch
+        {
+            return new(VisualCaptureExitReason.UnexpectedFailure);
         }
     }
 
@@ -332,7 +355,8 @@ public sealed class VisualCaptureSessionController : IAsyncDisposable
 
     private async ValueTask<VisualCaptureState> NormalizeStartFailureAsync(
         long generation,
-        VisualCaptureState failureState)
+        VisualCaptureState failureState,
+        IVisualCaptureLease? completedCapture = null)
     {
         TeardownTransition? transition = null;
         long transitionGeneration = 0;
@@ -342,7 +366,7 @@ public sealed class VisualCaptureSessionController : IAsyncDisposable
             if (!_disposed && generation == _generation)
             {
                 transitionGeneration = ++_generation;
-                transition = BeginTeardown(TakeCancellation(), null, Task.CompletedTask);
+                transition = BeginTeardown(TakeCancellation(), completedCapture, Task.CompletedTask);
                 SetState(VisualCaptureState.Stopping);
             }
         }
@@ -358,6 +382,10 @@ public sealed class VisualCaptureSessionController : IAsyncDisposable
                 transitionGeneration,
                 VisualCaptureState.Stopping,
                 failureState);
+        }
+        else if (completedCapture is not null)
+        {
+            await DisposeCaptureSafelyAsync(completedCapture);
         }
         return State;
     }

@@ -183,6 +183,36 @@ public sealed class VisualCaptureSessionControllerTests
 
     [Fact]
     [Trait("Area", "VisualCapture")]
+    public async Task StartAsync_WithPrecompletedLease_WaitsForItsTeardownBeforeStartingAgain()
+    {
+        var sessionId = Guid.NewGuid();
+        var capture = new FakeVisualMeetingCapture();
+        var firstLease = new FakeVisualCaptureLease();
+        firstLease.BlockDisposal();
+        firstLease.Complete(VisualCaptureExitReason.Minimized);
+        capture.QueueLease(firstLease);
+        await using var controller = new VisualCaptureSessionController(sessionId, capture);
+
+        var firstStart = controller.StartAsync(VisualCaptureConsent.GrantForSession(sessionId)).AsTask();
+        await firstLease.DisposeStarted;
+        var secondStart = controller.StartAsync(VisualCaptureConsent.GrantForSession(sessionId)).AsTask();
+
+        Assert.False(firstStart.IsCompleted);
+        Assert.False(secondStart.IsCompleted);
+        Assert.Equal(VisualCaptureState.Stopping, controller.State);
+        Assert.Equal(1, capture.StartCount);
+
+        firstLease.ReleaseDisposal();
+        await firstStart;
+        await secondStart;
+
+        Assert.Equal(VisualCaptureState.Active, controller.State);
+        Assert.Equal(2, capture.StartCount);
+        Assert.Equal(1, firstLease.DisposeCount);
+    }
+
+    [Fact]
+    [Trait("Area", "VisualCapture")]
     public async Task StartAsync_WhenVisualCaptureThrows_NormalizesFailureWithoutPropagating()
     {
         var sessionId = Guid.NewGuid();
@@ -249,16 +279,22 @@ public sealed class VisualCaptureSessionControllerTests
 
     private sealed class FakeVisualMeetingCapture : IVisualMeetingCapture
     {
+        private readonly Queue<FakeVisualCaptureLease> _queuedLeases = new();
+
         public Exception? StartException { get; set; }
         public int StartCount { get; private set; }
         public List<FakeVisualCaptureLease> Leases { get; } = [];
+
+        public void QueueLease(FakeVisualCaptureLease lease) => _queuedLeases.Enqueue(lease);
 
         public ValueTask<IVisualCaptureLease> StartValidatedAsync(CancellationToken cancellationToken)
         {
             StartCount++;
             cancellationToken.ThrowIfCancellationRequested();
             if (StartException is not null) throw StartException;
-            var lease = new FakeVisualCaptureLease();
+            var lease = _queuedLeases.TryDequeue(out var queuedLease)
+                ? queuedLease
+                : new FakeVisualCaptureLease();
             Leases.Add(lease);
             return ValueTask.FromResult<IVisualCaptureLease>(lease);
         }
