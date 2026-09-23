@@ -87,6 +87,7 @@ public sealed class RecordingCoordinatorTests : IAsyncLifetime
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.StartAsync("Failed", Settings()));
         Assert.Empty(await _store.ListSessionsAsync());
+        Assert.Null(coordinator.ActiveTimelineContext);
 
         await coordinator.StartAsync("Retry", Settings());
         capture.Emit(AudioSourceKind.Microphone, [1, 2]);
@@ -97,6 +98,266 @@ public sealed class RecordingCoordinatorTests : IAsyncLifetime
         Assert.Equal(SessionState.Completed, session.State);
         Assert.Equal(2, capture.StartCount);
         Assert.True(capture.StopCount >= 2);
+    }
+
+    [Fact]
+    public async Task StartAsync_CreatesTimelineFromSessionStartAndStopRevokesItsContext()
+    {
+        var startedAt = new DateTimeOffset(2026, 9, 23, 16, 0, 0, TimeSpan.Zero);
+        var time = new ManualTimeProvider(startedAt);
+        var capture = new FakeAudioCapture();
+        await using var coordinator = new RecordingCoordinator(
+            capture,
+            _store,
+            new PendingAudioQueue(),
+            new FakeTransportFactory(),
+            timeProvider: time);
+
+        await coordinator.StartAsync("Timeline", Settings());
+        var session = Assert.Single(await _store.ListSessionsAsync());
+        var context = Assert.IsType<SessionTimelineContext>(coordinator.ActiveTimelineContext);
+
+        Assert.Equal(session.Id, context.SessionId);
+        Assert.Equal(startedAt, session.StartedAt);
+        Assert.Equal(session.StartedAt, context.StartedAtUtc);
+        Assert.True(context.TryGetCurrentOffset(out var initialOffset));
+        Assert.Equal(TimeSpan.Zero, initialOffset);
+
+        await coordinator.StopAsync();
+
+        Assert.Null(coordinator.ActiveTimelineContext);
+        Assert.False(context.TryGetCurrentOffset(out _));
+    }
+
+    [Fact]
+    public async Task OnSecondCaptured_WhenLevelChangedBlocks_PreservesCallbackEntryTimestampAndPcm()
+    {
+        var startedAt = new DateTimeOffset(2026, 9, 23, 17, 0, 0, TimeSpan.Zero);
+        var time = new ManualTimeProvider(startedAt);
+        var capture = new FakeAudioCapture();
+        var factory = new FakeTransportFactory();
+        await using var coordinator = new RecordingCoordinator(
+            capture,
+            _store,
+            new PendingAudioQueue(),
+            factory,
+            timeProvider: time);
+        var levelEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseLevel = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        coordinator.LevelChanged += (_, _) =>
+        {
+            levelEntered.TrySetResult();
+            releaseLevel.Task.GetAwaiter().GetResult();
+        };
+        await coordinator.StartAsync("Blocked level", Settings());
+        time.AdvanceTimestamp(TimeSpan.FromSeconds(2));
+        byte[] pcm = [1, 2, 3, 4];
+
+        var emitting = Task.Run(() => capture.Emit(AudioSourceKind.Microphone, pcm));
+        await levelEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        time.AdvanceTimestamp(TimeSpan.FromSeconds(30));
+        releaseLevel.TrySetResult();
+        await emitting;
+        await coordinator.StopAsync();
+
+        var session = Assert.Single(await _store.ListSessionsAsync());
+        var segment = Assert.Single(await _store.GetSegmentsAsync(session.Id));
+        Assert.Equal(TimeSpan.FromSeconds(2), segment.Start);
+        Assert.Equal(pcm, Assert.Single(factory.Transports).TranscribedPcm.Single());
+    }
+
+    [Fact]
+    public async Task IngestAsync_WhenQueueingOccursAfterClockAdvance_UsesEnvelopedOffset()
+    {
+        var time = new ManualTimeProvider(new DateTimeOffset(2026, 9, 23, 18, 0, 0, TimeSpan.Zero));
+        var capture = new FakeAudioCapture();
+        await using var coordinator = new RecordingCoordinator(
+            capture,
+            _store,
+            new PendingAudioQueue(),
+            new FakeTransportFactory(),
+            timeProvider: time);
+        coordinator.LevelChanged += (_, _) => time.AdvanceTimestamp(TimeSpan.FromSeconds(45));
+        await coordinator.StartAsync("Queued timestamp", Settings());
+        time.AdvanceTimestamp(TimeSpan.FromSeconds(3));
+
+        capture.Emit(AudioSourceKind.Microphone, [5, 6]);
+        await coordinator.StopAsync();
+
+        var session = Assert.Single(await _store.ListSessionsAsync());
+        Assert.Equal(TimeSpan.FromSeconds(3), Assert.Single(await _store.GetSegmentsAsync(session.Id)).Start);
+    }
+
+    [Fact]
+    public async Task ConsecutiveSessions_UseDistinctRevocableTimelinesWithFreshOffsets()
+    {
+        var firstStart = new DateTimeOffset(2026, 9, 23, 19, 0, 0, TimeSpan.Zero);
+        var time = new ManualTimeProvider(firstStart);
+        var capture = new FakeAudioCapture();
+        await using var coordinator = new RecordingCoordinator(
+            capture,
+            _store,
+            new PendingAudioQueue(),
+            new FakeTransportFactory(),
+            timeProvider: time);
+        await coordinator.StartAsync("First timeline", Settings());
+        var firstContext = Assert.IsType<SessionTimelineContext>(coordinator.ActiveTimelineContext);
+        time.AdvanceTimestamp(TimeSpan.FromSeconds(2));
+        capture.Emit(AudioSourceKind.Microphone, [1, 2]);
+        await coordinator.StopAsync();
+
+        var secondStart = firstStart.AddHours(1);
+        time.SetUtcNow(secondStart);
+        await coordinator.StartAsync("Second timeline", Settings());
+        var secondContext = Assert.IsType<SessionTimelineContext>(coordinator.ActiveTimelineContext);
+        time.AdvanceTimestamp(TimeSpan.FromSeconds(1));
+        capture.Emit(AudioSourceKind.Microphone, [3, 4]);
+        await coordinator.StopAsync();
+
+        Assert.NotSame(firstContext, secondContext);
+        Assert.NotEqual(firstContext.SessionId, secondContext.SessionId);
+        Assert.True(secondContext.Revision > firstContext.Revision);
+        Assert.False(firstContext.TryGetCurrentOffset(out _));
+        Assert.False(secondContext.TryGetCurrentOffset(out _));
+        var sessions = await _store.ListSessionsAsync();
+        var first = sessions.Single(session => session.Title == "First timeline");
+        var second = sessions.Single(session => session.Title == "Second timeline");
+        Assert.Equal(firstStart, first.StartedAt);
+        Assert.Equal(secondStart, second.StartedAt);
+        Assert.Equal(TimeSpan.FromSeconds(2), Assert.Single(await _store.GetSegmentsAsync(first.Id)).Start);
+        Assert.Equal(TimeSpan.FromSeconds(1), Assert.Single(await _store.GetSegmentsAsync(second.Id)).Start);
+    }
+
+    [Fact]
+    public async Task PauseResume_PreservesTimelineContinuityAndIgnoresPausedAudio()
+    {
+        var time = new ManualTimeProvider(new DateTimeOffset(2026, 9, 23, 20, 0, 0, TimeSpan.Zero));
+        var capture = new FakeAudioCapture();
+        await using var coordinator = new RecordingCoordinator(
+            capture,
+            _store,
+            new PendingAudioQueue(),
+            new FakeTransportFactory(),
+            timeProvider: time);
+        await coordinator.StartAsync("Pause continuity", Settings() with { CaptureSystemOutput = true });
+        time.AdvanceTimestamp(TimeSpan.FromSeconds(1));
+        capture.Emit(AudioSourceKind.Microphone, [1, 2]);
+        coordinator.Pause();
+        time.AdvanceTimestamp(TimeSpan.FromSeconds(5));
+        capture.Emit(AudioSourceKind.SystemOutput, [3, 4]);
+        time.AdvanceTimestamp(TimeSpan.FromSeconds(4));
+        coordinator.Resume();
+        capture.Emit(AudioSourceKind.SystemOutput, [5, 6]);
+
+        await coordinator.StopAsync();
+
+        var session = Assert.Single(await _store.ListSessionsAsync());
+        var segments = await _store.GetSegmentsAsync(session.Id);
+        Assert.Equal(2, segments.Count);
+        Assert.Equal(TimeSpan.FromSeconds(1), Assert.Single(segments, item => item.Source == AudioSourceKind.Microphone).Start);
+        Assert.Equal(TimeSpan.FromSeconds(10), Assert.Single(segments, item => item.Source == AudioSourceKind.SystemOutput).Start);
+    }
+
+    [Fact]
+    public async Task OnSecondCaptured_WhenResumeOvertakesPausedCallback_DoesNotAdmitAudioRetroactively()
+    {
+        var time = new ManualTimeProvider(new DateTimeOffset(2026, 9, 23, 20, 30, 0, TimeSpan.Zero));
+        var capture = new FakeAudioCapture();
+        var factory = new FakeTransportFactory();
+        await using var coordinator = new RecordingCoordinator(
+            capture,
+            _store,
+            new PendingAudioQueue(),
+            factory,
+            timeProvider: time);
+        var levelEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseLevel = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var callbackCount = 0;
+        coordinator.LevelChanged += (_, _) =>
+        {
+            if (Interlocked.Increment(ref callbackCount) != 1) return;
+            levelEntered.TrySetResult();
+            releaseLevel.Task.GetAwaiter().GetResult();
+        };
+        await coordinator.StartAsync("Paused callback", Settings());
+        coordinator.Pause();
+        time.AdvanceTimestamp(TimeSpan.FromSeconds(2));
+
+        var pausedEmission = Task.Run(() => capture.Emit(AudioSourceKind.Microphone, [1, 2]));
+        await levelEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await Task.Run(coordinator.Resume);
+        releaseLevel.TrySetResult();
+        await pausedEmission;
+
+        time.AdvanceTimestamp(TimeSpan.FromSeconds(1));
+        capture.Emit(AudioSourceKind.Microphone, [3, 4]);
+        await coordinator.StopAsync();
+
+        var session = Assert.Single(await _store.ListSessionsAsync());
+        var segment = Assert.Single(await _store.GetSegmentsAsync(session.Id));
+        Assert.Equal(TimeSpan.FromSeconds(3), segment.Start);
+        Assert.Equal([3, 4], Assert.Single(factory.Transports).TranscribedPcm.Single());
+    }
+
+    [Fact]
+    public async Task OnSecondCaptured_WhenStopAndNextStartOvertakeBlockedCallback_RejectsStaleEnvelope()
+    {
+        var time = new ManualTimeProvider(new DateTimeOffset(2026, 9, 23, 21, 0, 0, TimeSpan.Zero));
+        var capture = new FakeAudioCapture();
+        var factory = new FakeTransportFactory();
+        await using var coordinator = new RecordingCoordinator(
+            capture,
+            _store,
+            new PendingAudioQueue(),
+            factory,
+            timeProvider: time);
+        var levelEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseLevel = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var callbackCount = 0;
+        coordinator.LevelChanged += (_, _) =>
+        {
+            if (Interlocked.Increment(ref callbackCount) != 1) return;
+            levelEntered.TrySetResult();
+            releaseLevel.Task.GetAwaiter().GetResult();
+        };
+        await coordinator.StartAsync("Raced first", Settings());
+        var staleContext = Assert.IsType<SessionTimelineContext>(coordinator.ActiveTimelineContext);
+        var staleEmission = Task.Run(() => capture.Emit(AudioSourceKind.Microphone, [1, 2]));
+        await levelEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        await coordinator.StopAsync();
+        time.SetUtcNow(time.GetUtcNow().AddMinutes(1));
+        await coordinator.StartAsync("Raced second", Settings());
+        releaseLevel.TrySetResult();
+        await staleEmission;
+        time.AdvanceTimestamp(TimeSpan.FromSeconds(1));
+        capture.Emit(AudioSourceKind.Microphone, [3, 4]);
+        await coordinator.StopAsync();
+
+        Assert.False(staleContext.TryGetCurrentOffset(out _));
+        var second = (await _store.ListSessionsAsync()).Single(session => session.Title == "Raced second");
+        Assert.Single(await _store.GetSegmentsAsync(second.Id));
+        Assert.Equal([3, 4], factory.Transports[^1].TranscribedPcm.Single());
+    }
+
+    [Fact]
+    public async Task CaptureFailure_RevokesActiveTimelineContext()
+    {
+        var capture = new FakeAudioCapture();
+        await using var coordinator = new RecordingCoordinator(
+            capture,
+            _store,
+            new PendingAudioQueue(),
+            new FakeTransportFactory(),
+            timeProvider: new ManualTimeProvider(DateTimeOffset.UtcNow));
+        await coordinator.StartAsync("Capture failure", Settings());
+        var context = Assert.IsType<SessionTimelineContext>(coordinator.ActiveTimelineContext);
+
+        capture.Fail("device unavailable");
+
+        Assert.Null(coordinator.ActiveTimelineContext);
+        Assert.False(context.TryGetCurrentOffset(out _));
+        await coordinator.StopAsync();
     }
 
     [Fact]
@@ -292,17 +553,32 @@ public sealed class RecordingCoordinatorTests : IAsyncLifetime
         public int TranscriptionCount { get; private set; }
         public bool Disposed { get; private set; }
         public bool ThrowOnTranscribe { get; init; }
+        public List<byte[]> TranscribedPcm { get; } = [];
 
         public Task<WorkerResponse> TranscribeAsync(string workId, byte[] pcm16, CancellationToken cancellationToken)
         {
             TranscriptionCount++;
             if (ThrowOnTranscribe) throw new InvalidOperationException("Simulated inference failure.");
+            TranscribedPcm.Add([.. pcm16]);
             IReadOnlyList<WorkerSegmentDto> segments = [new(0, 900, "tail text")];
             return Task.FromResult(new WorkerResponse(true, WorkId: workId, Segments: segments));
         }
 
         public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
         public ValueTask DisposeAsync() { Disposed = true; return ValueTask.CompletedTask; }
+    }
+
+    private sealed class ManualTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        private DateTimeOffset _utcNow = utcNow;
+        private long _timestamp;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public override DateTimeOffset GetUtcNow() => _utcNow;
+        public override long GetTimestamp() => Interlocked.Read(ref _timestamp);
+
+        public void AdvanceTimestamp(TimeSpan elapsed) => Interlocked.Add(ref _timestamp, elapsed.Ticks);
+        public void SetUtcNow(DateTimeOffset value) => _utcNow = value;
     }
 }
 

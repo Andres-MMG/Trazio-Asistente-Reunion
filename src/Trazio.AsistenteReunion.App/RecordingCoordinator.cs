@@ -16,15 +16,19 @@ public sealed class RecordingCoordinator : IAsyncDisposable
     private readonly PendingAudioQueue _pendingQueue;
     private readonly ITranscriptionTransportFactory _transportFactory;
     private readonly AudioArchiveStore? _audioArchiveStore;
+    private readonly TimeProvider _timeProvider;
     private readonly Dictionary<AudioSourceKind, List<AudioChunk>> _windows = [];
     private readonly Dictionary<AudioSourceKind, long> _sequences = [];
     private readonly SemaphoreSlim _lifecycle = new(1, 1);
-    private Channel<CapturedSecond>? _ingestion;
+    private readonly object _captureGate = new();
+    private Channel<CapturedAudioEnvelope>? _ingestion;
     private CancellationTokenSource? _consumerCts;
     private Task? _ingestionPump;
     private Task? _consumerPump;
     private ITranscriptionTransport? _transport;
     private MeetingSession? _session;
+    private SessionTimeline? _sessionTimeline;
+    private SessionTimelineContext? _activeTimelineContext;
     private DateTimeOffset _sessionStart;
     private string? _modelPath;
     private string _language = "es";
@@ -48,13 +52,15 @@ public sealed class RecordingCoordinator : IAsyncDisposable
         SqliteSessionStore store,
         PendingAudioQueue pendingQueue,
         ITranscriptionTransportFactory? transportFactory = null,
-        AudioArchiveStore? audioArchiveStore = null)
+        AudioArchiveStore? audioArchiveStore = null,
+        TimeProvider? timeProvider = null)
     {
         _capture = capture;
         _store = store;
         _pendingQueue = pendingQueue;
         _transportFactory = transportFactory ?? new ProcessTranscriptionTransportFactory();
         _audioArchiveStore = audioArchiveStore;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public event EventHandler<string>? StatusChanged;
@@ -62,6 +68,7 @@ public sealed class RecordingCoordinator : IAsyncDisposable
     public event EventHandler<CapturedSecond>? LevelChanged;
     public event EventHandler<SourceDiagnostic>? DiagnosticChanged;
     public string? ActiveSessionId => _session?.Id;
+    internal ISessionTimelineContext? ActiveTimelineContext => Volatile.Read(ref _activeTimelineContext);
 
     public async Task StartAsync(string title, AppSettings settings, CancellationToken cancellationToken = default, string? localDisplayNameOverride = null, MeetingProvider meetingProvider = MeetingProvider.NotSelected)
     {
@@ -72,7 +79,8 @@ public sealed class RecordingCoordinator : IAsyncDisposable
             ValidateSettings(settings);
             ResetSessionState();
             var revision = ++_revision;
-            _sessionStart = DateTimeOffset.UtcNow;
+            var timeline = new SessionTimeline(_timeProvider);
+            _sessionStart = timeline.StartedAtUtc;
             _modelPath = settings.ModelPath;
             _language = settings.Language;
             _localSpeakerName = settings.CaptureMicrophone
@@ -96,12 +104,19 @@ public sealed class RecordingCoordinator : IAsyncDisposable
             try
             {
                 _transport = await _transportFactory.StartAsync(_modelPath!, _language, cancellationToken);
+                _sessionTimeline = timeline;
                 StartPumps(revision, cancellationToken);
                 _captureHandler = (_, captured) => OnSecondCaptured(revision, captured);
                 _failureHandler = (_, error) => OnCaptureFailed(revision, error);
                 _capture.SecondCaptured += _captureHandler;
                 _capture.CaptureFailed += _failureHandler;
-                Volatile.Write(ref _accepting, true);
+                lock (_captureGate)
+                {
+                    Volatile.Write(
+                        ref _activeTimelineContext,
+                        new SessionTimelineContext(_session.Id, revision, timeline));
+                    Volatile.Write(ref _accepting, true);
+                }
                 _capture.Start(settings.MicrophoneDeviceId, settings.OutputDeviceId, settings.CaptureMicrophone, settings.CaptureSystemOutput);
                 StatusChanged?.Invoke(this, "Grabando");
             }
@@ -116,14 +131,17 @@ public sealed class RecordingCoordinator : IAsyncDisposable
 
     public void Pause()
     {
-        _paused = true;
+        lock (_captureGate) _paused = true;
         StatusChanged?.Invoke(this, "Pausada");
     }
 
     public void Resume()
     {
-        if (_drainFailed) return;
-        _paused = false;
+        lock (_captureGate)
+        {
+            if (_drainFailed) return;
+            _paused = false;
+        }
         StatusChanged?.Invoke(this, "Grabando");
     }
 
@@ -198,7 +216,7 @@ public sealed class RecordingCoordinator : IAsyncDisposable
 
     private void StartPumps(long revision, CancellationToken cancellationToken)
     {
-        _ingestion = Channel.CreateBounded<CapturedSecond>(new BoundedChannelOptions(10)
+        _ingestion = Channel.CreateBounded<CapturedAudioEnvelope>(new BoundedChannelOptions(10)
         {
             FullMode = BoundedChannelFullMode.Wait,
             SingleReader = true,
@@ -206,27 +224,56 @@ public sealed class RecordingCoordinator : IAsyncDisposable
         });
         _consumerCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _ingestionPump = Task.Run(() => IngestAsync(_consumerCts.Token), _consumerCts.Token);
-        _consumerPump = Task.Run(() => ConsumePendingAsync(_consumerCts.Token), _consumerCts.Token);
+        _consumerPump = Task.Run(() => ConsumePendingAsync(revision, _consumerCts.Token), _consumerCts.Token);
         _diagnosticPump = Task.Run(() => PublishDiagnosticsAsync(revision, _consumerCts.Token), _consumerCts.Token);
     }
 
     private void OnSecondCaptured(long revision, CapturedSecond captured)
     {
-        if (revision != Volatile.Read(ref _revision)) return;
+        SessionTimelineContext context;
+        ChannelWriter<CapturedAudioEnvelope>? writer;
+        bool admittedAtEntry;
+        TimeSpan offset;
+        lock (_captureGate)
+        {
+            context = Volatile.Read(ref _activeTimelineContext)!;
+            if (revision != Volatile.Read(ref _revision) ||
+                context is null ||
+                context.Revision != revision ||
+                !context.TryGetCurrentOffset(out offset))
+                return;
+            writer = _ingestion?.Writer;
+            admittedAtEntry = !_paused && Volatile.Read(ref _accepting);
+        }
+
+        var envelope = new CapturedAudioEnvelope(revision, context.SessionId, offset, captured);
         LevelChanged?.Invoke(this, captured);
-        if (_paused || !Volatile.Read(ref _accepting)) return;
-        if (_ingestion?.Writer.TryWrite(captured) == true) return;
-        Volatile.Write(ref _accepting, false);
-        _paused = true;
-        _drainFailed = true;
+        lock (_captureGate)
+        {
+            if (!admittedAtEntry ||
+                !ReferenceEquals(Volatile.Read(ref _activeTimelineContext), context) ||
+                revision != Volatile.Read(ref _revision) ||
+                _paused ||
+                !Volatile.Read(ref _accepting))
+                return;
+            if (writer?.TryWrite(envelope) == true) return;
+            Volatile.Write(ref _accepting, false);
+            _paused = true;
+            _drainFailed = true;
+            RevokeActiveTimelineContextLocked();
+        }
         StatusChanged?.Invoke(this, "Pausada: se alcanzó el límite de cinco segundos de captura en memoria");
     }
 
     private void OnCaptureFailed(long revision, string error)
     {
-        if (revision != Volatile.Read(ref _revision)) return;
-        Volatile.Write(ref _accepting, false);
-        _paused = true;
+        lock (_captureGate)
+        {
+            if (revision != Volatile.Read(ref _revision)) return;
+            Volatile.Write(ref _accepting, false);
+            _paused = true;
+            RevokeActiveTimelineContextLocked();
+        }
         foreach (var source in Enum.GetValues<AudioSourceKind>())
             PublishDiagnostic(source, error);
         StatusChanged?.Invoke(this, $"Pausada: el dispositivo de audio se desconectó ({error})");
@@ -234,12 +281,24 @@ public sealed class RecordingCoordinator : IAsyncDisposable
 
     private async Task IngestAsync(CancellationToken cancellationToken)
     {
-        await foreach (var captured in _ingestion!.Reader.ReadAllAsync(cancellationToken))
+        await foreach (var envelope in _ingestion!.Reader.ReadAllAsync(cancellationToken))
         {
-            if (_session is null) break;
+            var session = _session;
+            var timeline = _sessionTimeline;
+            if (session is null ||
+                timeline is null ||
+                envelope.Revision != Volatile.Read(ref _revision) ||
+                !string.Equals(envelope.SessionId, session.Id, StringComparison.Ordinal))
+                continue;
+            var captured = envelope.Captured;
             var sequence = _sequences.GetValueOrDefault(captured.Source);
             _sequences[captured.Source] = sequence + 1;
-            var chunk = AudioChunk.Create(_session.Id, captured.Source, sequence, DateTimeOffset.UtcNow, captured.Pcm16);
+            var chunk = AudioChunk.Create(
+                session.Id,
+                captured.Source,
+                sequence,
+                timeline.ToUtc(envelope.Offset),
+                captured.Pcm16);
             try
             {
                 var state = GetDiagnostic(captured.Source);
@@ -251,7 +310,7 @@ public sealed class RecordingCoordinator : IAsyncDisposable
                 if (!_pendingQueue.TryEnqueue(chunk))
                 {
                     _drainFailed = true;
-                    Volatile.Write(ref _accepting, false);
+                    InvalidateActiveTimeline(envelope.Revision, envelope.SessionId);
                     StatusChanged?.Invoke(this, "Pausada: se alcanzó el límite de audio cifrado pendiente");
                 }
                 else state.PendingTranscription++;
@@ -260,7 +319,7 @@ public sealed class RecordingCoordinator : IAsyncDisposable
             catch (Exception ex)
             {
                 _drainFailed = true;
-                Volatile.Write(ref _accepting, false);
+                InvalidateActiveTimeline(envelope.Revision, envelope.SessionId);
                 StatusChanged?.Invoke(this, "Pausada: no se pudo guardar el audio de forma segura");
                 PublishDiagnostic(captured.Source, ex.Message);
                 throw;
@@ -268,7 +327,7 @@ public sealed class RecordingCoordinator : IAsyncDisposable
         }
     }
 
-    private async Task ConsumePendingAsync(CancellationToken cancellationToken)
+    private async Task ConsumePendingAsync(long revision, CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -287,6 +346,7 @@ public sealed class RecordingCoordinator : IAsyncDisposable
             {
                 lease.Abandon();
                 _drainFailed = true;
+                InvalidateActiveTimeline(revision, chunk.SessionId);
                 throw;
             }
             finally { Interlocked.Decrement(ref _inFlight); }
@@ -311,6 +371,7 @@ public sealed class RecordingCoordinator : IAsyncDisposable
         if (!response.Success)
         {
             _drainFailed = true;
+            InvalidateActiveTimeline(Volatile.Read(ref _revision), chunks[0].SessionId);
             StatusChanged?.Invoke(this, $"Pausada: falló la transcripción ({response.Error})");
             return;
         }
@@ -336,7 +397,11 @@ public sealed class RecordingCoordinator : IAsyncDisposable
 
     private async Task StopAcceptingAndDrainAsync(CancellationToken cancellationToken)
     {
-        Volatile.Write(ref _accepting, false);
+        lock (_captureGate)
+        {
+            Volatile.Write(ref _accepting, false);
+            RevokeActiveTimelineContextLocked();
+        }
         if (_captureHandler is not null) _capture.SecondCaptured -= _captureHandler;
         if (_failureHandler is not null) _capture.CaptureFailed -= _failureHandler;
         await _capture.StopAsync();
@@ -378,7 +443,11 @@ public sealed class RecordingCoordinator : IAsyncDisposable
 
     private async Task RollBackFailedStartAsync(CancellationToken cancellationToken)
     {
-        Volatile.Write(ref _accepting, false);
+        lock (_captureGate)
+        {
+            Volatile.Write(ref _accepting, false);
+            RevokeActiveTimelineContextLocked();
+        }
         if (_captureHandler is not null) _capture.SecondCaptured -= _captureHandler;
         if (_failureHandler is not null) _capture.CaptureFailed -= _failureHandler;
         try { await _capture.StopAsync(); } catch { }
@@ -437,6 +506,11 @@ public sealed class RecordingCoordinator : IAsyncDisposable
 
     private void ResetSessionState()
     {
+        lock (_captureGate)
+        {
+            RevokeActiveTimelineContextLocked();
+            _sessionTimeline = null;
+        }
         _windows.Clear();
         _sequences.Clear();
         _drainFailed = false;
@@ -449,7 +523,12 @@ public sealed class RecordingCoordinator : IAsyncDisposable
 
     private void ResetAfterSession()
     {
-        Volatile.Write(ref _accepting, false);
+        lock (_captureGate)
+        {
+            Volatile.Write(ref _accepting, false);
+            RevokeActiveTimelineContextLocked();
+            _sessionTimeline = null;
+        }
         _session = null;
         _ingestion = null;
         _ingestionPump = null;
@@ -466,6 +545,27 @@ public sealed class RecordingCoordinator : IAsyncDisposable
         _captureHandler = null;
         _failureHandler = null;
         _archiveHandler = null;
+    }
+
+    private void InvalidateActiveTimeline(long revision, string sessionId)
+    {
+        lock (_captureGate)
+        {
+            var context = Volatile.Read(ref _activeTimelineContext);
+            if (context is null ||
+                context.Revision != revision ||
+                !string.Equals(context.SessionId, sessionId, StringComparison.Ordinal))
+                return;
+            Volatile.Write(ref _accepting, false);
+            _paused = true;
+            RevokeActiveTimelineContextLocked();
+        }
+    }
+
+    private void RevokeActiveTimelineContextLocked()
+    {
+        var context = Interlocked.Exchange(ref _activeTimelineContext, null);
+        context?.Revoke();
     }
 
     private void OnArchiveChunkCommitted(long revision, ArchivedAudioChunk chunk)
@@ -506,6 +606,12 @@ public sealed class RecordingCoordinator : IAsyncDisposable
         public int PendingTranscription { get; set; }
         public string? Error { get; set; }
     }
+
+    private readonly record struct CapturedAudioEnvelope(
+        long Revision,
+        string SessionId,
+        TimeSpan Offset,
+        CapturedSecond Captured);
 
     private static void ValidateSettings(AppSettings settings)
     {

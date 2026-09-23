@@ -15,8 +15,23 @@ public sealed class SessionTimelineTests
         time.SetUtcNow(origin.AddDays(-10));
         time.AdvanceTimestamp(TimeSpan.FromSeconds(2));
 
-        Assert.Equal(origin.ToUniversalTime(), timeline.OriginUtc);
+        Assert.Equal(origin.ToUniversalTime(), timeline.StartedAtUtc);
         Assert.Equal(TimeSpan.FromSeconds(2), timeline.GetCurrentOffset());
+    }
+
+    [Fact]
+    [Trait("Area", "VisualCapture")]
+    public void ToUtc_AfterWallClockChanges_UsesFixedSessionStartAndMonotonicOffset()
+    {
+        var origin = new DateTimeOffset(2026, 9, 23, 15, 30, 0, TimeSpan.Zero);
+        var time = new ManualTimeProvider(origin);
+        var timeline = new SessionTimeline(time);
+        time.SetUtcNow(origin.AddDays(2));
+        time.AdvanceTimestamp(TimeSpan.FromSeconds(7));
+
+        var offset = timeline.GetCurrentOffset();
+
+        Assert.Equal(origin.AddSeconds(7), timeline.ToUtc(offset));
     }
 
     [Fact]

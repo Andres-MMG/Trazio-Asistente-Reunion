@@ -10,10 +10,16 @@ internal sealed class SessionTimeline
     {
         _timeProvider = timeProvider ?? TimeProvider.System;
         _originTimestamp = _timeProvider.GetTimestamp();
-        OriginUtc = _timeProvider.GetUtcNow().ToUniversalTime();
+        StartedAtUtc = _timeProvider.GetUtcNow().ToUniversalTime();
     }
 
-    public DateTimeOffset OriginUtc { get; }
+    public DateTimeOffset StartedAtUtc { get; }
+
+    public DateTimeOffset ToUtc(TimeSpan offset)
+    {
+        if (offset < TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(offset));
+        return StartedAtUtc + offset;
+    }
 
     public TimeSpan GetCurrentOffset()
     {
@@ -28,6 +34,45 @@ internal sealed class SessionTimeline
                 return TimeSpan.FromTicks(candidateTicks);
         }
     }
+}
+
+internal interface ISessionTimelineContext
+{
+    string SessionId { get; }
+    long Revision { get; }
+    DateTimeOffset StartedAtUtc { get; }
+    bool TryGetCurrentOffset(out TimeSpan offset);
+}
+
+internal sealed class SessionTimelineContext : ISessionTimelineContext
+{
+    private readonly SessionTimeline _timeline;
+    private int _active = 1;
+
+    public SessionTimelineContext(string sessionId, long revision, SessionTimeline timeline)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sessionId);
+        if (revision <= 0) throw new ArgumentOutOfRangeException(nameof(revision));
+        _timeline = timeline ?? throw new ArgumentNullException(nameof(timeline));
+        SessionId = sessionId;
+        Revision = revision;
+    }
+
+    public string SessionId { get; }
+    public long Revision { get; }
+    public DateTimeOffset StartedAtUtc => _timeline.StartedAtUtc;
+
+    public bool TryGetCurrentOffset(out TimeSpan offset)
+    {
+        offset = default;
+        if (Volatile.Read(ref _active) == 0) return false;
+        var captured = _timeline.GetCurrentOffset();
+        if (Volatile.Read(ref _active) == 0) return false;
+        offset = captured;
+        return true;
+    }
+
+    internal void Revoke() => Interlocked.Exchange(ref _active, 0);
 }
 
 internal sealed class VisualProbeRateGate
