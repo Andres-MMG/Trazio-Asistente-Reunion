@@ -4,7 +4,7 @@
 >
 > **Puerta de autorización:** seleccionar la ventana, autorizar la captura WGC 7.2a y autorizar el análisis anónimo 7.2b son acciones distintas. La autorización 7.2b se consume una sola vez y queda ligada a la ventana, proveedor, sesión y alcance exactos. No autoriza identificación de hablantes ni adaptadores 7.2c/7.2d.
 
-> **Estado:** 7.2a está incluida en la versión publicada `v0.2.0-beta.3`. El candidato fuente local `v0.2.0-beta.4`, todavía no publicado, agrega la implementación de 7.2b: sondeo agregado WGC/D3D11 acotado, intervalos cifrados de cobertura/actividad, correlación exclusiva con `SystemOutput` y presentación fail-closed en vivo/Historial. Los perfiles de producción Meet/Teams permanecen `Unvalidated`, se abstienen y muestran **No disponible**. No existe identificación de hablantes. Siguen pendientes WGC/GPU/accesibilidad/Meet/Teams físicos, 2/5 horas y el empaquetado final posterior al commit de preparación.
+> **Estado:** la versión publicada `v0.2.0-beta.4` incluye 7.2a y la infraestructura fuente de 7.2b: sondeo agregado WGC/D3D11 acotado, intervalos cifrados de cobertura/actividad, correlación exclusiva con `SystemOutput` y presentación fail-closed en vivo/Historial. Los perfiles de producción Meet/Teams permanecen `Unvalidated`, se abstienen y muestran **No disponible**. No existe identificación de hablantes. Siguen pendientes WGC/GPU/interfaz/accesibilidad/Meet/Teams físicos, 2/5 horas y la firma.
 
 ## Resultado esperado
 
@@ -243,7 +243,7 @@ Los resultados esperados (no soporte, permiso cancelado, objetivo perdido o cont
 
 ### Pruebas automatizadas
 
-La evidencia histórica de 7.2a registra **54/54 pruebas enfocadas** (`Area=VisualCapture`) y la base funcional beta 3 `b075958` registra **250/250 pruebas seriales** con compilación Release sin errores ni advertencias. El candidato local beta 4 completó **4/4 `VersionMetadataTests`**, **132/132 pruebas `Area=VisualCapture`**, **371/371 pruebas Release seriales**, **371/371 pruebas Release en paralelo predeterminado** y una compilación con **0 advertencias y 0 errores**. El contrato de publicación y la prueba básica por canal con nombre aprobaron; el layout candidato coincidió en **494/494 archivos byte a byte**, con **0** hallazgos prohibidos y **0** rutas fuente locales. El ZIP, tamaño, SHA-256, tag y release finales siguen pendientes porque el paquete debe reconstruirse después del commit de preparación. Esta evidencia no ejecuta una captura WGC/GPU real ni valida el escritorio renderizado, accesibilidad, Meet/Teams o duración.
+La evidencia histórica de 7.2a registra **54/54 pruebas enfocadas** (`Area=VisualCapture`) y la base funcional beta 3 `b075958` registra **250/250 pruebas seriales** con compilación Release sin errores ni advertencias. La beta 4 publicada completó **4/4 `VersionMetadataTests`**, **132/132 pruebas `Area=VisualCapture`**, **371/371 pruebas Release seriales**, **371/371 pruebas Release en paralelo predeterminado** y una compilación con **0 advertencias y 0 errores**. El contrato de publicación y la prueba básica por canal con nombre aprobaron; el layout coincidió en **494/494 archivos byte a byte**, con **0** hallazgos prohibidos, **0** rutas fuente locales y **0** referencias CodeView. El tag corresponde a `f871f20c3bf9e77b0cf9ad51134febb83c673de7`, y el tamaño/digest del ZIP remoto coinciden con el paquete local y el archivo lateral publicado. Esta evidencia no ejecuta una captura WGC/GPU real ni valida el escritorio renderizado, accesibilidad, Meet/Teams o duración.
 
 - [VisualCaptureSessionControllerTests](../tests/Trazio.AsistenteReunion.Tests/VisualCaptureSessionControllerTests.cs)
 - [BoundedDropOldestProcessorTests](../tests/Trazio.AsistenteReunion.Tests/BoundedDropOldestProcessorTests.cs)
@@ -305,7 +305,7 @@ La cobertura/recall no será criterio inicial: un adaptador puede abstenerse. Pr
 - [ ] El indicador visual permanece visible y Pausar/Detener funciona por teclado y lector de pantalla.
 - [x] El backend solo crea captura para la ventana HWND/PID revalidada y no reasigna; falta demostrarlo físicamente.
 - [x] La infraestructura 7.2b mantiene canales/observaciones acotados y disposición determinista; el extractor entrega agregados numéricos, no buffers de píxeles persistibles.
-- [x] El código 7.2a/7.2b no crea videos, screenshots, dumps propios, logs sensibles ni registros de píxeles; el script rechaza esas clases en el layout publicable. Falta inspeccionar la ejecución física y el ZIP final beta 4.
+- [x] El código 7.2a/7.2b no crea videos, screenshots, dumps propios, logs sensibles ni registros de píxeles; el script y la inspección del ZIP beta 4 publicado rechazaron esas clases. Falta inspeccionar la ejecución física.
 - [ ] Minimizar, cerrar, proteger o perder la ventana no detiene audio/transcripción.
 - [x] La correlación en código solo admite `SystemOutput`; el micrófono queda oculto y conserva la identidad local. Falta aceptación en la interfaz física.
 - [x] Los perfiles de producción Meet/Teams permanecen `Unvalidated`, se abstienen y proyectan **No disponible**; falta validarlo con aplicaciones reales.

@@ -2,9 +2,9 @@
 
 - Fecha del estado: 2026-09-23
 - Madurez actual: MVP funcional avanzado / versión preliminar pública
-- Versión publicada actual: [`0.2.0-beta.3`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.3)
+- Versión publicada actual: [`0.2.0-beta.4`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.4)
 
-Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funcional implementada; 7.1a, 7.2a y la infraestructura fuente de 7.2b están implementadas, todavía pendientes de validación física. 7.2b forma parte del candidato fuente local `0.2.0-beta.4`, no de la beta 3 publicada, y falla de forma segura en producción porque los perfiles Meet/Teams permanecen `Unvalidated`: se abstiene y presenta la evidencia como No disponible. Las rebanadas 7.2c–7.2e y el fortalecimiento de la distribución de la etapa 5 siguen pendientes.** No existe identificación de hablantes y la etapa 7 no está completa. La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
+Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funcional implementada; 7.1a, 7.2a y la infraestructura fuente de 7.2b están publicadas en `0.2.0-beta.4`, todavía pendientes de validación física. 7.2b falla de forma segura en producción porque los perfiles Meet/Teams permanecen `Unvalidated`: se abstiene y presenta la evidencia como No disponible. Las rebanadas 7.2c–7.2e y el fortalecimiento de la distribución de la etapa 5 siguen pendientes.** No existe identificación de hablantes y la etapa 7 no está completa. La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
 
 ## Principios del producto
 
@@ -42,7 +42,7 @@ Permitir instalar, actualizar, diagnosticar y recuperar la aplicación existente
 
 ### Base implementada
 
-- Código público en GitHub y flujo de ZIP completo para Windows con suma de comprobación; `0.2.0-beta.3` continúa como versión publicada. El candidato fuente local `0.2.0-beta.4` agrega la infraestructura de actividad visual anónima de 7.2b y completó la verificación automatizada documentada. Su ZIP, SHA-256, tag y release finales permanecen pendientes porque el paquete debe reconstruirse después del commit de preparación.
+- Código público en GitHub y ZIP completo para Windows con suma de comprobación; `0.2.0-beta.4` está publicado como prerelease, con tag en `f871f20c3bf9e77b0cf9ad51134febb83c673de7`, recurso remoto y digest verificados, e infraestructura de actividad visual anónima 7.2b incluida.
 - Script de publicación combinada de aplicación/proceso auxiliar con comprobaciones de paquete y prueba básica de salud por canal con nombre.
 - Existe la definición de Inno Setup por usuario; la validación de instalación/actualización/reversión sigue pendiente.
 
@@ -152,7 +152,7 @@ Esta primera rebanada selecciona una **ventana superior**, no una pestaña indiv
 El trabajo se divide en rebanadas verificables:
 
 1. **7.2a:** incluida desde beta 3: HWND/PID revalidado, consentimiento separado, frame pool de dos buffers, ciclo de vida y descarte inmediato; faltan WGC físico, interfaz/lector de pantalla y prueba de dos horas.
-2. **7.2b:** infraestructura incluida en el candidato fuente local beta 4, todavía no publicado: consentimiento adicional de un solo uso, sondeo agregado D3D11 acotado, eventos derivados cifrados, correlación exclusiva con `SystemOutput` y presentación fail-closed. Los perfiles de producción siguen `Unvalidated`; faltan calibración, WGC/GPU/accesibilidad, Meet/Teams reales y pruebas de 2/5 horas.
+2. **7.2b:** infraestructura publicada en beta 4: consentimiento adicional de un solo uso, sondeo agregado D3D11 acotado, eventos derivados cifrados, correlación exclusiva con `SystemOutput` y presentación fail-closed. Los perfiles de producción siguen `Unvalidated`; faltan calibración, WGC/GPU/accesibilidad, Meet/Teams reales y pruebas de 2/5 horas.
 3. **7.2c:** adaptador versionado de Google Meet web mediante una extensión con permiso mínimo y WGC como respaldo.
 4. **7.2d:** adaptador de Microsoft Teams web/escritorio; extensión para web y WGC para escritorio/respaldo.
 5. **7.2e:** evaluación de precisión, accesibilidad, recursos y duración; aprobar 2 horas antes de intentar 5 horas.

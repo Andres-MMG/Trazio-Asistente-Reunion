@@ -4,7 +4,7 @@
 
 ## Evidencia actual
 
-La versión publicada actual es [`v0.2.0-beta.3`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.3). Se conserva a continuación su evidencia histórica y se registra por separado la verificación local completada del candidato fuente `v0.2.0-beta.4`. Beta 4 todavía no tiene ZIP, tamaño, SHA-256, tag ni release finales: el paquete debe reconstruirse después del commit de preparación para incorporar sus metadatos definitivos. Ninguna comprobación automatizada sustituye evidencia física.
+La versión publicada actual es [`v0.2.0-beta.4`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.4), un prerelease no borrador. El tag corresponde al commit `f871f20c3bf9e77b0cf9ad51134febb83c673de7`. Se conserva a continuación la evidencia histórica de beta 3 y la verificación automatizada, de layout y publicación de beta 4. Ninguna de estas comprobaciones sustituye evidencia física.
 
 | Evidencia | Resultado registrado / límite |
 |---|---|
@@ -13,18 +13,18 @@ La versión publicada actual es [`v0.2.0-beta.3`](https://github.com/Andres-MMG/
 | Base funcional beta 3 (`b075958`), pruebas enfocadas `Area=VisualCapture` | 54/54 aprobadas; no es evidencia física |
 | Base funcional beta 3 (`b075958`), conjunto Release serial | 250/250 aprobadas; compilación Release con 0 errores y 0 advertencias |
 | Metadatos/capacidad de beta 3 | 3/3 pruebas de `VersionMetadataTests`; manifiesto con 5 capacidades únicas |
-| Implementación fuente 7.2b del candidato beta 4 | Consentimiento adicional de un solo uso, sondeo WGC/D3D11 agregado y acotado, intervalos cifrados de cobertura/actividad, correlación `SystemOutput` y presentación fail-closed en vivo/Historial presentes en código |
+| Implementación fuente 7.2b de beta 4 | Consentimiento adicional de un solo uso, sondeo WGC/D3D11 agregado y acotado, intervalos cifrados de cobertura/actividad, correlación `SystemOutput` y presentación fail-closed en vivo/Historial presentes en la versión publicada |
 | Perfiles de producción Meet/Teams | `Unvalidated`, sin política de detección: el procesamiento se abstiene y la evidencia se presenta como **No disponible** |
-| Metadatos/capacidades del candidato beta 4 | `VersionMetadataTests`: 4/4 aprobadas; el conjunto empaquetable permanece exactamente en 5 capacidades y no anuncia actividad/correlación visual anónima ni identificación de hablantes |
-| Pruebas visuales del candidato beta 4 | `Area=VisualCapture`: 132/132 aprobadas; no es evidencia de WGC/GPU físico |
-| Conjunto Release serial del candidato beta 4 | 371/371 aprobadas |
-| Conjunto Release paralelo predeterminado del candidato beta 4 | 371/371 aprobadas |
-| Compilación Release del candidato beta 4 | 0 advertencias y 0 errores |
-| Contrato de publicación y prueba básica del candidato beta 4 | Contrato aprobado; prueba por canal con nombre aprobada. No demuestran inferencia, captura ni publicación reales |
-| Layout del paquete candidato beta 4 | 494/494 archivos coinciden byte a byte; 0 hallazgos prohibidos y 0 rutas fuente locales. Es evidencia del layout candidato, no del ZIP final |
+| Metadatos/capacidades de beta 4 | `VersionMetadataTests`: 4/4 aprobadas; el conjunto empaquetado permanece exactamente en 5 capacidades y no anuncia actividad/correlación visual anónima ni identificación de hablantes |
+| Pruebas visuales de beta 4 | `Area=VisualCapture`: 132/132 aprobadas; no es evidencia de WGC/GPU físico |
+| Conjunto Release serial de beta 4 | 371/371 aprobadas |
+| Conjunto Release paralelo predeterminado de beta 4 | 371/371 aprobadas |
+| Compilación Release de beta 4 | 0 advertencias y 0 errores |
+| Contrato de publicación y prueba básica de beta 4 | Contrato aprobado; prueba por canal con nombre aprobada. No demuestran inferencia ni captura reales |
+| Layout del paquete beta 4 | 494/494 archivos coinciden byte a byte; 0 hallazgos prohibidos, 0 rutas fuente locales y 0 referencias CodeView |
 | Paquete combinado App + Worker de beta 3 | Publicado; prueba básica de salud por canal con nombre aprobada; evidencia histórica |
 | Distribución pública beta 3 | ZIP/suma de comprobación disponibles como versión preliminar sin firma; evidencia histórica |
-| Paquete/distribución final beta 4 | Pendiente: reconstruir después del commit de preparación y recién entonces registrar ZIP, tamaño, SHA-256, tag y release. No hay publicación ni prueba física que registrar todavía |
+| Paquete/distribución beta 4 | Prerelease publicado, no borrador; `Trazio-Asistente-Reunion-v0.2.0-beta.4-win-x64.zip`, 86,823,005 bytes, SHA-256 `c08d6d6df3d986d19773c6a0d3723c587c7449a37b3d1d29ef601a936768c0d6`; tamaño/digest del recurso remoto coinciden exactamente y el archivo lateral está publicado. No constituye prueba física ni firma de código |
 | Aceptación de captura/reproducción entre equipos de prueba | Todavía requiere una matriz de aceptación registrada |
 | Prueba prolongada de dos / cinco horas | Aplazada; no aprobada por inferencia desde pruebas unitarias |
 | Instalador firmado, actualización y reversión automáticas | No implementados/validados |

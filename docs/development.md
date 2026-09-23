@@ -69,7 +69,7 @@ Después de publicar, con Inno Setup 6 instalado:
 
 Versión fuente: **0.2.0-beta.4** (`VersionPrefix` 0.2.0 + `VersionSuffix` beta.4); versión de ensamblado/archivo: **0.2.0.0**. [Directory.Build.props](../Directory.Build.props) es la autoridad compartida de versión. El script de publicación, la definición del instalador y las [pruebas de versión](../tests/Trazio.AsistenteReunion.Tests/VersionMetadataTests.cs) también contienen comprobaciones; actualízalos juntos para una nueva versión.
 
-El candidato fuente beta 4 completó localmente `VersionMetadataTests` (4/4), `Area=VisualCapture` (132/132), el conjunto Release serial (371/371), el conjunto Release paralelo predeterminado (371/371) y la compilación (0 advertencias, 0 errores). También aprobaron el contrato de publicación, la prueba básica por canal con nombre y la comparación del layout candidato (494/494 archivos byte a byte, 0 hallazgos prohibidos y 0 rutas fuente locales). Esta evidencia no demuestra un paquete final ni publicación en GitHub. Después del commit de preparación se debe reconstruir e inspeccionar el paquete para incorporar sus metadatos definitivos; solo entonces corresponde registrar ZIP, tamaño, SHA-256, tag y release finales. No reutilices el tamaño/hash preliminar ni cifras, hash o recursos de beta 3 como evidencia final de beta 4.
+La beta 4 publicada completó `VersionMetadataTests` (4/4), `Area=VisualCapture` (132/132), el conjunto Release serial (371/371), el conjunto Release paralelo predeterminado (371/371) y la compilación (0 advertencias, 0 errores). También aprobaron el contrato de publicación, la prueba básica por canal con nombre y la comparación del layout (494/494 archivos byte a byte, 0 hallazgos prohibidos, 0 rutas fuente locales y 0 referencias CodeView). El tag `v0.2.0-beta.4` corresponde al commit `f871f20c3bf9e77b0cf9ad51134febb83c673de7`. El recurso remoto `Trazio-Asistente-Reunion-v0.2.0-beta.4-win-x64.zip` mide 86,823,005 bytes y su digest coincide exactamente con el ZIP local y el archivo lateral publicado: SHA-256 `c08d6d6df3d986d19773c6a0d3723c587c7449a37b3d1d29ef601a936768c0d6`.
 
 - [ ] Registrar commit, versión, evidencia de pruebas y límites de validación pendientes.
 - [ ] Publicar ambos ejecutables; verificar inferencia real antes de afirmar que un modelo funciona.
@@ -85,7 +85,7 @@ Ejemplo de suma de comprobación para un ZIP preparado:
 Get-FileHash -Algorithm SHA256 .\artifacts\Trazio-Asistente-Reunion-v0.2.0-beta.4-win-x64.zip
 ```
 
-El recurso esperado es `Trazio-Asistente-Reunion-v0.2.0-beta.4-win-x64.zip` junto a `Trazio-Asistente-Reunion-v0.2.0-beta.4-win-x64.zip.sha256`. Este comando no crea un ZIP ni una versión publicada. El ZIP, tamaño, hash, tag y URL final están pendientes hasta reconstruir el paquete después del commit de preparación y ejecutar el flujo de publicación autorizado. Publicar, firmar y enviar cambios requieren autorización explícita del mantenedor.
+El recurso publicado es `Trazio-Asistente-Reunion-v0.2.0-beta.4-win-x64.zip` junto a `Trazio-Asistente-Reunion-v0.2.0-beta.4-win-x64.zip.sha256`. El ZIP mide 86,823,005 bytes y su SHA-256 es `c08d6d6df3d986d19773c6a0d3723c587c7449a37b3d1d29ef601a936768c0d6`; el tamaño y digest del recurso remoto coinciden exactamente. Este comando solo permite volver a comprobar un archivo local: no crea un ZIP ni una versión publicada. Publicar, firmar y enviar cambios requieren autorización explícita del mantenedor.
 
 ## Límites de contribución
 

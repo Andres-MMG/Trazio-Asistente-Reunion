@@ -2,7 +2,7 @@
 
 **La aplicación de escritorio controla captura, coordinación, revisión y almacenamiento. Un proceso local independiente controla la inferencia de voz.** El entorno de ejecución actual no requiere servidor web, extensión de navegador, servicio de servidor en la nube, cliente de calendario ni LLM externo.
 
-El candidato fuente local `0.2.0-beta.4`, todavía no publicado, incorpora 7.2a y la infraestructura de 7.2b; la versión pública actual sigue siendo `0.2.0-beta.3`. Los perfiles de producción para Google Meet y Microsoft Teams permanecen `Unvalidated`, por lo que el detector se abstiene y la interfaz presenta **No disponible**. No existe identificación de hablantes; la validación física WGC/GPU/accesibilidad/Meet/Teams/2 h/5 h y el empaquetado final posterior al commit de preparación siguen pendientes.
+La versión pública actual `0.2.0-beta.4` incorpora 7.2a y la infraestructura fuente de 7.2b. Los perfiles de producción para Google Meet y Microsoft Teams permanecen `Unvalidated`, por lo que el detector se abstiene y la interfaz presenta **No disponible**. No existe identificación de hablantes; la validación física WGC/GPU/interfaz/accesibilidad/Meet/Teams/2 h/5 h y la firma siguen pendientes.
 
 ## Mapa de componentes
 
