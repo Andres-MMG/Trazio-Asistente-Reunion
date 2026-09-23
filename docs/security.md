@@ -16,7 +16,7 @@ Este documento describe los límites frente a amenazas de la implementación; no
 | Preferencias / perfil local | DPAPI `CurrentUser` en `settings.dat` | Visible para la aplicación autorizada en ejecución |
 | Esquema SQLite y metadatos operativos | Sin cifrado de archivo completo | ID, marcas de tiempo, enumeraciones de fuente, secuencias, rutas/tamaños y estructura de base de datos |
 | Archivos de modelo | Sin cifrar; modelo de catálogo autenticado por tamaño/hash esperado | Los modelos personalizados aportados por el usuario no son autenticados por ese catálogo |
-| Exportaciones TXT y WAV | Sin cifrar en una ruta elegida por el usuario | Fuera de los controles de cifrado, retención y eliminación de la aplicación |
+| Exportaciones TXT, Markdown y WAV | Sin cifrar en una ruta elegida por el usuario | Fuera de los controles de cifrado, retención y eliminación de la aplicación; una bóveda sincronizada puede enviarlas a servicios externos |
 
 Fuentes: [Crypto.cs](../src/Trazio.AsistenteReunion.Core/Crypto.cs), [SettingsStore.cs](../src/Trazio.AsistenteReunion.Core/SettingsStore.cs), [almacén de sesiones](../src/Trazio.AsistenteReunion.Core/SqliteSessionStore.cs), [almacén de revisión](../src/Trazio.AsistenteReunion.Core/SqliteReviewStore.cs), [revisiones del modelo](../src/Trazio.AsistenteReunion.Core/SqliteModelRevisionStore.cs), [almacén de audio](../src/Trazio.AsistenteReunion.Core/AudioArchiveStore.cs).
 
@@ -60,7 +60,7 @@ Las futuras conexiones opcionales a LLM/Jev externos, plataforma/calendarios cam
 - El audio pendiente de transcripción es distinto del archivo conservado. El trabajo pendiente elegible vence después de 24 horas; se excluyen las sesiones `Recording` activas. El inicio primero normaliza los estados de grabación obsoletos dejados por fallos a `Interrupted`.
 - Un fallo puede perder el fragmento final no confirmado del archivo, como máximo 30 segundos por fuente habilitada. Los fragmentos confirmados pueden seguir disponibles; no se garantiza recuperación de cada muestra aceptada.
 - Eliminar una sesión borra primero registros de base de datos y después los archivos asociados; la reconciliación gestiona restos. Es eliminación lógica, no borrado seguro certificado de SSD, respaldos o instantáneas del sistema de archivos.
-- Una exportación cancelada/fallida intenta limpiar, pero un fallo de proceso/equipo puede dejar un WAV incompleto **sin cifrar** en el destino elegido. Trata incluso las exportaciones incompletas como sensibles.
+- Una exportación cancelada/fallida puede dejar un archivo incompleto **sin cifrar** en el destino elegido. La nota Markdown no contiene audio, rutas ni identificadores internos, pero sí contiene el texto, hablantes y tiempos de la reunión. Trata incluso las exportaciones incompletas y las bóvedas sincronizadas como sensibles.
 
 ## Seguridad de la migración de almacenamiento
 

@@ -13,6 +13,7 @@ public sealed class HistoryPresenterTests
         Assert.False(state.CanPlayAudio);
         Assert.False(state.CanExportWav);
         Assert.False(state.CanExportTxt);
+        Assert.False(state.CanExportMarkdown);
         Assert.False(state.CanDelete);
         Assert.False(state.CanChooseSource);
         Assert.Equal(HistoryPresenter.SelectSessionMessage, state.TranscriptContent);
@@ -29,6 +30,7 @@ public sealed class HistoryPresenterTests
         Assert.True(state.CanPlayAudio);
         Assert.True(state.CanExportWav);
         Assert.True(state.CanExportTxt);
+        Assert.True(state.CanExportMarkdown);
         Assert.True(state.CanDelete);
         Assert.True(state.CanChooseSource);
         Assert.Equal("formatted", state.TranscriptContent);
@@ -43,6 +45,7 @@ public sealed class HistoryPresenterTests
         Assert.True(state.CanPlayAudio);
         Assert.True(state.CanExportWav);
         Assert.False(state.CanExportTxt);
+        Assert.False(state.CanExportMarkdown);
         Assert.Equal(HistoryPresenter.NoTranscriptMessage, state.TranscriptContent);
     }
 

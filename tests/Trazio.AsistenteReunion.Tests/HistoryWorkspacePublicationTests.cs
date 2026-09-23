@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text;
 using Trazio.AsistenteReunion.App;
 using Trazio.AsistenteReunion.Core;
@@ -40,6 +41,9 @@ public sealed class HistoryWorkspacePublicationTests
         Assert.Contains("Escuchar fragmento", compiledApplication);
         Assert.Contains("Retroceder 10 s", compiledApplication);
         Assert.Contains("Avanzar 10 s", compiledApplication);
+        Assert.Contains("Exportar a Obsidian…", compiledApplication);
+        Assert.NotNull(typeof(MainWindow).GetField("ExportObsidianButton", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
+        Assert.NotNull(typeof(MainWindow).GetMethod("ExportObsidian_Click", BindingFlags.Instance | BindingFlags.NonPublic));
     }
 
     [Fact]

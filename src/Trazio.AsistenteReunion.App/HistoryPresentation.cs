@@ -37,6 +37,7 @@ public sealed record HistoryViewState(
     public bool CanPlayAudio => HasSelection && HasSelectedSourceAudio;
     public bool CanExportWav => CanPlayAudio;
     public bool CanExportTxt => HasSelection && HasTranscript;
+    public bool CanExportMarkdown => CanExportTxt;
     public bool CanCorrectTranscript => HasSelection && HasTranscript;
     public bool CanRetranscribe => HasSelection && HasTranscript && HasSelectedSourceAudio;
     public bool CanDelete => HasSelection && !IsActiveSession;
@@ -102,7 +103,7 @@ public sealed record StorageLocationFacts(string DataDirectory, string DatabaseP
         ApplicationPaths.AudioDirectory);
 
     public string Explanation =>
-        "Las transcripciones están cifradas dentro de trazio-transcripts.db. El audio conservado está cifrado en la carpeta audio y no se puede abrir directamente. Las exportaciones TXT y WAV no están cifradas y se guardan solo en la ubicación que elijas.";
+        "Las transcripciones están cifradas dentro de trazio-transcripts.db. El audio conservado está cifrado en la carpeta audio y no se puede abrir directamente. Las exportaciones TXT, Markdown y WAV no están cifradas y se guardan solo en la ubicación que elijas.";
 }
 
 public sealed record StorageLocationUiState(

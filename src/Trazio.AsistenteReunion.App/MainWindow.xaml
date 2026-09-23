@@ -195,6 +195,7 @@
                                         <WrapPanel Margin="0,0,0,8">
                                             <Button x:Name="ExportWavButton" Content="Exportar pista a WAV…" IsEnabled="False" Click="ExportWav_Click" ToolTip="Crea un archivo WAV sin cifrar de la pista seleccionada."/>
                                             <Button x:Name="ExportTxtButton" Content="Exportar transcripción a TXT…" IsEnabled="False" Click="Export_Click" ToolTip="Crea una transcripción TXT sin cifrar en la ubicación que elijas."/>
+                                            <Button x:Name="ExportObsidianButton" Content="Exportar a Obsidian…" IsEnabled="False" Click="ExportObsidian_Click" ToolTip="Crea una nota Markdown sin cifrar compatible con Obsidian en la ubicación que elijas." automation:AutomationProperties.Name="Exportar transcripción a Obsidian"/>
                                             <Button x:Name="DeleteSessionButton" Content="Eliminar sesión…" IsEnabled="False" Foreground="#A12626" Click="Delete_Click" ToolTip="Elimina definitivamente la sesión, su transcripción y el audio conservado." automation:AutomationProperties.HelpText="Elimina definitivamente la sesión, la transcripción y el audio conservado."/>
                                         </WrapPanel>
                                         <TextBlock Text="Almacenamiento local" FontWeight="SemiBold"/>

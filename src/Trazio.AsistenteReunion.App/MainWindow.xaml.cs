@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Reflection;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -1234,6 +1235,48 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
         catch (Exception ex) { ShowError("No se pudo exportar la transcripción", ex.Message); }
     }
 
+    private async void ExportObsidian_Click(object sender, RoutedEventArgs e)
+    {
+        var session = SelectedHistorySession();
+        if (session is null || _store is null || !_historyState.CanExportMarkdown)
+        {
+            StatusText.Text = _historyState.HasSelection ? HistoryPresenter.NoTranscriptMessage : HistoryPresenter.SelectSessionMessage;
+            return;
+        }
+
+        try
+        {
+            var warning = MessageBox.Show(
+                this,
+                ObsidianMarkdownExport.PlaintextSyncWarning,
+                "Exportar nota sin cifrar",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (warning != MessageBoxResult.Yes) return;
+
+            var settings = ObsidianMarkdownExport.DialogSettings(session.Title);
+            var dialog = new SaveFileDialog
+            {
+                FileName = settings.FileName,
+                DefaultExt = settings.DefaultExtension,
+                Filter = settings.Filter,
+                AddExtension = settings.AddExtension,
+                OverwritePrompt = settings.OverwritePrompt
+            };
+            if (dialog.ShowDialog(this) != true) return;
+
+            var segments = await _store.GetReviewedSegmentsAsync(session.Id, _lifetime.Token);
+            var version = typeof(MainWindow).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                ?? typeof(MainWindow).Assembly.GetName().Version?.ToString()
+                ?? "desconocida";
+            var markdown = ObsidianMarkdownExport.Create(session, segments, version);
+            await File.WriteAllTextAsync(dialog.FileName, markdown, ObsidianMarkdownExport.Utf8WithoutBom, _lifetime.Token);
+            StatusText.Text = "Nota Markdown exportada";
+        }
+        catch (Exception ex) { ShowError("No se pudo exportar la nota Markdown", ex.Message); }
+    }
+
     private async void Delete_Click(object sender, RoutedEventArgs e)
     {
         var session = SelectedHistorySession();
@@ -1269,7 +1312,7 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
         if (dialog.ShowDialog(this) != true) return;
         var target = StorageMigrationService.TargetUnderParent(dialog.FolderName);
         if (MessageBox.Show(this,
-            $"Trazio usará esta carpeta después del próximo reinicio:\n\n{target}\n\nSe trasladarán la base de datos cifrada, el audio, el modelo, la configuración y la clave. Los archivos TXT y WAV exportados no se trasladarán. ¿Deseas continuar?",
+            $"Trazio usará esta carpeta después del próximo reinicio:\n\n{target}\n\nSe trasladarán la base de datos cifrada, el audio, el modelo, la configuración y la clave. Los archivos TXT, Markdown y WAV exportados no se trasladarán. ¿Deseas continuar?",
             "Programar traslado de almacenamiento", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
         await Task.Run(() => _storageMigration.Schedule(ApplicationPaths.DataDirectory, target, AppContext.BaseDirectory));
         UpdateStorageLocationUi();
@@ -1280,7 +1323,7 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
     {
         var target = ApplicationPaths.DefaultDataDirectory;
         if (MessageBox.Show(this,
-            $"Trazio devolverá sus datos protegidos a la carpeta predeterminada después del próximo reinicio:\n\n{target}\n\nLos archivos TXT y WAV exportados no se trasladarán. ¿Deseas continuar?",
+            $"Trazio devolverá sus datos protegidos a la carpeta predeterminada después del próximo reinicio:\n\n{target}\n\nLos archivos TXT, Markdown y WAV exportados no se trasladarán. ¿Deseas continuar?",
             "Restaurar almacenamiento predeterminado", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
         await Task.Run(() => _storageMigration.Schedule(ApplicationPaths.DataDirectory, target, AppContext.BaseDirectory));
         UpdateStorageLocationUi();
@@ -1374,6 +1417,7 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
         PlaybackTimeline.IsEnabled = _historyState.CanPlayAudio && hasTrack;
         ExportWavButton.IsEnabled = _historyState.CanExportWav && !_historyPlaying;
         ExportTxtButton.IsEnabled = _historyState.CanExportTxt;
+        ExportObsidianButton.IsEnabled = _historyState.CanExportMarkdown;
         DeleteSessionButton.IsEnabled = _historyState.CanDelete && !_historyPlaying && !_historyRetranscriptionOperation.IsRunning;
         var viewingModelRevision = HistoryRevisionSelector.SelectedItem is HistoryRevisionItem;
         SaveCorrectionButton.IsEnabled = selected is not null && !viewingModelRevision;
@@ -1398,6 +1442,9 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
             : _historyState.AudioGuidance;
         ExportTxtButton.ToolTip = _historyState.CanExportTxt
             ? "Crea una transcripción TXT sin cifrar en la ubicación que elijas."
+            : (_historyState.HasSelection ? HistoryPresenter.NoTranscriptMessage : HistoryPresenter.SelectSessionMessage);
+        ExportObsidianButton.ToolTip = _historyState.CanExportMarkdown
+            ? "Crea una nota Markdown sin cifrar compatible con Obsidian en la ubicación que elijas."
             : (_historyState.HasSelection ? HistoryPresenter.NoTranscriptMessage : HistoryPresenter.SelectSessionMessage);
         DeleteSessionButton.ToolTip = _historyState.DeleteReason;
         UpdateComparisonControls();
