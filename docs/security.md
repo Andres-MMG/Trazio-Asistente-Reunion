@@ -16,6 +16,7 @@ Este documento describe los límites frente a amenazas de la implementación; no
 | Preferencias / perfil local | DPAPI `CurrentUser` en `settings.dat` | Visible para la aplicación autorizada en ejecución |
 | Selector de ventana de reunión | El título y el nombre de proceso existen solo en el candidato mostrado dentro del modal y se descartan al asociar o cerrar | Esas señales transitorias están expuestas al límite de memoria del selector mientras permanece abierto |
 | Asociación activa y proveedor normalizado | Fuera del modal solo se mantienen temporalmente HWND, PID y enum; SQLite conserva únicamente el enum sin cifrado | Revela `Sin seleccionar`, `Google Meet`, `Microsoft Teams` u `Otra aplicación`; no conserva título, URL, PID, HWND ni proceso. La asociación se consume en toda finalización |
+| Captura visual efímera 7.2a | OFF por defecto; autorización separada y no persistida por sesión. Cada fotograma WGC se cierra de inmediato sin analizar ni almacenar píxeles | El contenido existe transitoriamente en memoria gráfica mientras Windows y Trazio entregan/cierran el fotograma; no hay garantía frente a inspección del proceso, paginación o volcados externos |
 | Esquema SQLite y metadatos operativos | Sin cifrado de archivo completo | ID, marcas de tiempo, enumeraciones de fuente/proveedor, secuencias, rutas/tamaños y estructura de base de datos |
 | Archivos de modelo | Sin cifrar; modelo de catálogo autenticado por tamaño/hash esperado | Los modelos personalizados aportados por el usuario no son autenticados por ese catálogo |
 | Exportaciones TXT, Markdown y WAV | Sin cifrar en una ruta elegida por el usuario | Fuera de los controles de cifrado, retención y eliminación de la aplicación; una bóveda sincronizada puede enviarlas a servicios externos |
@@ -29,6 +30,8 @@ Fuentes: [Crypto.cs](../src/Trazio.AsistenteReunion.Core/Crypto.cs), [SettingsSt
 - La aplicación escribe fragmentos de audio cifrados antes de mover atómicamente los archivos `.partial` a su ubicación definitiva. La reconciliación al inicio elimina archivos incompletos/sin referencia y metadatos obsoletos.
 - La reproducción descifra un fragmento a la vez sin crear un WAV temporal sin cifrar en el almacenamiento de la aplicación. La exportación explícita es deliberadamente una operación distinta.
 - La clasificación de ventana usa señales conservadoras del título transitorio y nombre de proceso. Una coincidencia identifica un proveedor probable, no demuestra que exista una reunión activa ni quién habla. Señales contradictorias o insuficientes se reducen a `Otra aplicación`.
+- La captura visual 7.2a exige una autorización distinta de asociar la ventana, se limita al HWND/PID revalidado y no persiste imágenes, video, URL, DOM, subtítulos ni etiquetas de participantes. Pausar o detener lo visual no detiene el audio; un fallo visual se degrada sin reasignar otra ventana.
+- El script de publicación rechaza datos de reuniones, modelos, imágenes, video, volcados, registros y material de claves en la carpeta distribuible. Esta comprobación reduce una inclusión accidental en el paquete; no impide volcados externos del sistema operativo ni reemplaza la inspección del recurso final.
 
 ### Fuera de la protección
 

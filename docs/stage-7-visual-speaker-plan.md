@@ -4,7 +4,7 @@
 >
 > **Puerta de autorización:** el usuario autorizó e implementó únicamente la rebanada 7.2a. Esa autorización no se extiende a 7.2b, identificación de hablantes, adaptadores ni persistencia de evidencia derivada.
 
-> **Estado de 7.2a:** implementada en código con consentimiento efímero por sesión, controles separados, WGC sobre el HWND/PID revalidado y cierre inmediato de frames sin analizar ni persistir píxeles. Siguen pendientes la validación WGC/GUI/lector de pantalla en hardware real, el paquete de esta revisión y la prueba de dos horas. 7.2b no está implementada.
+> **Estado de 7.2a:** incluida en `v0.2.0-beta.3` con consentimiento efímero por sesión, controles separados, WGC sobre el HWND/PID revalidado y cierre inmediato de frames sin analizar ni persistir píxeles. Siguen pendientes la validación WGC/GUI/lector de pantalla en hardware real y la prueba de dos horas. 7.2b no está implementada.
 
 ## Resultado esperado
 
@@ -80,7 +80,7 @@ flowchart LR
 
 Esta rebanada no identifica personas. Solo demuestra una captura visual efímera, segura y controlable.
 
-**Estado:** implementada en código. La aceptación continúa abierta hasta completar WGC físico, teclado/lector de pantalla, empaquetado y duración. La recuperación ante pérdida del dispositivo se normaliza como fallo visual seguro; una recreación controlada del dispositivo queda pendiente.
+**Estado:** implementada en código e incluida en la beta 3. La aceptación continúa abierta hasta completar WGC físico, teclado/lector de pantalla y duración. La recuperación ante pérdida del dispositivo se normaliza como fallo visual seguro; una recreación controlada del dispositivo queda pendiente.
 
 - Revalidar HWND y PID inmediatamente antes de crear el `GraphicsCaptureItem`; no reasignar otra ventana si falla.
 - Crear el objetivo con `IGraphicsCaptureItemInterop::CreateForWindow` sobre el HWND seleccionado.
@@ -234,7 +234,7 @@ Los resultados esperados (no soporte, permiso cancelado, objetivo perdido o cont
 
 ### Pruebas automatizadas
 
-La unidad 7.2a registra **54/54 pruebas enfocadas** (`Area=VisualCapture`) en esta revisión. Cubren ciclo de vida, autorización consumible, callbacks obsoletos, descarte/disposición, revalidación WGC, presentación, manifiesto y controles compilados. Esta evidencia no ejecuta una captura WGC real ni valida el escritorio renderizado.
+La unidad 7.2a registra **54/54 pruebas enfocadas** (`Area=VisualCapture`) y la base funcional `b075958` registra **250/250 pruebas seriales** con compilación Release sin errores ni advertencias. Cubren ciclo de vida, autorización consumible, callbacks obsoletos, descarte/disposición, revalidación WGC, presentación, manifiesto y controles compilados. Esta evidencia no ejecuta una captura WGC real ni valida el escritorio renderizado.
 
 - [VisualCaptureSessionControllerTests](../tests/Trazio.AsistenteReunion.Tests/VisualCaptureSessionControllerTests.cs)
 - [BoundedDropOldestProcessorTests](../tests/Trazio.AsistenteReunion.Tests/BoundedDropOldestProcessorTests.cs)
@@ -288,7 +288,7 @@ La cobertura/recall no será criterio inicial: un adaptador puede abstenerse. Pr
 - [ ] El indicador visual permanece visible y Pausar/Detener funciona por teclado y lector de pantalla.
 - [x] El backend solo crea captura para la ventana HWND/PID revalidada y no reasigna; falta demostrarlo físicamente.
 - [x] El canal genérico no supera dos elementos y garantiza disposición exactamente una vez; WGC 7.2a cierra cada frame inmediatamente.
-- [x] El código 7.2a no crea videos, screenshots, dumps propios, logs sensibles ni registros de píxeles; falta inspección física del paquete y ejecución.
+- [x] El código 7.2a no crea videos, screenshots, dumps propios, logs sensibles ni registros de píxeles; el script rechaza esas clases en el layout publicable. Falta inspeccionar la ejecución física y el ZIP final publicado.
 - [ ] Minimizar, cerrar, proteger o perder la ventana no detiene audio/transcripción.
 - [ ] Solo `ComputerOutput` recibe evidencia remota; el micrófono conserva la identidad local.
 - [ ] Las etiquetas con nombre siempre incluyen proveedor, evidencia, confianza y versión de adaptador.

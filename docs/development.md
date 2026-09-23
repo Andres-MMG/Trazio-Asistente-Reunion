@@ -47,8 +47,9 @@ Cierra primero la aplicación; no finalices la grabación activa de otra persona
 1. Reemplaza únicamente `artifacts\publish` después de comprobar que esté dentro de `artifacts`.
 2. Publica App y Worker como `win-x64`, autocontenidos, **no como archivo único**, en la misma carpeta.
 3. Copia el README y los avisos de terceros.
-4. Comprueba ejecutables/dependencias necesarios, coincidencia de versiones `0.2.0-beta.2` y el manifiesto de capacidades del paquete. El manifiesto `trazio-capabilities.json`, versionado junto al proyecto WPF y copiado al publicar, sustituye el escaneo frágil de cadenas dentro de la DLL; la publicación exige las capacidades de historial, audio cifrado, exportación Obsidian, asociación de proveedor por ventana y captura efímera consentida. La validación rechaza identificadores duplicados o versiones inválidas.
-5. Ejecuta la comprobación de salud del proceso auxiliar mediante canal con nombre.
+4. Comprueba ejecutables/dependencias necesarios, coincidencia de versiones `0.2.0-beta.3` y el manifiesto de capacidades del paquete. El manifiesto `trazio-capabilities.json`, versionado junto al proyecto WPF y copiado al publicar, sustituye el escaneo frágil de cadenas dentro de la DLL; la publicación exige las capacidades de historial, audio cifrado, exportación Obsidian, asociación de proveedor por ventana y captura efímera consentida. La validación rechaza identificadores duplicados o versiones inválidas.
+5. Rechaza tipos y metadatos no incluidos en la lista permitida del layout, incluidos datos de usuario, bases SQLite, audio, modelos GGML/GGUF, imágenes, video, volcados, registros y material de claves. Los recursos visuales legítimos futuros requieren una autorización explícita en el empaquetado; no se aceptan por extensión de manera silenciosa. El ZIP final también debe inspeccionarse antes del SHA-256 y la subida.
+6. Ejecuta la comprobación de salud del proceso auxiliar mediante canal con nombre.
 
 Ejecuta `artifacts\publish\Trazio.AsistenteReunion.exe`. Una comprobación de salud demuestra inicio/respuesta del proceso auxiliar, **no** carga de modelo, captura ni reconocimiento; usa la [prueba básica de inferencia](validation.md#pruebas-básicas-de-paquete-e-inferencia-real) para ese límite independiente.
 
@@ -66,7 +67,7 @@ Después de publicar, con Inno Setup 6 instalado:
 
 ## Disciplina de versiones y publicación
 
-Versión fuente: **0.2.0-beta.2** (`VersionPrefix` 0.2.0 + `VersionSuffix` beta.2); versión de ensamblado/archivo: **0.2.0.0**. [Directory.Build.props](../Directory.Build.props) es la autoridad compartida de versión. El script de publicación, la definición del instalador y las [pruebas de versión](../tests/Trazio.AsistenteReunion.Tests/VersionMetadataTests.cs) también contienen comprobaciones; actualízalos juntos para una nueva versión.
+Versión fuente: **0.2.0-beta.3** (`VersionPrefix` 0.2.0 + `VersionSuffix` beta.3); versión de ensamblado/archivo: **0.2.0.0**. [Directory.Build.props](../Directory.Build.props) es la autoridad compartida de versión. El script de publicación, la definición del instalador y las [pruebas de versión](../tests/Trazio.AsistenteReunion.Tests/VersionMetadataTests.cs) también contienen comprobaciones; actualízalos juntos para una nueva versión.
 
 - [ ] Registrar commit, versión, evidencia de pruebas y límites de validación pendientes.
 - [ ] Publicar ambos ejecutables; verificar inferencia real antes de afirmar que un modelo funciona.
@@ -79,10 +80,10 @@ Versión fuente: **0.2.0-beta.2** (`VersionPrefix` 0.2.0 + `VersionSuffix` beta.
 Ejemplo de suma de comprobación para un ZIP preparado:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\artifacts\Trazio-Asistente-Reunion-v0.2.0-beta.2-win-x64.zip
+Get-FileHash -Algorithm SHA256 .\artifacts\Trazio-Asistente-Reunion-v0.2.0-beta.3-win-x64.zip
 ```
 
-El recurso esperado es `Trazio-Asistente-Reunion-v0.2.0-beta.2-win-x64.zip` junto a `Trazio-Asistente-Reunion-v0.2.0-beta.2-win-x64.zip.sha256`. Este comando no crea un ZIP ni una versión publicada. Publicar, firmar y enviar cambios requieren autorización explícita del mantenedor.
+El recurso esperado es `Trazio-Asistente-Reunion-v0.2.0-beta.3-win-x64.zip` junto a `Trazio-Asistente-Reunion-v0.2.0-beta.3-win-x64.zip.sha256`. Este comando no crea un ZIP ni una versión publicada. Publicar, firmar y enviar cambios requieren autorización explícita del mantenedor.
 
 ## Límites de contribución
 

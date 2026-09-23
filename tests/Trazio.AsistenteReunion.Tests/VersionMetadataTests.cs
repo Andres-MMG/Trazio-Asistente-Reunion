@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Trazio.AsistenteReunion.App;
 using Trazio.AsistenteReunion.Core;
 
@@ -7,6 +8,9 @@ namespace Trazio.AsistenteReunion.Tests;
 
 public sealed class VersionMetadataTests
 {
+    private const string ExpectedVersion = "0.2.0-beta.3";
+    private const string ExpectedReleaseArchive = "Trazio-Asistente-Reunion-v0.2.0-beta.3-win-x64.zip";
+
     [Fact]
     public void Assemblies_UseBetaVersionAndProductName()
     {
@@ -16,7 +20,7 @@ public sealed class VersionMetadataTests
             Assert.Equal(new Version(0, 2, 0, 0), assembly.GetName().Version);
             Assert.Equal("Trazio Asistente Reunión", assembly.GetCustomAttribute<AssemblyProductAttribute>()?.Product);
             Assert.Equal("0.2.0.0", assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version);
-            Assert.StartsWith("0.2.0-beta.2", assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
+            Assert.StartsWith(ExpectedVersion, assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
         }
     }
 
@@ -65,15 +69,34 @@ public sealed class VersionMetadataTests
 
     [Fact]
     [Trait("Area", "VisualCapture")]
-    public void PublishScript_RejectsDuplicateCapabilitiesAndRequiresVisualCaptureContract()
+    public void PublishScript_RequiresReleaseContractAndRejectsUnsafeLayout()
     {
         var root = FindRepositoryRoot();
         var script = File.ReadAllText(Path.Combine(root, "installer", "publish.ps1"));
 
+        var versionMatch = Regex.Match(script, "\\$expectedVersion\\s*=\\s*\"([^\"]+)\"");
+        var archiveTemplateMatch = Regex.Match(script, "\\$expectedArchiveName\\s*=\\s*\"([^\"]+)\"");
+        Assert.True(versionMatch.Success, "publish.ps1 must declare the expected release version.");
+        Assert.True(archiveTemplateMatch.Success, "publish.ps1 must declare the expected archive name.");
+        Assert.Equal(ExpectedVersion, versionMatch.Groups[1].Value);
+        Assert.Equal(
+            ExpectedReleaseArchive,
+            archiveTemplateMatch.Groups[1].Value.Replace("$expectedVersion", versionMatch.Groups[1].Value, StringComparison.Ordinal));
+        Assert.Contains("$expectedChecksumName = \"$expectedArchiveName.sha256\"", script, StringComparison.Ordinal);
         Assert.Contains("consented-ephemeral-window-capture-v1", script, StringComparison.Ordinal);
         Assert.Contains("HashSet[string]", script, StringComparison.Ordinal);
         Assert.Contains("StringComparer]::Ordinal", script, StringComparison.Ordinal);
         Assert.Contains("$match.Count -ne 1", script, StringComparison.Ordinal);
+        Assert.Contains("$allowedPublishExtensions", script, StringComparison.Ordinal);
+        Assert.Contains("$allowedMetadataFiles", script, StringComparison.Ordinal);
+        Assert.Contains("$allowedExecutableFiles", script, StringComparison.Ordinal);
+        Assert.Contains("\"createdump.exe\"", script, StringComparison.Ordinal);
+        Assert.Contains("\".png\"", script, StringComparison.Ordinal);
+        Assert.Contains("\".mp4\"", script, StringComparison.Ordinal);
+        Assert.Contains("\".dmp\"", script, StringComparison.Ordinal);
+        Assert.Contains("\".log\"", script, StringComparison.Ordinal);
+        Assert.Contains("\"ggml-\"", script, StringComparison.Ordinal);
+        Assert.Contains("Published layout contains private or unsupported retained artifacts", script, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()

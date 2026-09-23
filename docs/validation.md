@@ -4,13 +4,15 @@
 
 ## Evidencia actual
 
-La última versión publicada es [`v0.2.0-beta.2`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.2), código `a8481ef`. El código fuente posterior agrega 7.2a y necesita una nueva ejecución completa, comprobación de paquete y pruebas físicas antes de una publicación.
+La versión actual es [`v0.2.0-beta.3`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.3). La base funcional de 7.2a se verificó en `b075958`; la publicación añade metadatos y endurecimiento del paquete, sin convertir las comprobaciones automatizadas en evidencia física.
 
 | Evidencia | Resultado registrado / límite |
 |---|---|
 | `v0.1.1-mvp`, conjunto Release serial | 164/164 aprobadas; evidencia histórica |
 | `v0.2.0-beta.2` (`a8481ef`), conjunto Release serial | 197/197 aprobadas según la versión publicada |
-| Código posterior, pruebas enfocadas `Area=VisualCapture` | 54/54 aprobadas; no es una ejecución completa ni física |
+| Base funcional beta 3 (`b075958`), pruebas enfocadas `Area=VisualCapture` | 54/54 aprobadas; no es evidencia física |
+| Base funcional beta 3 (`b075958`), conjunto Release serial | 250/250 aprobadas; compilación Release con 0 errores y 0 advertencias |
+| Metadatos/capacidad de beta 3 | 3/3 pruebas de `VersionMetadataTests`; manifiesto con 5 capacidades únicas |
 | Conjunto de pruebas paralelo predeterminado | Fallos intermitentes de bloqueo de archivos al limpiar pruebas SQLite; sin resolver |
 | Paquete combinado App + Worker | Publicado; prueba básica de salud por canal con nombre aprobada |
 | Distribución pública | ZIP/suma de comprobación disponibles como versión preliminar sin firma |

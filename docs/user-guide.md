@@ -4,23 +4,26 @@
 
 ## Primera grabación
 
-1. Descarga el ZIP completo de Windows desde la [versión v0.2.0-beta.2](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.2). Extráelo en una carpeta normal de aplicaciones; no lo ejecutes desde dentro del ZIP.
+1. Descarga el ZIP completo de Windows desde la [versión v0.2.0-beta.3](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.3). Extráelo en una carpeta normal de aplicaciones; no lo ejecutes desde dentro del ZIP.
 2. Abre `Trazio.AsistenteReunion.exe`. No lo separes del proceso auxiliar ni de las DLL. La beta sin firma puede generar advertencias de reputación de Windows; verifica el origen de la versión y su SHA-256 antes de decidir ejecutarla. No desactives el antivirus globalmente.
 3. En **Sesión en vivo**, acepta o edita **Título de la reunión**. Es un título automático de reunión, no tu nombre; se puede renombrar después en Historial.
 4. En **Perfil local**, confirma **Nombre visible**, ingresa opcionalmente una organización, marca **Confirmo este nombre visible** y **Guardar perfil**. **Tu nombre en esta reunión (opcional)** cambia solo la atribución del micrófono para esta grabación.
 5. Opcionalmente, en **Aplicación de reunión**, pulsa **Seleccionar…**, luego **Actualizar lista**, elige una ventana superior y **Asociar**. Trazio mostrará Google Meet, Microsoft Teams u Otra aplicación.
-6. Selecciona el micrófono real y el dispositivo de salida utilizado por tu reunión. Usa auriculares para reducir la recaptura por el micrófono del sonido de los parlantes.
-7. Haz clic en **Descargar modelo recomendado**, o inicia la transcripción para comenzar la configuración. La captura no comienza durante la configuración. Selecciona el idioma de transcripción.
-8. Elige el presupuesto de retención de audio (1, 2 o 5 GB) y luego **Iniciar transcripción**. Las sesiones nuevas siempre conservan audio cifrado; ya no es una casilla opcional.
-9. Comprueba los diagnósticos de ambas fuentes y las etiquetas de transcripción. Usa **Pausar**, **Reanudar** y **Detener** deliberadamente; espera la finalización antes de cerrar la aplicación.
+6. Si deseas probar la captura visual efímera, pulsa **Autorizar…** y revisa el diálogo. **Cancelar** es la opción predeterminada; la autorización sirve solo para esa ventana y esa sesión. Esta beta todavía requiere validación física, por lo que comienza con contenido no sensible.
+7. Selecciona el micrófono real y el dispositivo de salida utilizado por tu reunión. Usa auriculares para reducir la recaptura por el micrófono del sonido de los parlantes.
+8. Haz clic en **Descargar modelo recomendado**, o inicia la transcripción para comenzar la configuración. La captura no comienza durante la configuración. Selecciona el idioma de transcripción.
+9. Elige el presupuesto de retención de audio (1, 2 o 5 GB) y luego **Iniciar transcripción**. Las sesiones nuevas siempre conservan audio cifrado; ya no es una casilla opcional.
+10. Comprueba los diagnósticos de ambas fuentes y las etiquetas de transcripción. Usa **Pausar**, **Reanudar** y **Detener** deliberadamente; espera la finalización antes de cerrar la aplicación.
 
 **Importante:** Trazio captura independientemente de los controles de silencio de Meet/Teams/Zoom. Silenciarte en la reunión no silencia Trazio. Pausa Trazio cuando deba detenerse la grabación. Las notificaciones, la música y otras aplicaciones dirigidas a la salida seleccionada también pueden capturarse. Los permisos de grabación siguen siendo tu responsabilidad.
 
 ### Qué hace la asociación de ventana
 
-La lista de ventanas se consulta solo después de pulsar **Actualizar lista**. Esta versión elige una ventana superior de Windows, no una pestaña individual. El título y la aplicación ayudan a elegir únicamente dentro del selector y se descartan al asociar o cerrar; fuera del modal solo quedan temporalmente el identificador técnico de la ventana, su PID y el proveedor. El historial guarda únicamente el proveedor normalizado. Asociar una ventana no inicia captura visual. El código posterior a `v0.2.0-beta.2` permite autorizarla por separado para la sesión: los frames se procesan de forma efímera y se cierran sin guardar videos ni imágenes; todavía no se leen URL, DOM, subtítulos ni nombres de participantes.
+La lista de ventanas se consulta solo después de pulsar **Actualizar lista**. Esta versión elige una ventana superior de Windows, no una pestaña individual. El título y la aplicación ayudan a elegir únicamente dentro del selector y se descartan al asociar o cerrar; fuera del modal solo quedan temporalmente el identificador técnico de la ventana, su PID y el proveedor. El historial guarda únicamente el proveedor normalizado. Asociar una ventana no inicia captura visual. `v0.2.0-beta.3` permite autorizarla por separado para la sesión: los fotogramas se procesan de forma efímera y se cierran sin guardar videos ni imágenes; todavía no se leen URL, DOM, subtítulos ni nombres de participantes.
 
 Puedes iniciar sin seleccionar. Asociar una ventana tampoco cambia el origen de audio: Trazio sigue capturando el micrófono y/o el dispositivo de salida completos. Si la ventana desaparece antes de iniciar, la sesión continúa como **Sin seleccionar**; si desaparece durante la grabación, aparece un aviso y el audio continúa sin reasignación automática. Seleccionar, cambiar y quitar quedan bloqueados mientras se graba. Al detener, interrumpir o fallar la sesión, la asociación se consume y no se hereda en la siguiente reunión.
+
+Durante una sesión autorizada, **Pausar visual**, **Reanudar visual** y **Detener visual** controlan únicamente WGC. La aplicación muestra un estado textual independiente y el indicador **Análisis visual activo · no se guardan imágenes**. Detenerlo consume la autorización de esa sesión; no se reactiva silenciosamente. Estas rutas tienen cobertura automatizada, pero teclado, lector de pantalla, borde del sistema, minimización y continuidad en hardware real todavía requieren aceptación manual.
 
 ## Configuración del modelo
 

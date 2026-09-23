@@ -1,7 +1,7 @@
 param([string]$Configuration = "Release")
 
 $ErrorActionPreference = "Stop"
-$expectedVersion = "0.2.0-beta.2"
+$expectedVersion = "0.2.0-beta.3"
 $expectedArchiveName = "Trazio-Asistente-Reunion-v$expectedVersion-win-x64.zip"
 $expectedChecksumName = "$expectedArchiveName.sha256"
 $root = Split-Path -Parent $PSScriptRoot
@@ -30,6 +30,69 @@ foreach ($publishedSymbol in $publishedSymbols) {
 $remainingSymbols = @(Get-ChildItem -LiteralPath $publishOutput -Filter "*.pdb" -File -Recurse)
 if ($remainingSymbols.Count -gt 0) {
     throw "Published layout still contains debugging symbols: $($remainingSymbols.FullName -join ', ')"
+}
+
+$prohibitedExtensions = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+@(
+    ".db", ".db-wal", ".db-shm", ".sqlite", ".sqlite3",
+    ".wav", ".mp3", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".pcm", ".raw",
+    ".ggml", ".gguf",
+    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".tif", ".tiff", ".svg", ".ico", ".avif", ".heic",
+    ".mp4", ".m4v", ".mkv", ".avi", ".mov", ".webm", ".wmv", ".mpeg", ".mpg",
+    ".dmp", ".mdmp", ".dump", ".crash", ".core", ".log", ".etl", ".evtx", ".trace", ".har",
+    ".key", ".pem", ".pfx", ".p12", ".env"
+) | ForEach-Object { $null = $prohibitedExtensions.Add($_) }
+$prohibitedDirectoryNames = [System.Collections.Generic.HashSet[string]]::new(
+    [string[]]@("audio", "models", "logs", "dumps"),
+    [System.StringComparer]::OrdinalIgnoreCase)
+$prohibitedExactNames = [System.Collections.Generic.HashSet[string]]::new(
+    [string[]]@("master.key", "settings.dat", ".env"),
+    [System.StringComparer]::OrdinalIgnoreCase)
+$allowedPublishExtensions = [System.Collections.Generic.HashSet[string]]::new(
+    [string[]]@(".dll", ".exe", ".json", ".md"),
+    [System.StringComparer]::OrdinalIgnoreCase)
+$allowedMetadataFiles = [System.Collections.Generic.HashSet[string]]::new(
+    [string[]]@(
+        "Trazio.AsistenteReunion.deps.json",
+        "Trazio.AsistenteReunion.runtimeconfig.json",
+        "Trazio.AsistenteReunion.Worker.deps.json",
+        "Trazio.AsistenteReunion.Worker.runtimeconfig.json",
+        "trazio-capabilities.json",
+        "README.md",
+        "THIRD-PARTY-NOTICES.md"),
+    [System.StringComparer]::OrdinalIgnoreCase)
+$allowedExecutableFiles = [System.Collections.Generic.HashSet[string]]::new(
+    [string[]]@(
+        "Trazio.AsistenteReunion.exe",
+        "Trazio.AsistenteReunion.Worker.exe",
+        "createdump.exe"),
+    [System.StringComparer]::OrdinalIgnoreCase)
+$prohibitedEntries = @(
+    Get-ChildItem -LiteralPath $publishOutput -Recurse -Force | Where-Object {
+        if ($_.PSIsContainer) {
+            return $prohibitedDirectoryNames.Contains($_.Name)
+        }
+
+        $extension = [System.IO.Path]::GetExtension($_.Name)
+        return -not $allowedPublishExtensions.Contains($extension) -or
+            (($extension.Equals(".json", [System.StringComparison]::OrdinalIgnoreCase) -or
+                $extension.Equals(".md", [System.StringComparison]::OrdinalIgnoreCase)) -and
+                -not $allowedMetadataFiles.Contains($_.Name)) -or
+            ($extension.Equals(".exe", [System.StringComparison]::OrdinalIgnoreCase) -and
+                -not $allowedExecutableFiles.Contains($_.Name)) -or
+            $prohibitedExtensions.Contains($extension) -or
+            $prohibitedExactNames.Contains($_.Name) -or
+            $_.Name.StartsWith(".env.", [System.StringComparison]::OrdinalIgnoreCase) -or
+            $_.Name.StartsWith("trazio-transcripts.db", [System.StringComparison]::OrdinalIgnoreCase) -or
+            ($_.Name.StartsWith("ggml-", [System.StringComparison]::OrdinalIgnoreCase) -and
+                $_.Name.EndsWith(".bin", [System.StringComparison]::OrdinalIgnoreCase))
+    }
+)
+if ($prohibitedEntries.Count -gt 0) {
+    $relativeEntries = @($prohibitedEntries | ForEach-Object {
+        $_.FullName.Substring($publishOutput.Length).TrimStart([char[]]"\/")
+    })
+    throw "Published layout contains private or unsupported retained artifacts: $($relativeEntries -join ', ')"
 }
 
 $requiredFiles = @("Trazio.AsistenteReunion.exe", "Trazio.AsistenteReunion.Worker.exe", "Whisper.net.dll", "README.md", "trazio-capabilities.json")

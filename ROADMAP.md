@@ -2,9 +2,9 @@
 
 - Fecha del estado: 2026-09-23
 - Madurez actual: MVP funcional avanzado / versión preliminar pública
-- Versión actual: [`0.2.0-beta.2`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.2)
+- Versión actual: [`0.2.0-beta.3`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.3)
 
-Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funcional implementada y la etapa 7.1a está implementada en código, todavía pendiente de validación física; el resto de la etapa 7 y el fortalecimiento de la distribución de la etapa 5 siguen pendientes.** La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
+Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funcional implementada; 7.1a y 7.2a están implementadas en código y forman parte de la beta 3, todavía pendientes de validación física. Las rebanadas 7.2b–7.2e y el fortalecimiento de la distribución de la etapa 5 siguen pendientes.** La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
 
 ## Principios del producto
 
@@ -25,7 +25,7 @@ Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funciona
 | 5 | Beta distribuible y mantenible | En curso |
 | 5.5 | Identidad del usuario local y atribución del micrófono | Implementada — validación física de interfaz pendiente |
 | 6 | Revisión, corrección, glosario de procedencia y retranscripción versionada | Línea base funcional implementada — validación física pendiente |
-| 7 | Fuente de reunión y atribución de hablantes | 7.1a implementada en código — validación física pendiente; resto en curso |
+| 7 | Fuente de reunión y atribución de hablantes | 7.1a y 7.2a implementadas en código — validación física pendiente; 7.2b+ planificadas |
 | 8 | Búsqueda, revisión por lotes, glosario global y productividad | Planificada — edición y navegación de audio básicas ya entregadas en la etapa 6 |
 | 9 | Inteligencia de reuniones opcional | Planificada |
 | 10 | Integración organizacional/con plataforma opcional | Futura |
@@ -42,13 +42,13 @@ Permitir instalar, actualizar, diagnosticar y recuperar la aplicación existente
 
 ### Base implementada
 
-- Código público en GitHub y flujo de ZIP completo para Windows con suma de comprobación; la candidata `0.2.0-beta.2` incorpora la asociación opcional de una ventana con un proveedor normalizado.
+- Código público en GitHub y flujo de ZIP completo para Windows con suma de comprobación; `0.2.0-beta.3` incorpora la asociación opcional de ventana y la captura visual efímera consentida de 7.2a.
 - Script de publicación combinada de aplicación/proceso auxiliar con comprobaciones de paquete y prueba básica de salud por canal con nombre.
 - Existe la definición de Inno Setup por usuario; la validación de instalación/actualización/reversión sigue pendiente.
 
 ### Alcance pendiente
 
-- Validar la instalación y actualización de la beta `0.2.0-beta.2` en equipos representativos.
+- Validar la instalación y actualización de la beta `0.2.0-beta.3` en equipos representativos.
 - Producir un instalador por usuario que detecte versiones anteriores y preserve los datos del usuario.
 - Implementar actualizaciones de la aplicación completa con manifiesto firmado, verificación SHA-256, cierre controlado, reemplazo atómico y reversión.
 - Actualizar la aplicación y el modelo Whisper de forma independiente cuando el modelo no haya cambiado.
@@ -149,7 +149,7 @@ Esta primera rebanada selecciona una **ventana superior**, no una pestaña indiv
 
 El trabajo se divide en rebanadas verificables:
 
-1. **7.2a:** implementada en código: HWND/PID revalidado, consentimiento separado, frame pool de dos buffers, ciclo de vida y descarte inmediato; faltan WGC físico, interfaz/lector de pantalla, empaquetado y prueba de dos horas.
+1. **7.2a:** incluida en la beta 3: HWND/PID revalidado, consentimiento separado, frame pool de dos buffers, ciclo de vida y descarte inmediato; faltan WGC físico, interfaz/lector de pantalla y prueba de dos horas.
 2. **7.2b:** actividad visual anónima, eventos derivados cifrados y correlación exclusiva con `ComputerOutput`.
 3. **7.2c:** adaptador versionado de Google Meet web mediante una extensión con permiso mínimo y WGC como respaldo.
 4. **7.2d:** adaptador de Microsoft Teams web/escritorio; extensión para web y WGC para escritorio/respaldo.
@@ -184,7 +184,7 @@ La diarización de audio separa voces, pero no revela nombres reales. Asociar un
 - El consentimiento visual de 7.2a es por sesión, separado de la selección de ventana y no conserva imágenes; su aceptación física sigue pendiente.
 - Trazio continúa de forma segura cuando los metadatos del proveedor no están disponibles o falla un adaptador.
 - Las etiquetas de hablantes remotos con nombre incluyen evidencia y confianza; los segmentos inciertos permanecen anónimos.
-- Las capturas opcionales están cifradas, acotadas y se pueden eliminar independientemente.
+- Los fotogramas de 7.2a no se persisten; la futura evidencia derivada de 7.2b deberá cifrarse, acotarse y eliminarse con la sesión.
 
 ## Etapa 8 — Historial y productividad
 

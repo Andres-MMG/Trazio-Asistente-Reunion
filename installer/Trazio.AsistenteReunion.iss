@@ -1,5 +1,5 @@
 #define MyAppName "Trazio Asistente Reunión"
-#define MyAppVersion "0.2.0-beta.2"
+#define MyAppVersion "0.2.0-beta.3"
 #define MyAppExeName "Trazio.AsistenteReunion.exe"
 
 [Setup]

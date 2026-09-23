@@ -1,6 +1,6 @@
 # Documentación de ingeniería
 
-**Trazio Asistente Reunión** es un producto de escritorio para Windows, independiente de Trazio Platforms. La última versión publicada es `0.2.0-beta.2`; esta documentación también distingue el código fuente posterior y señala explícitamente el trabajo futuro.
+**Trazio Asistente Reunión** es un producto de escritorio para Windows, independiente de Trazio Platforms. La versión actual es `0.2.0-beta.3`; incorpora 7.2a sin presentar las rebanadas posteriores como capacidades disponibles.
 
 ## Elige el siguiente paso
 
@@ -23,4 +23,4 @@
 
 La [hoja de ruta](../ROADMAP.md) es el plan canónico de etapas. Las versiones de dependencias provienen de los archivos de proyecto; los metadatos de versión provienen de [Directory.Build.props](../Directory.Build.props). El [registro de validación](validation.md#evidencia-actual) separa la evidencia automatizada de las comprobaciones de hardware y larga duración pendientes.
 
-Última revisión de la documentación contra el código fuente: **2026-09-23**. Última versión publicada: `v0.2.0-beta.2`; el código posterior de 7.2a aún no constituye una nueva versión publicada.
+Última revisión de la documentación contra el código fuente: **2026-09-23**. Versión documentada: `v0.2.0-beta.3`; la validación física de 7.2a y las rebanadas 7.2b–7.2e siguen pendientes.
