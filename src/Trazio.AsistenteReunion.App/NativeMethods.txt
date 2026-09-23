@@ -1,0 +1,4 @@
+D3D11CreateDevice
+D3D11_SDK_VERSION
+CreateDirect3D11DeviceFromDXGIDevice
+IGraphicsCaptureItemInterop
