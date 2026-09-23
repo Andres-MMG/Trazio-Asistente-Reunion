@@ -1,6 +1,6 @@
 # Documentación de ingeniería
 
-**Trazio Asistente Reunión** es un producto de escritorio para Windows, independiente de Trazio Platforms. Esta documentación describe la base implementada `0.2.0-beta.2` y señala explícitamente el trabajo futuro.
+**Trazio Asistente Reunión** es un producto de escritorio para Windows, independiente de Trazio Platforms. La última versión publicada es `0.2.0-beta.2`; esta documentación también distingue el código fuente posterior y señala explícitamente el trabajo futuro.
 
 ## Elige el siguiente paso
 
@@ -9,7 +9,7 @@
 | Descargar la aplicación y grabar mi primera reunión | [Guía de uso](user-guide.md) |
 | Entender qué está construido y qué viene después | [Hoja de ruta del producto](../ROADMAP.md) |
 | Entender los componentes, el flujo de datos y las decisiones de ingeniería | [Arquitectura](architecture.md) |
-| Revisar el diseño de análisis visual y evidencia de hablante antes de implementarlo | [Plan técnico de la etapa 7.2](stage-7-visual-speaker-plan.md) |
+| Revisar el diseño, la implementación parcial 7.2a y los límites del análisis visual | [Plan técnico de la etapa 7.2](stage-7-visual-speaker-plan.md) |
 | Compilar, empaquetar o contribuir | [Guía de desarrollo](development.md) |
 | Entender el cifrado, las exportaciones y los límites de recuperación | [Seguridad y privacidad](security.md) |
 | Reproducir comprobaciones o validar una versión | [Guía de validación](validation.md) |
@@ -23,4 +23,4 @@
 
 La [hoja de ruta](../ROADMAP.md) es el plan canónico de etapas. Las versiones de dependencias provienen de los archivos de proyecto; los metadatos de versión provienen de [Directory.Build.props](../Directory.Build.props). El [registro de validación](validation.md#evidencia-actual) separa la evidencia automatizada de las comprobaciones de hardware y larga duración pendientes.
 
-Última revisión de la documentación contra el código fuente: **2026-09-23**. Candidata de publicación: `v0.2.0-beta.2`; el commit y la evidencia definitivos se registran al crear la versión.
+Última revisión de la documentación contra el código fuente: **2026-09-23**. Última versión publicada: `v0.2.0-beta.2`; el código posterior de 7.2a aún no constituye una nueva versión publicada.

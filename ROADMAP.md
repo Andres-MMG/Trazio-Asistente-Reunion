@@ -121,7 +121,7 @@ Esto identifica a la persona que usa el micrófono configurado. No demuestra qui
 
 ## Etapa 7 — Fuente de reunión y atribución de hablantes
 
-**Estado: en curso.** La rebanada 7.1a asocia opcionalmente una ventana superior y persiste solo un proveedor normalizado; todavía requiere validación física. No identifica hablantes remotos ni lee una pestaña, URL, DOM o subtítulos.
+**Estado: en curso.** La rebanada 7.1a asocia opcionalmente una ventana superior. La 7.2a agrega consentimiento por sesión y captura WGC efímera sin persistir imágenes. Ambas requieren validación física; 7.2b todavía no identifica hablantes remotos ni lee una pestaña, URL, DOM o subtítulos.
 
 ### Objetivo
 
@@ -139,17 +139,17 @@ Esta etapa se divide intencionalmente en niveles de confianza separados. Trazio 
 - El título y el nombre de proceso existen solo dentro del selector y se descartan al asociar o cerrar. Fuera del modal permanecen temporalmente HWND, PID y proveedor; la sesión persiste únicamente el enum del proveedor y las sesiones antiguas quedan como `Sin seleccionar`.
 - Antes de iniciar se revalida la misma ventana y PID. Si se perdió, Trazio avisa sin modal, inicia con `Sin seleccionar` y no reasigna otra ventana.
 - Durante la grabación no se puede cambiar ni quitar la asociación. Una comprobación acotada avisa si la ventana desaparece, sin detener ni cambiar la captura de audio. Toda finalización, incluso interrumpida o fallida, consume la asociación para que no pase a otra reunión.
-- La captura sigue siendo WASAPI del dispositivo completo. Asociar una ventana **no** captura imágenes y **no** aísla el audio de esa ventana.
+- La captura de audio sigue siendo WASAPI del dispositivo completo. Asociar una ventana **no activa** el análisis visual y **no** aísla el audio de esa ventana.
 
 Esta primera rebanada selecciona una **ventana superior**, no una pestaña individual. La lectura de pestaña, URL, DOM, subtítulos o estado del hablante requiere un adaptador y permiso independientes; no forma parte de 7.1a. La automatización de calendarios tampoco puede omitir silenciosamente ese permiso.
 
 ### 7.2 Análisis visual y adaptadores de proveedores
 
-**Planificada; no implementada.** El [plan técnico de la etapa 7.2](docs/stage-7-visual-speaker-plan.md) establece consentimiento visual por sesión, estado OFF por defecto, procesamiento efímero de la ventana seleccionada y degradación a `Hablante remoto`. Implementar Windows Graphics Capture requiere una autorización explícita adicional; este roadmap no la concede.
+**7.2a implementada en código; validación física pendiente.** El [plan técnico de la etapa 7.2](docs/stage-7-visual-speaker-plan.md) se implementó hasta el consentimiento no persistido por sesión, estado OFF por defecto, ciclo de vida independiente y captura WGC efímera de la ventana seleccionada. Los fotogramas se cierran sin analizarlos ni persistirlos. 7.2b y las rebanadas posteriores siguen planificadas y no están autorizadas por este avance.
 
 El trabajo se divide en rebanadas verificables:
 
-1. **7.2a:** sustrato WGC para el HWND revalidado, 1–2 fps, frame pool/canal de capacidad 2 con descarte del frame más antiguo y cero persistencia de píxeles.
+1. **7.2a:** implementada en código: HWND/PID revalidado, consentimiento separado, frame pool de dos buffers, ciclo de vida y descarte inmediato; faltan WGC físico, interfaz/lector de pantalla, empaquetado y prueba de dos horas.
 2. **7.2b:** actividad visual anónima, eventos derivados cifrados y correlación exclusiva con `ComputerOutput`.
 3. **7.2c:** adaptador versionado de Google Meet web mediante una extensión con permiso mínimo y WGC como respaldo.
 4. **7.2d:** adaptador de Microsoft Teams web/escritorio; extensión para web y WGC para escritorio/respaldo.
@@ -181,7 +181,7 @@ La diarización de audio separa voces, pero no revela nombres reales. Asociar un
 ### Criterios de salida
 
 - El usuario puede seleccionar una ventana superior y ver el proveedor detectado; la validación física de 7.1a sigue pendiente. La selección de pestaña individual permanece fuera de esta rebanada.
-- Si se autoriza e implementa 7.2, el consentimiento visual es por sesión, separado de la selección de ventana y no conserva imágenes por defecto.
+- El consentimiento visual de 7.2a es por sesión, separado de la selección de ventana y no conserva imágenes; su aceptación física sigue pendiente.
 - Trazio continúa de forma segura cuando los metadatos del proveedor no están disponibles o falla un adaptador.
 - Las etiquetas de hablantes remotos con nombre incluyen evidencia y confianza; los segmentos inciertos permanecen anónimos.
 - Las capturas opcionales están cifradas, acotadas y se pueden eliminar independientemente.
@@ -317,7 +317,7 @@ Antes de publicar en producción:
 1. Continuar fortaleciendo la distribución de la etapa 5 desde la base existente de código público/ZIP; mantener pendientes los requisitos de producción.
 2. Mantener la línea base funcional de la etapa 6 y completar su validación física pendiente sin ampliar silenciosamente su alcance.
 3. Validar físicamente la selección de fuente 7.1a antes de intentar atribuir nombres a hablantes remotos.
-4. Después de una autorización explícita adicional, ejecutar 7.2 en orden: sustrato WGC efímero, actividad anónima, adaptadores web/escritorio y evaluación; no guardar imágenes por defecto.
+4. Validar físicamente 7.2a con WGC/interfaz/lector de pantalla y una sesión de dos horas antes de proponer 7.2b; no guardar imágenes por defecto.
 5. Implementar en la etapa 8 la navegación avanzada y la aplicación controlada del glosario.
 6. Completar las etapas 8–10 y la validación prolongada aplazada antes de publicar en producción.
 7. Implementar las cuentas conectadas, calendarios y automatización de reuniones con activación voluntaria de la etapa 11.

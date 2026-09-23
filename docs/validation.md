@@ -4,11 +4,13 @@
 
 ## Evidencia actual
 
-Candidata actual: `v0.2.0-beta.2`. La última base con evidencia publicada sigue siendo [`v0.1.1-mvp`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.1.1-mvp), código [`b9229ea`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/commit/b9229eaacd79ac03c31f1c3dec5edf7bb54c2b73). Sus resultados no se heredan automáticamente: la beta debe registrar una ejecución nueva, la comprobación del paquete y las pruebas físicas pendientes.
+La última versión publicada es [`v0.2.0-beta.2`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.2), código `a8481ef`. El código fuente posterior agrega 7.2a y necesita una nueva ejecución completa, comprobación de paquete y pruebas físicas antes de una publicación.
 
 | Evidencia | Resultado registrado / límite |
 |---|---|
-| Conjunto de pruebas Release, paralelismo entre colecciones desactivado | 164/164 aprobadas |
+| `v0.1.1-mvp`, conjunto Release serial | 164/164 aprobadas; evidencia histórica |
+| `v0.2.0-beta.2` (`a8481ef`), conjunto Release serial | 197/197 aprobadas según la versión publicada |
+| Código posterior, pruebas enfocadas `Area=VisualCapture` | 54/54 aprobadas; no es una ejecución completa ni física |
 | Conjunto de pruebas paralelo predeterminado | Fallos intermitentes de bloqueo de archivos al limpiar pruebas SQLite; sin resolver |
 | Paquete combinado App + Worker | Publicado; prueba básica de salud por canal con nombre aprobada |
 | Distribución pública | ZIP/suma de comprobación disponibles como versión preliminar sin firma |
@@ -54,6 +56,7 @@ finally { Remove-Item -LiteralPath $settings -ErrorAction SilentlyContinue }
 | Identidad / selección de ventana / revisión / glosario / Markdown | [LocalProfileTests](../tests/Trazio.AsistenteReunion.Tests/LocalProfileTests.cs), [MeetingWindowSelectionTests](../tests/Trazio.AsistenteReunion.Tests/MeetingWindowSelectionTests.cs), [ReviewStoreTests](../tests/Trazio.AsistenteReunion.Tests/ReviewStoreTests.cs), [GlossaryCandidateExtractorTests](../tests/Trazio.AsistenteReunion.Tests/GlossaryCandidateExtractorTests.cs), [ObsidianMarkdownExportTests](../tests/Trazio.AsistenteReunion.Tests/ObsidianMarkdownExportTests.cs) |
 | Navegación / comparación / revisiones de inferencia | [SegmentAudioNavigatorTests](../tests/Trazio.AsistenteReunion.Tests/SegmentAudioNavigatorTests.cs), [TranscriptComparisonTests](../tests/Trazio.AsistenteReunion.Tests/TranscriptComparisonTests.cs), [HistoryRetranscriptionServiceTests](../tests/Trazio.AsistenteReunion.Tests/HistoryRetranscriptionServiceTests.cs) |
 | Contratos de proceso auxiliar / paquete | [IpcTests](../tests/Trazio.AsistenteReunion.Tests/IpcTests.cs), [HistoryWorkspacePublicationTests](../tests/Trazio.AsistenteReunion.Tests/HistoryWorkspacePublicationTests.cs), [VersionMetadataTests](../tests/Trazio.AsistenteReunion.Tests/VersionMetadataTests.cs) |
+| Captura visual efímera / consentimiento / estado | [BoundedDropOldestProcessorTests](../tests/Trazio.AsistenteReunion.Tests/BoundedDropOldestProcessorTests.cs), [VisualCaptureSessionControllerTests](../tests/Trazio.AsistenteReunion.Tests/VisualCaptureSessionControllerTests.cs), [WindowsGraphicsCaptureServiceTests](../tests/Trazio.AsistenteReunion.Tests/WindowsGraphicsCaptureServiceTests.cs), [VisualCapturePresentationTests](../tests/Trazio.AsistenteReunion.Tests/VisualCapturePresentationTests.cs) |
 
 Estas pruebas no reemplazan controladores físicos, interacción con el escritorio renderizado ni precisión de voz medida.
 
@@ -92,7 +95,9 @@ El cierre funcional de la etapa 6 no marca estos controles como aprobados. La in
 - [ ] Abrir el selector no enumera hasta **Actualizar lista**; verificar exclusión de Trazio y que Meet/Teams/Otra se presenten sin afirmar reunión activa.
 - [ ] Iniciar sin ventana; iniciar con Meet/Teams/Otra; confirmar en Historial solo el proveedor normalizado y que el título visible de la ventana no aparezca en la base.
 - [ ] Cerrar la ventana antes de iniciar y durante una grabación: aviso no modal, ninguna reasignación, audio continuo y proveedor inmutable de la sesión ya iniciada.
-- [ ] Confirmar que asociar una ventana superior no captura imágenes y no limita WASAPI a esa aplicación; validar teclado, Enter, Escape, foco y lector de pantalla del diálogo.
+- [ ] Confirmar que asociar una ventana superior no activa WGC y no limita WASAPI; autorizar visual por separado y validar Cancelar predeterminado, teclado, Enter, Escape, foco y lector de pantalla.
+- [ ] Con WGC autorizado: verificar borde del sistema, redimensión, minimizar/restaurar/cerrar, controles visuales separados y continuidad de audio/transcripción ante cada salida.
+- [ ] Inspeccionar almacenamiento, registros y paquete después de la sesión: no deben existir videos, screenshots ni bytes de imagen retenidos por 7.2a.
 - [ ] Pausar/reanudar/detener; no confundir intervalos pausados con sonido capturado; la finalización informa errores.
 - [ ] Navegar entre fragmentos/huecos; usar la acción de audio de cada segmento, pausa y saltos de 10 segundos.
 - [ ] Corregir/deshacer; guardar solo términos modificados del glosario; comparar original/nueva revisión sin sobrescrituras.

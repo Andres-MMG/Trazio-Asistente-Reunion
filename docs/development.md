@@ -47,7 +47,7 @@ Cierra primero la aplicación; no finalices la grabación activa de otra persona
 1. Reemplaza únicamente `artifacts\publish` después de comprobar que esté dentro de `artifacts`.
 2. Publica App y Worker como `win-x64`, autocontenidos, **no como archivo único**, en la misma carpeta.
 3. Copia el README y los avisos de terceros.
-4. Comprueba ejecutables/dependencias necesarios, coincidencia de versiones `0.2.0-beta.2` y el manifiesto de capacidades del paquete. El manifiesto `trazio-capabilities.json`, versionado junto al proyecto WPF y copiado al publicar, sustituye el escaneo frágil de cadenas dentro de la DLL; la publicación exige las capacidades de historial, audio cifrado, exportación Obsidian y asociación de proveedor por ventana.
+4. Comprueba ejecutables/dependencias necesarios, coincidencia de versiones `0.2.0-beta.2` y el manifiesto de capacidades del paquete. El manifiesto `trazio-capabilities.json`, versionado junto al proyecto WPF y copiado al publicar, sustituye el escaneo frágil de cadenas dentro de la DLL; la publicación exige las capacidades de historial, audio cifrado, exportación Obsidian, asociación de proveedor por ventana y captura efímera consentida. La validación rechaza identificadores duplicados o versiones inválidas.
 5. Ejecuta la comprobación de salud del proceso auxiliar mediante canal con nombre.
 
 Ejecuta `artifacts\publish\Trazio.AsistenteReunion.exe`. Una comprobación de salud demuestra inicio/respuesta del proceso auxiliar, **no** carga de modelo, captura ni reconocimiento; usa la [prueba básica de inferencia](validation.md#pruebas-básicas-de-paquete-e-inferencia-real) para ese límite independiente.

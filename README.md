@@ -12,7 +12,7 @@ Un asistente de escritorio para Windows que captura el micrófono y el audio del
 
 [Descargar v0.2.0-beta.2](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.2) · [Primeros pasos](docs/user-guide.md) · [Arquitectura](docs/architecture.md) · [Hoja de ruta](ROADMAP.md) · [Documentación](docs/README.md)
 
-> **Beta funcional — todavía no validada para producción.** La etapa 6 tiene una línea base funcional implementada; la selección opcional de una ventana superior de la etapa 7.1a está implementada en código y pendiente de validación física. La etapa 5 (distribución) conserva trabajo pendiente; la etapa 5.5 (identidad local), la exportación Obsidian en interfaz real y las reuniones de dos y cinco horas todavía requieren validación física. El paquete de Windows no está firmado.
+> **Beta funcional — todavía no validada para producción.** La versión publicada más reciente es `v0.2.0-beta.2`. El código fuente posterior incorpora la etapa 7.2a: consentimiento visual por sesión y captura efímera de la ventana elegida, sin guardar imágenes; todavía faltan la validación física WGC/interfaz/lector de pantalla, el empaquetado de esta revisión y la prueba de dos horas. La identificación de hablantes de 7.2b no está implementada. El paquete de Windows no está firmado.
 
 ## De la conversación en vivo a un registro revisable
 
@@ -31,7 +31,7 @@ MICRÓFONO + AUDIO DEL EQUIPO
 | Dos fuentes de audio diferenciadas | Selecciona un micrófono y/o un dispositivo de salida de Windows. Cada uno conserva su propia identidad de audio y transcripción. |
 | Grabación manual rápida | Título automático editable; inicio, pausa, reanudación y detención; diagnóstico de captura visible. |
 | Perfil local confirmado | Atribuye los segmentos del micrófono a un nombre elegido. Es una etiqueta, no identificación por voz. |
-| Aplicación de reunión opcional | Después de una acción explícita, permite asociar una ventana superior visible y conservar solo `Google Meet`, `Microsoft Teams`, `Otra aplicación` o `Sin seleccionar`. No captura imágenes ni guarda el título, URL, proceso o identificador de ventana. |
+| Aplicación de reunión opcional | Después de una acción explícita, permite asociar una ventana superior visible y conservar solo `Google Meet`, `Microsoft Teams`, `Otra aplicación` o `Sin seleccionar`. Asociarla no activa por sí sola el análisis visual ni guarda el título, URL, proceso o identificador de ventana. |
 | Reconocimiento de voz local | Un proceso independiente de Whisper ejecuta la inferencia en este equipo. El modelo recomendado se descarga solo después de una acción explícita. |
 | Historial de reuniones cifrado | Las nuevas grabaciones siempre conservan audio cifrado; el contenido de texto sensible se cifra antes de insertarse en SQLite. |
 | Revisión humana | Forma de onda por fuente, línea de tiempo, saltos de 10 segundos, reproducción de segmentos, correcciones/deshacer y sugerencias de glosario por término, como `Need → Meet`. |
@@ -81,9 +81,9 @@ La [guía de arquitectura](docs/architecture.md) vincula estas afirmaciones con 
 | Etapa 5 — distribución | Código público + ZIP versionado disponibles; firma, actualización/reversión automáticas y pruebas paralelas deterministas pendientes |
 | Etapa 5.5 — identidad | Perfil local y atribución del micrófono implementados; validación física de interfaz y captura pendiente |
 | Etapa 6 — revisión | Línea base funcional implementada: reproducción por fuente/segmento, corrección, glosario cifrado con procedencia, retranscripción versionada, comparación y exportación manual a Obsidian |
-| Etapa 7 y posteriores | 7.1a implementada en código y pendiente de validación física; adaptadores/atribución de hablantes siguen en curso → productividad/glosario avanzado (8) → inteligencia/integración opcionales → calendarios (11) → entrenamiento (12) |
+| Etapa 7 y posteriores | 7.1a y el sustrato consentido/efímero de 7.2a están implementados en código y pendientes de validación física; 7.2b, adaptadores y atribución de hablantes no están implementados → productividad/glosario avanzado (8) → inteligencia/integración opcionales → calendarios (11) → entrenamiento (12) |
 
-La evidencia histórica de `v0.1.1-mvp` registró **164/164 pruebas con el paralelismo entre colecciones desactivado**. La candidata `v0.2.0-beta.2` debe registrar su propia ejecución antes de atribuirle ese resultado. La ejecución paralela predeterminada presenta bloqueos intermitentes durante la limpieza de SQLite; no es una prueba de estabilidad física ni de cinco horas. Consulta [evidencia de validación y lista de aceptación](docs/validation.md).
+La evidencia histórica de `v0.1.1-mvp` registró **164/164 pruebas**. La versión publicada `v0.2.0-beta.2` registró **197/197 pruebas seriales** en el commit `a8481ef`. En el código posterior, la comprobación enfocada de captura visual registra **54/54**; no sustituye una ejecución completa ni demuestra WGC, interfaz, lector de pantalla o estabilidad física. Consulta [evidencia de validación y lista de aceptación](docs/validation.md).
 
 ## Privacidad, sin promesas mágicas
 

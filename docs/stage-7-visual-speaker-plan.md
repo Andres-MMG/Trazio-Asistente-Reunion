@@ -2,7 +2,9 @@
 
 > **Decisión:** la siguiente rebanada debe analizar temporalmente **solo la ventana que el usuario ya eligió**, a baja frecuencia y con consentimiento por sesión. Trazio no grabará video, no guardará capturas por defecto y no asignará un nombre cuando la evidencia no alcance.
 >
-> **Puerta de autorización:** este documento es planificación, no una autorización de implementación. Incorporar Windows Graphics Capture (WGC) requiere una aprobación explícita adicional del usuario antes de modificar código o iniciar una captura visual.
+> **Puerta de autorización:** el usuario autorizó e implementó únicamente la rebanada 7.2a. Esa autorización no se extiende a 7.2b, identificación de hablantes, adaptadores ni persistencia de evidencia derivada.
+
+> **Estado de 7.2a:** implementada en código con consentimiento efímero por sesión, controles separados, WGC sobre el HWND/PID revalidado y cierre inmediato de frames sin analizar ni persistir píxeles. Siguen pendientes la validación WGC/GUI/lector de pantalla en hardware real, el paquete de esta revisión y la prueba de dos horas. 7.2b no está implementada.
 
 ## Resultado esperado
 
@@ -41,7 +43,7 @@ La etapa 7.2 producirá evidencia temporal que permita responder, con un nivel d
 Seleccionar una ventana y autorizar análisis visual son **dos acciones distintas**. Una selección previa nunca activa captura visual de manera implícita.
 
 1. El usuario selecciona la ventana mediante el flujo 7.1a.
-2. Trazio muestra **Activar análisis visual** sin marcarlo ni activarlo por defecto.
+2. Trazio muestra **Autorizar…** sin marcarlo ni activarlo por defecto.
 3. Al pulsarlo, Trazio explica superficie, frecuencia, datos derivados, descarte de imágenes y degradación segura.
 4. El usuario acepta o cancela. La elección se consume al terminar la sesión y no se hereda a otra reunión.
 5. Mientras esté activo, Trazio mantiene un indicador persistente y no intenta ocultar el borde que Windows presente alrededor de la superficie capturada.
@@ -77,6 +79,8 @@ flowchart LR
 ### 7.2a — Sustrato Windows Graphics Capture
 
 Esta rebanada no identifica personas. Solo demuestra una captura visual efímera, segura y controlable.
+
+**Estado:** implementada en código. La aceptación continúa abierta hasta completar WGC físico, teclado/lector de pantalla, empaquetado y duración. La recuperación ante pérdida del dispositivo se normaliza como fallo visual seguro; una recreación controlada del dispositivo queda pendiente.
 
 - Revalidar HWND y PID inmediatamente antes de crear el `GraphicsCaptureItem`; no reasignar otra ventana si falla.
 - Crear el objetivo con `IGraphicsCaptureItemInterop::CreateForWindow` sobre el HWND seleccionado.
@@ -191,8 +195,8 @@ El estado no puede depender solo del color. Debe incluir icono, texto accesible 
 
 | Estado | Texto principal propuesto | Acción disponible |
 |---|---|---|
-| Desactivado | **Análisis visual desactivado** | Activar análisis visual |
-| Consentimiento | **Trazio analizará temporalmente solo la ventana seleccionada. No grabará video ni guardará imágenes.** | Activar / Cancelar |
+| Desactivado | **Análisis visual desactivado** | Autorizar… |
+| Consentimiento | **Trazio analizará temporalmente solo la ventana seleccionada. No grabará video ni guardará imágenes.** | Autorizar análisis visual / Cancelar |
 | No compatible | **Este equipo no admite análisis visual de ventanas. La transcripción continuará sin cambios.** | Cerrar aviso |
 | Cancelado/denegado | **No se activó el análisis visual. La transcripción continuará.** | Volver a intentar |
 | Activo | **Análisis visual activo · no se guardan imágenes** | Pausar / Detener |
@@ -205,13 +209,13 @@ El estado no puede depender solo del color. Debe incluir icono, texto accesible 
 ### Accesibilidad
 
 - Todos los controles deben ser alcanzables por teclado, con orden de foco estable y nombres de automatización descriptivos.
-- El diálogo devuelve el foco al botón que lo abrió al cancelar y al indicador activo al aceptar.
+- El diálogo devuelve el foco al botón que lo abrió al cancelar y al estado visual autorizado/activo al aceptar.
 - Los cambios críticos se anuncian mediante una región accesible; métricas o frames descartados no generan anuncios repetitivos.
 - Pausar y detener no dependen de iconos ni color. El borde del sistema no reemplaza el indicador textual de Trazio.
 
-## Contratos técnicos sugeridos
+## Contratos técnicos de 7.2a y propuestas posteriores
 
-Los nombres siguientes delimitan responsabilidades en C#; no definen todavía una implementación:
+`IVisualMeetingCapture`, `IFrameSampler` y el controlador de sesión ya delimitan la implementación 7.2a. Los adaptadores, correlación y almacenamiento siguientes continúan como propuesta:
 
 | Abstracción | Responsabilidad |
 |---|---|
@@ -229,6 +233,13 @@ Los resultados esperados (no soporte, permiso cancelado, objetivo perdido o cont
 ## Estrategia de pruebas
 
 ### Pruebas automatizadas
+
+La unidad 7.2a registra **54/54 pruebas enfocadas** (`Area=VisualCapture`) en esta revisión. Cubren ciclo de vida, autorización consumible, callbacks obsoletos, descarte/disposición, revalidación WGC, presentación, manifiesto y controles compilados. Esta evidencia no ejecuta una captura WGC real ni valida el escritorio renderizado.
+
+- [VisualCaptureSessionControllerTests](../tests/Trazio.AsistenteReunion.Tests/VisualCaptureSessionControllerTests.cs)
+- [BoundedDropOldestProcessorTests](../tests/Trazio.AsistenteReunion.Tests/BoundedDropOldestProcessorTests.cs)
+- [WindowsGraphicsCaptureServiceTests](../tests/Trazio.AsistenteReunion.Tests/WindowsGraphicsCaptureServiceTests.cs)
+- [VisualCapturePresentationTests](../tests/Trazio.AsistenteReunion.Tests/VisualCapturePresentationTests.cs)
 
 - **Unitarias con frames sintéticos:** actividad estable, ruido, dos regiones, presentación, cuadro negro, variación de brillo, histéresis y abstención.
 - **Canales:** capacidad máxima 2, política `DropOldest`, cancelación, ownership/disposición y consumidor lento.
@@ -273,11 +284,11 @@ La cobertura/recall no será criterio inicial: un adaptador puede abstenerse. Pr
 
 ## Criterios de aceptación
 
-- [ ] Existe consentimiento explícito por sesión, separado de seleccionar ventana y desactivado por defecto.
+- [x] Existe consentimiento explícito en código por sesión, separado de seleccionar ventana y desactivado por defecto; falta validación física de la interfaz.
 - [ ] El indicador visual permanece visible y Pausar/Detener funciona por teclado y lector de pantalla.
-- [ ] Solo la ventana revalidada se captura; no hay reasignación automática.
-- [ ] El canal nunca supera dos frames y cada frame se descarta después del análisis.
-- [ ] No se crean videos, screenshots, dumps propios, logs sensibles ni registros de píxeles.
+- [x] El backend solo crea captura para la ventana HWND/PID revalidada y no reasigna; falta demostrarlo físicamente.
+- [x] El canal genérico no supera dos elementos y garantiza disposición exactamente una vez; WGC 7.2a cierra cada frame inmediatamente.
+- [x] El código 7.2a no crea videos, screenshots, dumps propios, logs sensibles ni registros de píxeles; falta inspección física del paquete y ejecución.
 - [ ] Minimizar, cerrar, proteger o perder la ventana no detiene audio/transcripción.
 - [ ] Solo `ComputerOutput` recibe evidencia remota; el micrófono conserva la identidad local.
 - [ ] Las etiquetas con nombre siempre incluyen proveedor, evidencia, confianza y versión de adaptador.
@@ -297,13 +308,13 @@ La cobertura/recall no será criterio inicial: un adaptador puede abstenerse. Pr
 | Falso positivo | Umbral conservador, versión de política, abstención y corrección humana |
 | Incompatibilidad de Windows/GPU | Detección de soporte previa y fallback sin análisis visual |
 
-El despliegue debe usar un **feature flag local**, inicialmente OFF, más un switch por adaptador. La reversión consiste en deshabilitar el módulo visual y conservar intactos grabación, transcripción, historial y eventos ya cifrados. No se requiere conectividad remota para el kill switch.
+El módulo permanece OFF por sesión hasta una autorización explícita que no se persiste. La reversión consiste en retirar el cableado/capability visual y conservar intactos grabación, transcripción e historial; no existe un ajuste persistente que pueda activarlo silenciosamente.
 
-## Decisiones pendientes antes de implementar
+## Decisiones pendientes para continuar después de 7.2a
 
-- [ ] Obtener autorización explícita del usuario para implementar WGC bajo este alcance.
-- [ ] Confirmar la versión mínima de Windows/SDK y el comportamiento de equipos actualmente distribuidos.
-- [ ] Elegir y revisar la dependencia de interop/Direct3D; usar el ejemplo WPF de Microsoft como referencia, no como copia ciega.
+- [x] Autorización explícita limitada a 7.2a.
+- [x] Base técnica: Windows 10 `19041`, WPF directo, WGC y CsWin32 `0.3.333` con bindings mínimos.
+- [ ] Confirmar físicamente el comportamiento en los equipos actualmente distribuidos.
 - [ ] Definir el conjunto inicial de layouts soportados y el corpus sintético/físico de evaluación.
 - [ ] Definir la tolerancia temporal exacta y calibrar umbrales en español/uso real.
 - [ ] Diseñar autenticación y permisos mínimos del futuro canal extensión ↔ aplicación.
@@ -322,4 +333,4 @@ El despliegue debe usar un **feature flag local**, inicialmente OFF, más un swi
 
 ## Siguiente paso
 
-No iniciar 7.2a hasta recibir autorización explícita para implementar Windows Graphics Capture. Con esa aprobación, la primera entrega se limita al sustrato WGC, estados UX, descarte de frames y pruebas; todavía no intentará identificar ni nombrar hablantes.
+Validar 7.2a en una ventana de prueba real: consentimiento, teclado/lector de pantalla, borde del sistema, redimensión, minimización, restauración, cierre, independencia del audio y ausencia de archivos/imágenes retenidas. Después ejecutar una sesión de dos horas. No iniciar 7.2b ni intentar identificar o nombrar hablantes sin una autorización posterior.

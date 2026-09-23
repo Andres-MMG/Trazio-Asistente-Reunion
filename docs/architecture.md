@@ -2,7 +2,7 @@
 
 **La aplicación de escritorio controla captura, coordinación, revisión y almacenamiento. Un proceso local independiente controla la inferencia de voz.** El entorno de ejecución actual no requiere servidor web, extensión de navegador, servicio de servidor en la nube, cliente de calendario ni LLM externo.
 
-Esto describe la implementación `0.2.0-beta.2`, no una arquitectura objetivo. Las capacidades futuras están en la [hoja de ruta](../ROADMAP.md).
+La base publicada corresponde a `0.2.0-beta.2`; este documento también incorpora el sustrato 7.2a del código fuente posterior. Las capacidades futuras están en la [hoja de ruta](../ROADMAP.md).
 
 ## Mapa de componentes
 
@@ -11,6 +11,8 @@ flowchart TB
     User["Usuario / interfaz WPF en español"] --> UI["MainWindow + auxiliares de presentación"]
     Windows["Ventanas superiores visibles"] --> Catalog["Win32MeetingWindowCatalog"]
     Catalog --> UI
+    UI --> Visual["Controlador visual consentido por sesión"]
+    Visual --> WGC["Windows Graphics Capture · frames efímeros"]
     UI --> RC["RecordingCoordinator"]
     Mic["Micrófono seleccionado"] --> Capture["AudioCaptureService / WASAPI"]
     Output["Dispositivo de salida seleccionado"] --> Capture
@@ -36,7 +38,7 @@ flowchart TB
 
 | Proyecto | Responsabilidad | Puntos de entrada importantes |
 |---|---|---|
-| `Trazio.AsistenteReunion.App` | Interfaz WPF, audio de Windows, ciclo de vida de sesión, historial/revisión por fuente | [App.xaml.cs](../src/Trazio.AsistenteReunion.App/App.xaml.cs), [MainWindow.xaml.cs](../src/Trazio.AsistenteReunion.App/MainWindow.xaml.cs), [RecordingCoordinator.cs](../src/Trazio.AsistenteReunion.App/RecordingCoordinator.cs), [MeetingWindowSelection.cs](../src/Trazio.AsistenteReunion.App/MeetingWindowSelection.cs) |
+| `Trazio.AsistenteReunion.App` | Interfaz WPF, audio de Windows, ciclo de vida de sesión, captura visual efímera consentida e historial/revisión por fuente | [App.xaml.cs](../src/Trazio.AsistenteReunion.App/App.xaml.cs), [MainWindow.xaml.cs](../src/Trazio.AsistenteReunion.App/MainWindow.xaml.cs), [RecordingCoordinator.cs](../src/Trazio.AsistenteReunion.App/RecordingCoordinator.cs), [MeetingWindowSelection.cs](../src/Trazio.AsistenteReunion.App/MeetingWindowSelection.cs), [VisualCaptureSessionController.cs](../src/Trazio.AsistenteReunion.App/VisualCaptureSessionController.cs) |
 | `Trazio.AsistenteReunion.Core` | Registros de dominio, cifrado, persistencia, traslado de almacenamiento, catálogo de modelos, recuperación e IPC | [Domain.cs](../src/Trazio.AsistenteReunion.Core/Domain.cs), [SqliteSessionStore.cs](../src/Trazio.AsistenteReunion.Core/SqliteSessionStore.cs), [StorageLocation.cs](../src/Trazio.AsistenteReunion.Core/StorageLocation.cs) |
 | `Trazio.AsistenteReunion.Worker` | Cargar un modelo local, inferir segmentos transcritos y responder solicitudes acotadas por canal | [Program.cs](../src/Trazio.AsistenteReunion.Worker/Program.cs) |
 | `Trazio.AsistenteReunion.Tests` | Comprobaciones unitarias/de integración para contratos y rutas de fallo | [Proyecto de pruebas](../tests/Trazio.AsistenteReunion.Tests/Trazio.AsistenteReunion.Tests.csproj) |
@@ -49,7 +51,11 @@ App y Worker hacen referencia a Core. Core no hace referencia a ninguno de los e
 
 El candidato mostrado dentro del modal contiene temporalmente HWND, PID, título y nombre de proceso. Al asociar, el título y el proceso se descartan: el controlador conserva solo HWND, PID y proveedor. Antes de iniciar, `IsWindow` y PID deben seguir correspondiendo; cualquier excepción se trata como pérdida sin propagarse. Durante la grabación un temporizador de tres segundos detecta pérdida sin reasignar otra ventana ni detener audio. Toda transición terminal consume la asociación. [SqliteSessionStore](../src/Trazio.AsistenteReunion.Core/SqliteSessionStore.cs) recibe únicamente `MeetingProvider`: `NotSelected`, `GoogleMeet`, `MicrosoftTeams` u `Other`.
 
-Esta asociación no es captura por proceso. WASAPI sigue grabando el dispositivo de salida completo; no se inspeccionan imágenes, pestañas, URL, DOM, subtítulos ni hablantes.
+Esta asociación no es captura por proceso. WASAPI sigue grabando el dispositivo de salida completo; asociar la ventana no activa WGC ni inspecciona pestañas, URL, DOM, subtítulos o hablantes.
+
+### Límite visual efímero 7.2a
+
+La autorización visual es una acción distinta y no persistida, ligada a la selección HWND/PID exacta y consumida por la sesión de audio activa. [VisualCaptureSessionController](../src/Trazio.AsistenteReunion.App/VisualCaptureSessionController.cs) serializa inicio, pausa, reanudación, detención y disposición; callbacks antiguos se rechazan por identidad/revisión. [WindowsGraphicsCaptureService](../src/Trazio.AsistenteReunion.App/WindowsGraphicsCaptureService.cs) revalida el objetivo antes de `CreateForWindow`, usa un frame pool libre de dos buffers BGRA8 y cierra cada frame inmediatamente. 7.2a no lee superficies, analiza píxeles ni guarda imágenes. Cualquier fallo visual queda fuera de `RecordingCoordinator`, por lo que audio y transcripción continúan.
 
 ## Captura y procesamiento duradero
 
