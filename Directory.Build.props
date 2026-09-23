@@ -10,4 +10,8 @@
     <Product>Trazio Asistente Reunión</Product>
     <Company>Trazio</Company>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
 </Project>

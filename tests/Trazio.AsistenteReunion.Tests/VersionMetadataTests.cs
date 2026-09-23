@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using Trazio.AsistenteReunion.App;
 using Trazio.AsistenteReunion.Core;
 
@@ -22,6 +23,22 @@ public sealed class VersionMetadataTests
             Assert.Equal("0.2.0.0", assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version);
             Assert.StartsWith(ExpectedVersion, assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
         }
+    }
+
+    [Fact]
+    public void ReleaseBuild_DisablesDebugSymbolsAndCodeView()
+    {
+        var root = FindRepositoryRoot();
+        var document = XDocument.Load(Path.Combine(root, "Directory.Build.props"));
+        var releaseProperties = Assert.Single(
+            document.Root!.Elements("PropertyGroup"),
+            group => string.Equals(
+                group.Attribute("Condition")?.Value,
+                "'$(Configuration)' == 'Release'",
+                StringComparison.Ordinal));
+
+        Assert.Equal("none", releaseProperties.Element("DebugType")?.Value);
+        Assert.Equal("false", releaseProperties.Element("DebugSymbols")?.Value);
     }
 
     [Fact]
