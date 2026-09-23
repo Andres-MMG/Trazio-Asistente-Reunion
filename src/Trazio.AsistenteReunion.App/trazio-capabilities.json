@@ -13,6 +13,10 @@
     {
       "id": "obsidian-markdown-export",
       "version": 1
+    },
+    {
+      "id": "meeting-window-provider-association-v1",
+      "version": 1
     }
   ]
 }

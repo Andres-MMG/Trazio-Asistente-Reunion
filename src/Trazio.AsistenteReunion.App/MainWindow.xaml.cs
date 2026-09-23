@@ -34,6 +34,9 @@ public partial class MainWindow : Window
     private AudioSourceKind _historyTrackSource = AudioSourceKind.Microphone;
     private string? _historyTrackSessionId;
     private readonly DispatcherTimer _playbackTimer;
+    private readonly IMeetingWindowCatalog _meetingWindowCatalog;
+    private readonly MeetingWindowSelectionController _meetingWindowSelection;
+    private readonly DispatcherTimer _meetingWindowMonitorTimer;
     private bool _historySelectedSourceAudioComplete;
     private bool _suppressHistorySegmentPlayback;
     private bool _historyPlaybackPaused;
@@ -75,6 +78,10 @@ public partial class MainWindow : Window
         AudioWaveformItems.ItemsSource = _waveformBars;
         _playbackTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _playbackTimer.Tick += PlaybackTimer_Tick;
+        _meetingWindowCatalog = new Win32MeetingWindowCatalog();
+        _meetingWindowSelection = new MeetingWindowSelectionController(_meetingWindowCatalog);
+        _meetingWindowMonitorTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        _meetingWindowMonitorTimer.Tick += MeetingWindowMonitorTimer_Tick;
         Loaded += OnLoaded;
         SetRecordingButtons(false, false);
     }
@@ -206,6 +213,24 @@ public partial class MainWindow : Window
         if (OutputBox.SelectedItem is null && !string.IsNullOrEmpty(_settings.OutputDeviceId)) StatusText.Text = "El dispositivo de salida guardado no está disponible. Selecciónalo nuevamente.";
     }
 
+    private void SelectMeetingWindow_Click(object sender, RoutedEventArgs e)
+    {
+        if (_recording || _busy || _closing) return;
+        var dialog = new MeetingWindowPickerWindow(_meetingWindowCatalog) { Owner = this };
+        if (dialog.ShowDialog() != true || dialog.SelectedSelection is null) return;
+        _meetingWindowSelection.Select(dialog.SelectedSelection);
+        UpdateMeetingWindowUi();
+        StatusText.Text = $"{MeetingProviderPresentation.Name(dialog.SelectedSelection.Provider)} seleccionado para la próxima sesión";
+    }
+
+    private void ClearMeetingWindow_Click(object sender, RoutedEventArgs e)
+    {
+        if (_recording || _busy || _closing) return;
+        _meetingWindowSelection.Clear();
+        UpdateMeetingWindowUi();
+        StatusText.Text = "Asociación de aplicación de reunión eliminada";
+    }
+
     private async void Start_Click(object sender, RoutedEventArgs e) => await RunExclusiveAsync(StartSessionAsync);
 
     private async Task StartSessionAsync()
@@ -217,17 +242,27 @@ public partial class MainWindow : Window
             _lifetime.Token.ThrowIfCancellationRequested();
             _settings = AudioRetentionPolicy.Enforce(ReadSettings());
             await _settingsStore.SaveAsync(_settings);
+            var hadSelectedWindow = _meetingWindowSelection.Selection is not null;
+            var meetingProvider = _meetingWindowSelection.ResolveProviderForStart();
+            var selectionLostAtStart = hadSelectedWindow && meetingProvider == MeetingProvider.NotSelected;
+            UpdateMeetingWindowUi();
             if (_coordinator is not null) { await _coordinator.DisposeAsync(); _coordinator = null; }
             candidate = CreateCoordinator();
             await candidate.StartAsync(TitleBox.Text, _settings, _lifetime.Token,
-                localDisplayNameOverride: MeetingDisplayNameOverrideBox.Text);
+                localDisplayNameOverride: MeetingDisplayNameOverrideBox.Text,
+                meetingProvider: meetingProvider);
             MeetingDisplayNameOverrideBox.Clear();
             _coordinator = candidate;
             _recording = true;
+            if (_meetingWindowSelection.Selection is not null) _meetingWindowMonitorTimer.Start();
             SetRecordingButtons(true, false);
+            if (selectionLostAtStart)
+                StatusText.Text = "La ventana seleccionada ya no está disponible. La transcripción continúa sin asociar un proveedor.";
         }
         catch (Exception ex)
         {
+            _meetingWindowMonitorTimer.Stop();
+            _meetingWindowSelection.FinishSession();
             if (candidate is not null) await candidate.DisposeAsync();
             _coordinator = null;
             _recording = false;
@@ -251,7 +286,9 @@ public partial class MainWindow : Window
         catch (Exception ex) { ShowError("No se pudo detener correctamente", ex.Message); }
         finally
         {
+            _meetingWindowMonitorTimer.Stop();
             _recording = false;
+            _meetingWindowSelection.FinishSession();
             SetRecordingButtons(false, false);
             if (_coordinator is not null) { await _coordinator.DisposeAsync(); _coordinator = null; }
             TitleBox.Text = DefaultSessionTitle();
@@ -277,7 +314,35 @@ public partial class MainWindow : Window
         TitleBox.IsEnabled = !recording && ready;
         MeetingDisplayNameOverrideBox.IsEnabled = !recording && ready;
         RecordingAudioIndicator.Visibility = recording ? Visibility.Visible : Visibility.Collapsed;
+        UpdateMeetingWindowUi();
         UpdateStorageControls();
+    }
+
+    private void MeetingWindowMonitorTimer_Tick(object? sender, EventArgs e)
+    {
+        if (!_recording)
+        {
+            _meetingWindowMonitorTimer.Stop();
+            return;
+        }
+        if (_meetingWindowSelection.CheckWhileRecording() != MeetingWindowAvailability.Lost) return;
+        _meetingWindowMonitorTimer.Stop();
+        UpdateMeetingWindowUi();
+        StatusText.Text = "La ventana asociada se cerró o cambió. La captura de audio y la transcripción continúan sin reasignarla.";
+    }
+
+    private void UpdateMeetingWindowUi()
+    {
+        if (!IsInitialized) return;
+        var state = MeetingWindowSelectionPresenter.Create(
+            _meetingWindowSelection.Selection,
+            _meetingWindowSelection.IsLost,
+            _recording,
+            _initialized && !_busy && !_closing);
+        MeetingWindowStatusText.Text = state.Status;
+        SelectMeetingWindowButton.Content = state.SelectButtonText;
+        SelectMeetingWindowButton.IsEnabled = state.CanSelect;
+        ClearMeetingWindowButton.IsEnabled = state.CanClear;
     }
 
     private void BrowseModel_Click(object sender, RoutedEventArgs e)
@@ -407,6 +472,7 @@ private async void HistoryList_SelectionChanged(object sender, SelectionChangedE
         HistoryTitleBox.Text = session?.Title ?? string.Empty;
         HistoryTitleBox.IsEnabled = session is not null;
         SaveSessionTitleButton.IsEnabled = session is not null && !_busy;
+        HistoryMeetingProviderText.Text = $"Aplicación de reunión: {MeetingProviderPresentation.Name(session?.MeetingProvider ?? MeetingProvider.NotSelected)}";
     }
 
     private async void SaveSessionTitle_Click(object sender, RoutedEventArgs e)
@@ -1472,7 +1538,13 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
             _protector?.Dispose();
         }
         catch (Exception ex) { StatusText.Text = "Cierre interrumpido: " + ex.Message; }
-        finally { _closingConfirmed = true; Close(); }
+        finally
+        {
+            _meetingWindowMonitorTimer.Stop();
+            _meetingWindowSelection.FinishSession();
+            _closingConfirmed = true;
+            Close();
+        }
     }
 
     private AppSettings ReadSettings() => new(

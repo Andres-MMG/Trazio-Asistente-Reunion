@@ -205,6 +205,45 @@ public sealed class RecordingCoordinatorTests : IAsyncLifetime
         Assert.Equal("First Guest", Assert.Single(await _store.GetSegmentsAsync(first.Id)).SpeakerName);
         Assert.Equal("Local Profile", Assert.Single(await _store.GetSegmentsAsync(second.Id)).SpeakerName);
     }
+    [Fact]
+    public async Task ConsecutiveMeetings_ProviderDoesNotLeakIntoNextMeeting()
+    {
+        var capture = new FakeAudioCapture();
+        await using var coordinator = new RecordingCoordinator(capture, _store, new PendingAudioQueue(), new FakeTransportFactory());
+        await coordinator.StartAsync("First provider", Settings(), meetingProvider: MeetingProvider.GoogleMeet);
+        capture.Emit(AudioSourceKind.Microphone, [1, 2]);
+        await coordinator.StopAsync();
+        await coordinator.StartAsync("Second provider", Settings());
+        capture.Emit(AudioSourceKind.Microphone, [3, 4]);
+        await coordinator.StopAsync();
+        var sessions = await _store.ListSessionsAsync();
+        Assert.Equal(MeetingProvider.GoogleMeet, sessions.Single(item => item.Title == "First provider").MeetingProvider);
+        Assert.Equal(MeetingProvider.NotSelected, sessions.Single(item => item.Title == "Second provider").MeetingProvider);
+    }
+    [Fact]
+    public async Task RecoverAsync_PreservesMeetingProviderFromInterruptedSession()
+    {
+        var startedAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+        var interrupted = new MeetingSession(
+            "recover-provider",
+            "Recover provider",
+            startedAt,
+            startedAt.AddSeconds(10),
+            SessionState.Interrupted,
+            "Local Profile",
+            MeetingProvider.MicrosoftTeams);
+        await _store.CreateSessionAsync(interrupted);
+        var pendingChunk = AudioChunk.Create(interrupted.Id, AudioSourceKind.Microphone, 0, startedAt, [1, 2]);
+        await _store.SavePendingAsync(pendingChunk, DateTimeOffset.UtcNow.AddHours(1));
+        var summary = Assert.Single(await _store.ListSessionsAsync());
+        await using var coordinator = new RecordingCoordinator(
+            new FakeAudioCapture(),
+            _store,
+            new PendingAudioQueue(),
+            new FakeTransportFactory());
+        await coordinator.RecoverAsync(summary, Settings(), [pendingChunk]);
+        Assert.Equal(MeetingProvider.MicrosoftTeams, Assert.Single(await _store.ListSessionsAsync()).MeetingProvider);
+    }
     private AppSettings Settings() => new("mic", null, _modelPath, "es", true, false,
         LocalDisplayName: "Local Profile", LocalProfileConfirmed: true);
 

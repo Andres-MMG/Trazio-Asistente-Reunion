@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
+using Trazio.AsistenteReunion.App;
 using Trazio.AsistenteReunion.Core;
 
 namespace Trazio.AsistenteReunion.Tests;
@@ -178,6 +179,18 @@ public sealed class SqliteSessionStoreTests : IAsyncLifetime
         Assert.Null(segment.SpeakerName);
     }
     [Fact]
+    public async Task MeetingProvider_RoundTripsWithoutPersistingTransientWindowDetails()
+    {
+        const string transientWindowTitle = "PRIVATE Meet title that must never reach SQLite";
+        var candidate = new MeetingWindowCandidate((nint)123, 456, transientWindowTitle, "chrome", MeetingProvider.GoogleMeet, false);
+        var session = NewSession("Stored session title") with { MeetingProvider = candidate.Provider };
+        await _store.CreateSessionAsync(session);
+        var restored = Assert.Single(await _store.ListSessionsAsync());
+        var raw = System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(DatabasePath));
+        Assert.Equal(MeetingProvider.GoogleMeet, restored.MeetingProvider);
+        Assert.DoesNotContain(transientWindowTitle, raw, StringComparison.Ordinal);
+    }
+    [Fact]
     public async Task InitializeAsync_OldSchema_AddsSpeakerColumnsWithoutLosingCompatibility()
     {
         var oldDatabasePath = Path.Combine(_directory, "old-schema.db");
@@ -205,7 +218,9 @@ public sealed class SqliteSessionStoreTests : IAsyncLifetime
         await migratedStore.SaveSegmentAsync(new("migrated-seg", session.Id, AudioSourceKind.Microphone, 1,
             TimeSpan.Zero, TimeSpan.FromSeconds(1), "text", DateTimeOffset.UtcNow, "Andrea"));
 
-        Assert.Equal("Andrea", Assert.Single(await migratedStore.ListSessionsAsync()).LocalSpeakerName);
+        var restored = Assert.Single(await migratedStore.ListSessionsAsync());
+        Assert.Equal("Andrea", restored.LocalSpeakerName);
+        Assert.Equal(MeetingProvider.NotSelected, restored.MeetingProvider);
         Assert.Equal("Andrea", Assert.Single(await migratedStore.GetSegmentsAsync(session.Id)).SpeakerName);
     }
     private MeetingSession NewSession(string title = "Meeting", SessionState state = SessionState.Recording) => new(Guid.NewGuid().ToString("N"), title, DateTimeOffset.UtcNow, null, state);

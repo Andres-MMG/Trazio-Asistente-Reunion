@@ -9,7 +9,7 @@ public sealed record HistorySessionItem(SessionSummary Session, string Title, st
     {
         timeZone ??= TimeZoneInfo.Local;
         var localStart = TimeZoneInfo.ConvertTime(session.StartedAt, timeZone);
-        return new(session, session.Title, $"{localStart:yyyy-MM-dd HH:mm} · {StateName(session.State)}");
+        return new(session, session.Title, $"{localStart:yyyy-MM-dd HH:mm} · {StateName(session.State)} · {MeetingProviderPresentation.Name(session.MeetingProvider)}");
     }
 
     private static string StateName(SessionState state) => state switch

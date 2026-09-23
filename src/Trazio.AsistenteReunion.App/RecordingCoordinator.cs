@@ -63,7 +63,7 @@ public sealed class RecordingCoordinator : IAsyncDisposable
     public event EventHandler<SourceDiagnostic>? DiagnosticChanged;
     public string? ActiveSessionId => _session?.Id;
 
-    public async Task StartAsync(string title, AppSettings settings, CancellationToken cancellationToken = default, string? localDisplayNameOverride = null)
+    public async Task StartAsync(string title, AppSettings settings, CancellationToken cancellationToken = default, string? localDisplayNameOverride = null, MeetingProvider meetingProvider = MeetingProvider.NotSelected)
     {
         await _lifecycle.WaitAsync(cancellationToken);
         try
@@ -80,7 +80,7 @@ public sealed class RecordingCoordinator : IAsyncDisposable
                 : null;
             _session = new(Guid.NewGuid().ToString("N"),
                 string.IsNullOrWhiteSpace(title) ? $"Reunión {_sessionStart:yyyy-MM-dd HH:mm}" : title.Trim(),
-                _sessionStart, null, SessionState.Recording, _localSpeakerName);
+                _sessionStart, null, SessionState.Recording, _localSpeakerName, meetingProvider);
             await _store.CreateSessionAsync(_session, cancellationToken);
             if (settings.CaptureMicrophone) GetDiagnostic(AudioSourceKind.Microphone);
             if (settings.CaptureSystemOutput) GetDiagnostic(AudioSourceKind.SystemOutput);
@@ -172,7 +172,7 @@ public sealed class RecordingCoordinator : IAsyncDisposable
         {
             if (_session is not null) throw new InvalidOperationException("Ya hay una sesión activa.");
             ResetSessionState();
-            _session = new(session.Id, session.Title, session.StartedAt, session.EndedAt, SessionState.Interrupted, session.LocalSpeakerName);
+            _session = new(session.Id, session.Title, session.StartedAt, session.EndedAt, SessionState.Interrupted, session.LocalSpeakerName, session.MeetingProvider);
             _localSpeakerName = session.LocalSpeakerName;
             _sessionStart = session.StartedAt;
             _modelPath = settings.ModelPath;

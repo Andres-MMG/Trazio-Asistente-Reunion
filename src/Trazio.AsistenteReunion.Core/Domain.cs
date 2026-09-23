@@ -2,6 +2,13 @@ namespace Trazio.AsistenteReunion.Core;
 
 public enum AudioSourceKind { Microphone, SystemOutput }
 public enum SessionState { Recording, Paused, Completed, Interrupted }
+public enum MeetingProvider
+{
+    NotSelected = 0,
+    GoogleMeet = 1,
+    MicrosoftTeams = 2,
+    Other = 3
+}
 
 public sealed record AudioChunk(
     string Id, string SessionId, AudioSourceKind Source, long Sequence,
@@ -18,11 +25,13 @@ public sealed record TranscriptSegment(
 
 public sealed record MeetingSession(
     string Id, string Title, DateTimeOffset StartedAt, DateTimeOffset? EndedAt, SessionState State,
-    string? LocalSpeakerName = null);
+    string? LocalSpeakerName = null,
+    MeetingProvider MeetingProvider = MeetingProvider.NotSelected);
 
 public sealed record SessionSummary(
     string Id, string Title, DateTimeOffset StartedAt, DateTimeOffset? EndedAt, SessionState State,
-    string? LocalSpeakerName = null);
+    string? LocalSpeakerName = null,
+    MeetingProvider MeetingProvider = MeetingProvider.NotSelected);
 
 public sealed record ArchivedAudioChunk(
     string Id, string SessionId, AudioSourceKind Source, long Sequence,

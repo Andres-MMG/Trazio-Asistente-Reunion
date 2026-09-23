@@ -4,7 +4,7 @@
 - Madurez actual: MVP funcional avanzado / versión preliminar pública
 - Versión actual: [`0.2.0-beta.1`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.1)
 
-Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funcional implementada y la etapa 7 está en curso; el fortalecimiento de la distribución de la etapa 5 sigue pendiente.** La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
+Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funcional implementada y la etapa 7.1a está implementada en código, todavía pendiente de validación física; el resto de la etapa 7 y el fortalecimiento de la distribución de la etapa 5 siguen pendientes.** La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
 
 ## Principios del producto
 
@@ -25,7 +25,7 @@ Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funciona
 | 5 | Beta distribuible y mantenible | En curso |
 | 5.5 | Identidad del usuario local y atribución del micrófono | Implementada — validación física de interfaz pendiente |
 | 6 | Revisión, corrección, glosario de procedencia y retranscripción versionada | Línea base funcional implementada — validación física pendiente |
-| 7 | Fuente de reunión y atribución de hablantes | En curso |
+| 7 | Fuente de reunión y atribución de hablantes | 7.1a implementada en código — validación física pendiente; resto en curso |
 | 8 | Búsqueda, revisión por lotes, glosario global y productividad | Planificada — edición y navegación de audio básicas ya entregadas en la etapa 6 |
 | 9 | Inteligencia de reuniones opcional | Planificada |
 | 10 | Integración organizacional/con plataforma opcional | Futura |
@@ -121,7 +121,7 @@ Esto identifica a la persona que usa el micrófono configurado. No demuestra qui
 
 ## Etapa 7 — Fuente de reunión y atribución de hablantes
 
-**Estado: en curso.** Iniciar esta etapa no significa que la detección de proveedor ni los nombres de hablantes remotos estén disponibles en la beta actual.
+**Estado: en curso.** La rebanada 7.1a asocia opcionalmente una ventana superior y persiste solo un proveedor normalizado; todavía requiere validación física. No identifica hablantes remotos ni lee una pestaña, URL, DOM o subtítulos.
 
 ### Objetivo
 
@@ -131,12 +131,17 @@ Esta etapa se divide intencionalmente en niveles de confianza separados. Trazio 
 
 ### 7.1 Fuente de reunión seleccionada por el usuario
 
-- Pedir al usuario que seleccione la pestaña del navegador o ventana de la aplicación de reunión.
-- Detectar Google Meet o Microsoft Teams desde la URL de la pestaña/los metadatos de la ventana seleccionada.
-- Vincular la superficie seleccionada con la sesión activa de Trazio.
-- Mantener la captura de salida del sistema existente como alternativa cuando no se seleccione una superficie.
+#### 7.1a — Ventana superior y proveedor normalizado
 
-Los controles de privacidad del navegador y del sistema operativo pueden exigir que el usuario inicie el selector de fuente. La automatización de calendarios no puede omitir silenciosamente ese permiso.
+**Implementada en código; validación física pendiente.** El usuario abre un selector explícito y actualiza la lista de ventanas superiores visibles. Trazio clasifica de forma conservadora `Google Meet`, `Microsoft Teams` u `Otra aplicación`; sin selección conserva `Sin seleccionar`.
+
+- La selección es opcional y nunca bloquea **Iniciar transcripción**.
+- El título y el nombre de proceso existen solo dentro del selector y se descartan al asociar o cerrar. Fuera del modal permanecen temporalmente HWND, PID y proveedor; la sesión persiste únicamente el enum del proveedor y las sesiones antiguas quedan como `Sin seleccionar`.
+- Antes de iniciar se revalida la misma ventana y PID. Si se perdió, Trazio avisa sin modal, inicia con `Sin seleccionar` y no reasigna otra ventana.
+- Durante la grabación no se puede cambiar ni quitar la asociación. Una comprobación acotada avisa si la ventana desaparece, sin detener ni cambiar la captura de audio. Toda finalización, incluso interrumpida o fallida, consume la asociación para que no pase a otra reunión.
+- La captura sigue siendo WASAPI del dispositivo completo. Asociar una ventana **no** captura imágenes y **no** aísla el audio de esa ventana.
+
+Esta primera rebanada selecciona una **ventana superior**, no una pestaña individual. La lectura de pestaña, URL, DOM, subtítulos o estado del hablante requiere un adaptador y permiso independientes; no forma parte de 7.1a. La automatización de calendarios tampoco puede omitir silenciosamente ese permiso.
 
 ### 7.2 Adaptadores de proveedores
 
@@ -167,7 +172,7 @@ La diarización de audio separa voces, pero no revela nombres reales. Asociar un
 
 ### Criterios de salida
 
-- El usuario puede seleccionar una pestaña/ventana de Meet o Teams y ver el proveedor detectado.
+- El usuario puede seleccionar una ventana superior y ver el proveedor detectado; la validación física de 7.1a sigue pendiente. La selección de pestaña individual permanece fuera de esta rebanada.
 - Trazio continúa de forma segura cuando los metadatos del proveedor no están disponibles o falla un adaptador.
 - Las etiquetas de hablantes remotos con nombre incluyen evidencia y confianza; los segmentos inciertos permanecen anónimos.
 - Las capturas opcionales están cifradas, acotadas y se pueden eliminar independientemente.

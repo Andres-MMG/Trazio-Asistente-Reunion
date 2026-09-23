@@ -34,6 +34,18 @@
                         <TextBlock Text="Tu nombre en esta reunión (opcional)" Margin="0,6,0,0"/>
                         <TextBox x:Name="MeetingDisplayNameOverrideBox" ToolTip="Cambia solo cómo se identifican tus intervenciones en esta reunión."/>
                         <TextBlock Text="No es el título: solo reemplaza temporalmente tu nombre visible del perfil." Foreground="#556070" TextWrapping="Wrap" Margin="4,2,4,4"/>
+                        <Border Background="#F8FAFC" BorderBrush="#DDE2EA" BorderThickness="1" CornerRadius="5" Padding="10" Margin="4,10,4,2">
+                            <StackPanel>
+                                <TextBlock Text="Aplicación de reunión (opcional)" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="MeetingWindowStatusText" Text="Sin seleccionar. La captura seguirá usando los dispositivos de audio configurados." Foreground="#556070" TextWrapping="Wrap" Margin="0,3,0,4"
+                                           automation:AutomationProperties.LiveSetting="Polite"/>
+                                <WrapPanel>
+                                    <Button x:Name="SelectMeetingWindowButton" Content="Seleccionar…" Click="SelectMeetingWindow_Click" ToolTip="Elige una ventana superior visible para asociar su proveedor a esta sesión."/>
+                                    <Button x:Name="ClearMeetingWindowButton" Content="Quitar" Click="ClearMeetingWindow_Click" IsEnabled="False" ToolTip="Quita la asociación antes de iniciar."/>
+                                </WrapPanel>
+                                <TextBlock Text="Solo identifica la aplicación; no captura imágenes ni guarda el título de la ventana. No limita el audio a esa ventana." Foreground="#556070" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
                         <CheckBox x:Name="MicrophoneCheck" Content="Capturar micrófono" IsChecked="True" Margin="5,12,5,2"/>
                         <ComboBox x:Name="MicrophoneBox" DisplayMemberPath="Name" SelectedValuePath="Id"/>
                         <ProgressBar x:Name="MicrophoneLevel" Height="8" Minimum="0" Maximum="1" Margin="4,0,4,8"/>
@@ -107,6 +119,7 @@
                                     <Button x:Name="SaveSessionTitleButton" DockPanel.Dock="Right" Content="Guardar título" IsEnabled="False" Click="SaveSessionTitle_Click" ToolTip="Guarda el nuevo título sin modificar la transcripción ni el audio."/>
                                     <TextBox x:Name="HistoryTitleBox" MaxLength="120" IsEnabled="False" VerticalContentAlignment="Center" automation:AutomationProperties.Name="Título de la reunión seleccionada"/>
                                 </DockPanel>
+                                <TextBlock x:Name="HistoryMeetingProviderText" Text="Aplicación de reunión: Sin seleccionar" Foreground="#556070" TextWrapping="Wrap" Margin="0,0,0,2"/>
                                 <TextBlock x:Name="HistoryAudioSummary" Text="Selecciona una sesión guardada para ver su transcripción y el audio conservado." Foreground="#556070" TextWrapping="Wrap" Margin="0,5,0,2"/>
                                 <TextBlock x:Name="HistoryAudioGuidance" Text="Selecciona una sesión guardada para ver su transcripción y el audio conservado." Foreground="#556070" TextWrapping="Wrap" Margin="0,0,0,8"
                                            automation:AutomationProperties.LiveSetting="Polite"/>

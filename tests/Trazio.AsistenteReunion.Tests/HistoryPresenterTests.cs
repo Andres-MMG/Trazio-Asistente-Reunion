@@ -87,10 +87,24 @@ public sealed class HistoryPresenterTests
         var item = HistorySessionItem.From(session, timezone);
 
         Assert.Equal("a", item.Title);
-        Assert.Equal("2026-09-21 12:30 · Interrumpida", item.Details);
+        Assert.Equal("2026-09-21 12:30 · Interrumpida · Sin seleccionar", item.Details);
         Assert.Same(session, item.Session);
     }
 
+    [Fact]
+    public void HistorySessionItem_From_ShowsOnlyNormalizedMeetingProvider()
+    {
+        var session = new SessionSummary(
+            "id",
+            "Reunión",
+            DateTimeOffset.UtcNow,
+            null,
+            SessionState.Completed,
+            MeetingProvider: MeetingProvider.MicrosoftTeams);
+        var item = HistorySessionItem.From(session, TimeZoneInfo.Utc);
+        Assert.Contains("Microsoft Teams", item.Details, StringComparison.Ordinal);
+        Assert.DoesNotContain("teams.microsoft.com", item.Details, StringComparison.OrdinalIgnoreCase);
+    }
     [Fact]
     public void StorageLocationFacts_Current_DescribesEncryptedStorageAndPlaintextExports()
     {

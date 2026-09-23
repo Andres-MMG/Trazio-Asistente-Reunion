@@ -18,7 +18,8 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
             CREATE TABLE IF NOT EXISTS sessions (
               id TEXT PRIMARY KEY, title_nonce BLOB NOT NULL, title_cipher BLOB NOT NULL, title_tag BLOB NOT NULL,
               started_at TEXT NOT NULL, ended_at TEXT NULL, state INTEGER NOT NULL,
-              local_speaker_nonce BLOB NULL, local_speaker_cipher BLOB NULL, local_speaker_tag BLOB NULL);
+              local_speaker_nonce BLOB NULL, local_speaker_cipher BLOB NULL, local_speaker_tag BLOB NULL,
+              meeting_provider INTEGER NOT NULL DEFAULT 0);
             CREATE TABLE IF NOT EXISTS segments (
               id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
               source INTEGER NOT NULL, sequence INTEGER NOT NULL, start_ms INTEGER NOT NULL, end_ms INTEGER NOT NULL,
@@ -39,6 +40,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
         await EnsureColumnAsync(connection, "sessions", "local_speaker_nonce", "BLOB NULL", cancellationToken);
         await EnsureColumnAsync(connection, "sessions", "local_speaker_cipher", "BLOB NULL", cancellationToken);
         await EnsureColumnAsync(connection, "sessions", "local_speaker_tag", "BLOB NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "sessions", "meeting_provider", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
         await EnsureColumnAsync(connection, "segments", "speaker_nonce", "BLOB NULL", cancellationToken);
         await EnsureColumnAsync(connection, "segments", "speaker_cipher", "BLOB NULL", cancellationToken);
         await EnsureColumnAsync(connection, "segments", "speaker_tag", "BLOB NULL", cancellationToken);
@@ -53,8 +55,8 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
         await using var connection = await OpenAsync(cancellationToken);
         var command = connection.CreateCommand();
         command.CommandText = """
-            INSERT INTO sessions(id,title_nonce,title_cipher,title_tag,started_at,ended_at,state,local_speaker_nonce,local_speaker_cipher,local_speaker_tag)
-            VALUES($id,$n,$c,$t,$start,$end,$state,$sn,$sc,$st)
+            INSERT INTO sessions(id,title_nonce,title_cipher,title_tag,started_at,ended_at,state,local_speaker_nonce,local_speaker_cipher,local_speaker_tag,meeting_provider)
+            VALUES($id,$n,$c,$t,$start,$end,$state,$sn,$sc,$st,$provider)
             """;
         command.Parameters.AddWithValue("$id", session.Id);
         AddPayload(command, encrypted);
@@ -62,6 +64,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
         command.Parameters.AddWithValue("$start", session.StartedAt.ToString("O"));
         command.Parameters.AddWithValue("$end", (object?)session.EndedAt?.ToString("O") ?? DBNull.Value);
         command.Parameters.AddWithValue("$state", (int)session.State);
+        command.Parameters.AddWithValue("$provider", (int)session.MeetingProvider);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -195,14 +198,14 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
         var result = new List<SessionSummary>();
         await using var connection = await OpenAsync(cancellationToken);
         var command = connection.CreateCommand();
-        command.CommandText = "SELECT id,title_nonce,title_cipher,title_tag,started_at,ended_at,state,local_speaker_nonce,local_speaker_cipher,local_speaker_tag FROM sessions ORDER BY started_at DESC";
+        command.CommandText = "SELECT id,title_nonce,title_cipher,title_tag,started_at,ended_at,state,local_speaker_nonce,local_speaker_cipher,local_speaker_tag,meeting_provider FROM sessions ORDER BY started_at DESC";
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
             var id = reader.GetString(0);
             var title = Encoding.UTF8.GetString(protector.Unprotect(ReadPayload(reader, 1), $"session:{id}:title"));
             var speaker = UnprotectOptional(reader, 7, $"session:{id}:local-speaker");
-            result.Add(new(id, title, DateTimeOffset.Parse(reader.GetString(4)), reader.IsDBNull(5) ? null : DateTimeOffset.Parse(reader.GetString(5)), (SessionState)reader.GetInt32(6), speaker));
+            result.Add(new(id, title, DateTimeOffset.Parse(reader.GetString(4)), reader.IsDBNull(5) ? null : DateTimeOffset.Parse(reader.GetString(5)), (SessionState)reader.GetInt32(6), speaker, ReadMeetingProvider(reader.GetInt32(10))));
         }
         return result;
     }
@@ -379,5 +382,14 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
 
     private static EncryptedPayload ReadPayload(SqliteDataReader reader, int offset) =>
         new((byte[])reader.GetValue(offset), (byte[])reader.GetValue(offset + 1), (byte[])reader.GetValue(offset + 2));
+
+    private static MeetingProvider ReadMeetingProvider(int value) => value switch
+    {
+        (int)MeetingProvider.NotSelected => MeetingProvider.NotSelected,
+        (int)MeetingProvider.GoogleMeet => MeetingProvider.GoogleMeet,
+        (int)MeetingProvider.MicrosoftTeams => MeetingProvider.MicrosoftTeams,
+        (int)MeetingProvider.Other => MeetingProvider.Other,
+        _ => MeetingProvider.Other
+    };
 }
 

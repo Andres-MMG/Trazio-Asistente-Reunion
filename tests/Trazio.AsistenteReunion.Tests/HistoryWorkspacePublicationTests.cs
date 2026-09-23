@@ -42,6 +42,19 @@ public sealed class HistoryWorkspacePublicationTests
         Assert.Contains("Retroceder 10 s", compiledApplication);
         Assert.Contains("Avanzar 10 s", compiledApplication);
         Assert.Contains("Exportar a Obsidian…", compiledApplication);
+        Assert.Contains("Aplicación de reunión (opcional)", compiledApplication);
+        Assert.Contains("Solo identifica la aplicación; no captura imágenes ni guarda el título de la ventana", compiledApplication);
+        Assert.Contains("Seleccionar ventana de reunión", compiledApplication);
+        Assert.Contains("No se pudo consultar la lista de ventanas. Intenta nuevamente.", compiledApplication);
+        Assert.DoesNotContain("No se pudo consultar la lista de ventanas:", compiledApplication, StringComparison.Ordinal);
+        Assert.NotNull(typeof(MeetingWindowSelectionController).GetMethod(nameof(MeetingWindowSelectionController.FinishSession)));
+        Assert.Null(typeof(MeetingWindowSelection).GetProperty("TransientTitle"));
+        Assert.Null(typeof(MeetingWindowSelection).GetProperty("TransientProcessName"));
+        Assert.Equal(typeof(MeetingWindowSelection), typeof(MeetingWindowPickerWindow).GetProperty(nameof(MeetingWindowPickerWindow.SelectedSelection))?.PropertyType);
+        Assert.Null(typeof(MeetingWindowPickerWindow).GetProperty("SelectedWindow"));
+        Assert.NotNull(typeof(MainWindow).GetField("SelectMeetingWindowButton", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
+        Assert.NotNull(typeof(MainWindow).GetMethod("SelectMeetingWindow_Click", BindingFlags.Instance | BindingFlags.NonPublic));
+        Assert.NotNull(typeof(MainWindow).GetMethod("ClearMeetingWindow_Click", BindingFlags.Instance | BindingFlags.NonPublic));
         Assert.NotNull(typeof(MainWindow).GetField("ExportObsidianButton", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
         Assert.NotNull(typeof(MainWindow).GetMethod("ExportObsidian_Click", BindingFlags.Instance | BindingFlags.NonPublic));
     }

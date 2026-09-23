@@ -34,6 +34,13 @@ public sealed class VersionMetadataTests
             root.GetProperty("capabilities").EnumerateArray(),
             capability => capability.GetProperty("id").GetString() == "obsidian-markdown-export"
                 && capability.GetProperty("version").GetInt32() == 1);
+        Assert.Contains(
+            root.GetProperty("capabilities").EnumerateArray(),
+            capability => capability.GetProperty("id").GetString() == "meeting-window-provider-association-v1"
+                && capability.GetProperty("version").GetInt32() == 1);
+        Assert.NotNull(typeof(MainWindow).GetMethod("SelectMeetingWindow_Click", BindingFlags.Instance | BindingFlags.NonPublic));
+        Assert.NotNull(typeof(MainWindow).GetMethod("ClearMeetingWindow_Click", BindingFlags.Instance | BindingFlags.NonPublic));
+        Assert.NotNull(typeof(MeetingWindowClassifier).GetMethod(nameof(MeetingWindowClassifier.Classify)));
         Assert.NotNull(typeof(MainWindow).GetMethod("ExportObsidian_Click", BindingFlags.Instance | BindingFlags.NonPublic));
         Assert.NotNull(typeof(ObsidianMarkdownExport).GetMethod(nameof(ObsidianMarkdownExport.Create)));
     }

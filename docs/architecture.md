@@ -9,6 +9,8 @@ Esto describe la implementación `0.2.0-beta.1`, no una arquitectura objetivo. L
 ```mermaid
 flowchart TB
     User["Usuario / interfaz WPF en español"] --> UI["MainWindow + auxiliares de presentación"]
+    Windows["Ventanas superiores visibles"] --> Catalog["Win32MeetingWindowCatalog"]
+    Catalog --> UI
     UI --> RC["RecordingCoordinator"]
     Mic["Micrófono seleccionado"] --> Capture["AudioCaptureService / WASAPI"]
     Output["Dispositivo de salida seleccionado"] --> Capture
@@ -34,12 +36,20 @@ flowchart TB
 
 | Proyecto | Responsabilidad | Puntos de entrada importantes |
 |---|---|---|
-| `Trazio.AsistenteReunion.App` | Interfaz WPF, audio de Windows, ciclo de vida de sesión, historial/revisión por fuente | [App.xaml.cs](../src/Trazio.AsistenteReunion.App/App.xaml.cs), [MainWindow.xaml.cs](../src/Trazio.AsistenteReunion.App/MainWindow.xaml.cs), [RecordingCoordinator.cs](../src/Trazio.AsistenteReunion.App/RecordingCoordinator.cs) |
+| `Trazio.AsistenteReunion.App` | Interfaz WPF, audio de Windows, ciclo de vida de sesión, historial/revisión por fuente | [App.xaml.cs](../src/Trazio.AsistenteReunion.App/App.xaml.cs), [MainWindow.xaml.cs](../src/Trazio.AsistenteReunion.App/MainWindow.xaml.cs), [RecordingCoordinator.cs](../src/Trazio.AsistenteReunion.App/RecordingCoordinator.cs), [MeetingWindowSelection.cs](../src/Trazio.AsistenteReunion.App/MeetingWindowSelection.cs) |
 | `Trazio.AsistenteReunion.Core` | Registros de dominio, cifrado, persistencia, traslado de almacenamiento, catálogo de modelos, recuperación e IPC | [Domain.cs](../src/Trazio.AsistenteReunion.Core/Domain.cs), [SqliteSessionStore.cs](../src/Trazio.AsistenteReunion.Core/SqliteSessionStore.cs), [StorageLocation.cs](../src/Trazio.AsistenteReunion.Core/StorageLocation.cs) |
 | `Trazio.AsistenteReunion.Worker` | Cargar un modelo local, inferir segmentos transcritos y responder solicitudes acotadas por canal | [Program.cs](../src/Trazio.AsistenteReunion.Worker/Program.cs) |
 | `Trazio.AsistenteReunion.Tests` | Comprobaciones unitarias/de integración para contratos y rutas de fallo | [Proyecto de pruebas](../tests/Trazio.AsistenteReunion.Tests/Trazio.AsistenteReunion.Tests.csproj) |
 
 App y Worker hacen referencia a Core. Core no hace referencia a ninguno de los ejecutables. La interfaz utiliza código asociado a WPF con servicios/auxiliares de presentación extraídos; **no** es una implementación completa de MVVM ni de arquitectura hexagonal.
+
+### Límite de selección de ventana
+
+[MeetingWindowSelection](../src/Trazio.AsistenteReunion.App/MeetingWindowSelection.cs) separa clasificación, estado de presentación y el límite Win32. El catálogo enumera ventanas superiores visibles solo al pulsar **Actualizar lista**; excluye la propia aplicación, títulos vacíos, tool windows y ventanas cloaked. El acceso al nombre del proceso puede fallar sin descartar el candidato.
+
+El candidato mostrado dentro del modal contiene temporalmente HWND, PID, título y nombre de proceso. Al asociar, el título y el proceso se descartan: el controlador conserva solo HWND, PID y proveedor. Antes de iniciar, `IsWindow` y PID deben seguir correspondiendo; cualquier excepción se trata como pérdida sin propagarse. Durante la grabación un temporizador de tres segundos detecta pérdida sin reasignar otra ventana ni detener audio. Toda transición terminal consume la asociación. [SqliteSessionStore](../src/Trazio.AsistenteReunion.Core/SqliteSessionStore.cs) recibe únicamente `MeetingProvider`: `NotSelected`, `GoogleMeet`, `MicrosoftTeams` u `Other`.
+
+Esta asociación no es captura por proceso. WASAPI sigue grabando el dispositivo de salida completo; no se inspeccionan imágenes, pestañas, URL, DOM, subtítulos ni hablantes.
 
 ## Captura y procesamiento duradero
 
@@ -75,7 +85,7 @@ sequenceDiagram
 
 | Concepto almacenado | Función |
 |---|---|
-| Sesión | Título, estado del ciclo de vida, inicio/fin e instantánea de identidad local |
+| Sesión | Título, estado del ciclo de vida, inicio/fin, instantánea de identidad local y proveedor de reunión normalizado; nunca título/PID/HWND/proceso de la ventana |
 | Segmento transcrito | Fuente, tiempos, identificador estable y texto original del modelo |
 | Audio pendiente | Trabajo cifrado a la espera de transcripción exitosa; separado del archivo de reproducción |
 | Audio archivado | Secuencia de fuente, tiempos, ruta relativa del archivo cifrado y cantidad de bytes |
@@ -124,6 +134,7 @@ Fuentes oficiales de versiones: [App](../src/Trazio.AsistenteReunion.App/Trazio.
 | Decisión en la implementación actual | Ventaja | Costo / límite |
 |---|---|---|
 | Aplicación nativa de Windows, no solo extensión | Captura independiente y persistencia local | Específica de Windows; captura de salida a nivel de dispositivo |
+| Selector Win32 explícito de ventana superior | Asocia un proveedor sin extensión ni captura visual | No elige pestañas ni aísla audio; títulos y procesos son señales transitorias y falibles |
 | Reconocimiento en proceso separado | La inferencia puede fallar/reiniciarse independientemente | Ambos ejecutables y las dependencias nativas deben distribuirse juntos |
 | Whisper local en CPU | No requiere subir la transcripción para inferencia | Latencia dependiente del hardware; la precisión del dominio necesita evaluación |
 | Pistas de micrófono/salida separadas | Preserva la identidad de fuente | Sin mezcla automática ni cancelación de eco |
