@@ -10,7 +10,7 @@ Un asistente de escritorio para Windows que captura el micrófono y el audio del
 
 **Windows 11 x64 · .NET 10 / C# 14 · Whisper local · Interfaz en español · Versión preliminar pública**
 
-[Descargar v0.2.0-beta.1](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.1) · [Primeros pasos](docs/user-guide.md) · [Arquitectura](docs/architecture.md) · [Hoja de ruta](ROADMAP.md) · [Documentación](docs/README.md)
+[Descargar v0.2.0-beta.2](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.2) · [Primeros pasos](docs/user-guide.md) · [Arquitectura](docs/architecture.md) · [Hoja de ruta](ROADMAP.md) · [Documentación](docs/README.md)
 
 > **Beta funcional — todavía no validada para producción.** La etapa 6 tiene una línea base funcional implementada; la selección opcional de una ventana superior de la etapa 7.1a está implementada en código y pendiente de validación física. La etapa 5 (distribución) conserva trabajo pendiente; la etapa 5.5 (identidad local), la exportación Obsidian en interfaz real y las reuniones de dos y cinco horas todavía requieren validación física. El paquete de Windows no está firmado.
 
@@ -42,7 +42,7 @@ MICRÓFONO + AUDIO DEL EQUIPO
 
 ## Ejecutar la versión preliminar
 
-1. Descarga el ZIP de Windows desde [Versiones publicadas](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.1) y extrae **el archivo completo**.
+1. Descarga el ZIP de Windows desde [Versiones publicadas](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.2) y extrae **el archivo completo**.
 2. Abre `Trazio.AsistenteReunion.exe`. Mantén `Trazio.AsistenteReunion.Worker.exe` y todas las dependencias incluidas junto a él; copiar solo el EXE no funcionará.
 3. Confirma tu nombre visible local, selecciona los dispositivos correctos y, si quieres registrar el proveedor, asocia manualmente una ventana superior de reunión. Descarga el modelo recomendado desde la aplicación (aproximadamente 148 MB, una vez).
 4. Haz clic en **Iniciar transcripción**. Usa **Detener** para finalizar antes de revisar la reunión en **Historial**.
@@ -83,7 +83,7 @@ La [guía de arquitectura](docs/architecture.md) vincula estas afirmaciones con 
 | Etapa 6 — revisión | Línea base funcional implementada: reproducción por fuente/segmento, corrección, glosario cifrado con procedencia, retranscripción versionada, comparación y exportación manual a Obsidian |
 | Etapa 7 y posteriores | 7.1a implementada en código y pendiente de validación física; adaptadores/atribución de hablantes siguen en curso → productividad/glosario avanzado (8) → inteligencia/integración opcionales → calendarios (11) → entrenamiento (12) |
 
-La evidencia histórica de `v0.1.1-mvp` registró **164/164 pruebas con el paralelismo entre colecciones desactivado**. La candidata `v0.2.0-beta.1` debe registrar su propia ejecución antes de atribuirle ese resultado. La ejecución paralela predeterminada presenta bloqueos intermitentes durante la limpieza de SQLite; no es una prueba de estabilidad física ni de cinco horas. Consulta [evidencia de validación y lista de aceptación](docs/validation.md).
+La evidencia histórica de `v0.1.1-mvp` registró **164/164 pruebas con el paralelismo entre colecciones desactivado**. La candidata `v0.2.0-beta.2` debe registrar su propia ejecución antes de atribuirle ese resultado. La ejecución paralela predeterminada presenta bloqueos intermitentes durante la limpieza de SQLite; no es una prueba de estabilidad física ni de cinco horas. Consulta [evidencia de validación y lista de aceptación](docs/validation.md).
 
 ## Privacidad, sin promesas mágicas
 

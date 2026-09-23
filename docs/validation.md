@@ -4,7 +4,7 @@
 
 ## Evidencia actual
 
-Candidata actual: `v0.2.0-beta.1`. La última base con evidencia publicada sigue siendo [`v0.1.1-mvp`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.1.1-mvp), código [`b9229ea`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/commit/b9229eaacd79ac03c31f1c3dec5edf7bb54c2b73). Sus resultados no se heredan automáticamente: la beta debe registrar una ejecución nueva, la comprobación del paquete y las pruebas físicas pendientes.
+Candidata actual: `v0.2.0-beta.2`. La última base con evidencia publicada sigue siendo [`v0.1.1-mvp`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.1.1-mvp), código [`b9229ea`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/commit/b9229eaacd79ac03c31f1c3dec5edf7bb54c2b73). Sus resultados no se heredan automáticamente: la beta debe registrar una ejecución nueva, la comprobación del paquete y las pruebas físicas pendientes.
 
 | Evidencia | Resultado registrado / límite |
 |---|---|

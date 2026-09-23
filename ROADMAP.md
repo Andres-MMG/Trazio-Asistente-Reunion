@@ -1,8 +1,8 @@
 # Trazio Asistente Reunión — Hoja de ruta del producto
 
-- Fecha del estado: 2026-09-22
+- Fecha del estado: 2026-09-23
 - Madurez actual: MVP funcional avanzado / versión preliminar pública
-- Versión actual: [`0.2.0-beta.1`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.1)
+- Versión actual: [`0.2.0-beta.2`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.2)
 
 Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funcional implementada y la etapa 7.1a está implementada en código, todavía pendiente de validación física; el resto de la etapa 7 y el fortalecimiento de la distribución de la etapa 5 siguen pendientes.** La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
 
@@ -42,13 +42,13 @@ Permitir instalar, actualizar, diagnosticar y recuperar la aplicación existente
 
 ### Base implementada
 
-- Código público en GitHub y flujo de ZIP completo para Windows con suma de comprobación; la versión `0.2.0-beta.1` prepara la siguiente beta pública.
+- Código público en GitHub y flujo de ZIP completo para Windows con suma de comprobación; la candidata `0.2.0-beta.2` incorpora la asociación opcional de una ventana con un proveedor normalizado.
 - Script de publicación combinada de aplicación/proceso auxiliar con comprobaciones de paquete y prueba básica de salud por canal con nombre.
 - Existe la definición de Inno Setup por usuario; la validación de instalación/actualización/reversión sigue pendiente.
 
 ### Alcance pendiente
 
-- Validar la instalación y actualización de la beta `0.2.0-beta.1` en equipos representativos.
+- Validar la instalación y actualización de la beta `0.2.0-beta.2` en equipos representativos.
 - Producir un instalador por usuario que detecte versiones anteriores y preserve los datos del usuario.
 - Implementar actualizaciones de la aplicación completa con manifiesto firmado, verificación SHA-256, cierre controlado, reemplazo atómico y reversión.
 - Actualizar la aplicación y el modelo Whisper de forma independiente cuando el modelo no haya cambiado.

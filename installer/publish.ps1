@@ -1,7 +1,9 @@
 param([string]$Configuration = "Release")
 
 $ErrorActionPreference = "Stop"
-$expectedVersion = "0.2.0-beta.1"
+$expectedVersion = "0.2.0-beta.2"
+$expectedArchiveName = "Trazio-Asistente-Reunion-v$expectedVersion-win-x64.zip"
+$expectedChecksumName = "$expectedArchiveName.sha256"
 $root = Split-Path -Parent $PSScriptRoot
 $artifacts = Join-Path $root "artifacts"
 $publishOutput = Join-Path $artifacts "publish"
@@ -46,9 +48,24 @@ catch {
 if ($capabilityManifest.schemaVersion -ne 1 -or $capabilityManifest.product -ne "Trazio Asistente Reunión") {
     throw "Published capability manifest has an unsupported schema or product."
 }
-$publishedCapabilities = @($capabilityManifest.capabilities | ForEach-Object { "$($_.id)-v$($_.version)" })
-$requiredCapabilities = @("history-review-workspace-v1", "encrypted-audio-retention-v1", "obsidian-markdown-export-v1")
-$missingCapabilities = @($requiredCapabilities | Where-Object { $_ -notin $publishedCapabilities })
+$requiredCapabilities = @(
+    [pscustomobject]@{ Id = "history-review-workspace"; Version = 1; Label = "history-review-workspace-v1" }
+    [pscustomobject]@{ Id = "encrypted-audio-retention"; Version = 1; Label = "encrypted-audio-retention-v1" }
+    [pscustomobject]@{ Id = "obsidian-markdown-export"; Version = 1; Label = "obsidian-markdown-export-v1" }
+    [pscustomobject]@{ Id = "meeting-window-provider-association-v1"; Version = 1; Label = "meeting-window-provider-association-v1" }
+)
+$missingCapabilities = @(
+    foreach ($requiredCapability in $requiredCapabilities) {
+        $match = @(
+            $capabilityManifest.capabilities | Where-Object {
+                $_.id -eq $requiredCapability.Id -and $_.version -eq $requiredCapability.Version
+            }
+        )
+        if ($match.Count -eq 0) {
+            $requiredCapability.Label
+        }
+    }
+)
 if ($missingCapabilities.Count -gt 0) {
     throw "Published application is missing required capabilities: $($missingCapabilities -join ', '). Refusing to publish a stale package."
 }
@@ -60,4 +77,5 @@ if (-not $appVersion.StartsWith($expectedVersion) -or -not $workerVersion.Starts
 & (Join-Path $PSScriptRoot "smoke-worker.ps1") -WorkerPath (Join-Path $publishOutput "Trazio.AsistenteReunion.Worker.exe")
 
 Write-Host "Published Trazio Asistente Reunión $expectedVersion to $publishOutput"
+Write-Host "Expected release assets: $expectedArchiveName and $expectedChecksumName"
 

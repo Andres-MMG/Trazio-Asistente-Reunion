@@ -16,12 +16,12 @@ public sealed class VersionMetadataTests
             Assert.Equal(new Version(0, 2, 0, 0), assembly.GetName().Version);
             Assert.Equal("Trazio Asistente Reunión", assembly.GetCustomAttribute<AssemblyProductAttribute>()?.Product);
             Assert.Equal("0.2.0.0", assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version);
-            Assert.StartsWith("0.2.0-beta.1", assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
+            Assert.StartsWith("0.2.0-beta.2", assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
         }
     }
 
     [Fact]
-    public void CapabilityManifest_DeclaresPackagedObsidianExportImplementedByApplication()
+    public void CapabilityManifest_DeclaresPackagedCapabilitiesImplementedByApplication()
     {
         var manifestPath = Path.Combine(AppContext.BaseDirectory, "trazio-capabilities.json");
 

@@ -2,7 +2,7 @@
 
 **La aplicación de escritorio controla captura, coordinación, revisión y almacenamiento. Un proceso local independiente controla la inferencia de voz.** El entorno de ejecución actual no requiere servidor web, extensión de navegador, servicio de servidor en la nube, cliente de calendario ni LLM externo.
 
-Esto describe la implementación `0.2.0-beta.1`, no una arquitectura objetivo. Las capacidades futuras están en la [hoja de ruta](../ROADMAP.md).
+Esto describe la implementación `0.2.0-beta.2`, no una arquitectura objetivo. Las capacidades futuras están en la [hoja de ruta](../ROADMAP.md).
 
 ## Mapa de componentes
 
