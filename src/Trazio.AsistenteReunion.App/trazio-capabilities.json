@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "product": "Trazio Asistente Reunión",
+  "capabilities": [
+    {
+      "id": "history-review-workspace",
+      "version": 1
+    },
+    {
+      "id": "encrypted-audio-retention",
+      "version": 1
+    },
+    {
+      "id": "obsidian-markdown-export",
+      "version": 1
+    }
+  ]
+}

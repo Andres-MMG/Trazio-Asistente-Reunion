@@ -14,4 +14,7 @@
     <ProjectReference Include="..\Trazio.AsistenteReunion.Core\Trazio.AsistenteReunion.Core.csproj" />
     <PackageReference Include="NAudio" Version="2.2.1" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="trazio-capabilities.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
