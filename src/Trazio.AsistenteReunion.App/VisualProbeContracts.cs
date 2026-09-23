@@ -72,13 +72,140 @@ internal sealed record VisualProbeDetectionPolicy
 internal readonly record struct VisualProbeFeature
 {
     public VisualProbeFeature(int activityScore)
+        : this(
+            activityScore,
+            activityScore / (double)VisualProbeDetectionPolicy.MaximumScore,
+            activityScore == 0 ? 0d : 1d,
+            activityScore / (double)VisualProbeDetectionPolicy.MaximumScore)
+    {
+    }
+
+    public VisualProbeFeature(
+        double highlightMatchRatio,
+        double nonBlackRatio,
+        double meanLuma)
+        : this(
+            checked((int)Math.Round(
+                ValidateRatio(highlightMatchRatio, nameof(highlightMatchRatio)) *
+                VisualProbeDetectionPolicy.MaximumScore,
+                MidpointRounding.AwayFromZero)),
+            highlightMatchRatio,
+            ValidateRatio(nonBlackRatio, nameof(nonBlackRatio)),
+            ValidateRatio(meanLuma, nameof(meanLuma)))
+    {
+    }
+
+    private VisualProbeFeature(
+        int activityScore,
+        double highlightMatchRatio,
+        double nonBlackRatio,
+        double meanLuma)
     {
         if (activityScore is < VisualProbeDetectionPolicy.MinimumScore or > VisualProbeDetectionPolicy.MaximumScore)
             throw new ArgumentOutOfRangeException(nameof(activityScore));
         ActivityScore = activityScore;
+        HighlightMatchRatio = ValidateRatio(highlightMatchRatio, nameof(highlightMatchRatio));
+        NonBlackRatio = ValidateRatio(nonBlackRatio, nameof(nonBlackRatio));
+        MeanLuma = ValidateRatio(meanLuma, nameof(meanLuma));
     }
 
     public int ActivityScore { get; }
+    public double HighlightMatchRatio { get; }
+    public double NonBlackRatio { get; }
+    public double MeanLuma { get; }
+
+    private static double ValidateRatio(double value, string parameterName)
+    {
+        if (!double.IsFinite(value) || value is < 0d or > 1d)
+            throw new ArgumentOutOfRangeException(parameterName);
+        return value;
+    }
+}
+
+internal readonly record struct VisualProbePatch
+{
+    public const int Width = 16;
+    public const int Height = 16;
+
+    public VisualProbePatch(
+        int left,
+        int top,
+        byte highlightBlue,
+        byte highlightGreen,
+        byte highlightRed,
+        byte highlightTolerance)
+    {
+        if (left < 0) throw new ArgumentOutOfRangeException(nameof(left));
+        if (top < 0) throw new ArgumentOutOfRangeException(nameof(top));
+
+        Left = left;
+        Top = top;
+        HighlightBlue = highlightBlue;
+        HighlightGreen = highlightGreen;
+        HighlightRed = highlightRed;
+        HighlightTolerance = highlightTolerance;
+    }
+
+    public int Left { get; }
+    public int Top { get; }
+    public byte HighlightBlue { get; }
+    public byte HighlightGreen { get; }
+    public byte HighlightRed { get; }
+    public byte HighlightTolerance { get; }
+}
+
+internal sealed class VisualProbeLayoutProfile : IVisualProbeProfile
+{
+    private readonly IReadOnlyList<VisualProbePatch> _patches;
+
+    public VisualProbeLayoutProfile(
+        MeetingProvider provider,
+        int version,
+        VisualProbeProfileValidationState validationState,
+        int expectedSurfaceWidth,
+        int expectedSurfaceHeight,
+        IEnumerable<VisualProbePatch> patches,
+        VisualProbeDetectionPolicy? detectionPolicy)
+    {
+        if (!Enum.IsDefined(provider)) throw new ArgumentOutOfRangeException(nameof(provider));
+        if (version <= 0) throw new ArgumentOutOfRangeException(nameof(version));
+        if (!Enum.IsDefined(validationState)) throw new ArgumentOutOfRangeException(nameof(validationState));
+        if (expectedSurfaceWidth <= 0) throw new ArgumentOutOfRangeException(nameof(expectedSurfaceWidth));
+        if (expectedSurfaceHeight <= 0) throw new ArgumentOutOfRangeException(nameof(expectedSurfaceHeight));
+        ArgumentNullException.ThrowIfNull(patches);
+
+        var patchArray = patches.ToArray();
+        if (patchArray.Length > D3D11VisualProbeExtractor.MaxPatches)
+            throw new ArgumentOutOfRangeException(nameof(patches));
+        if (validationState == VisualProbeProfileValidationState.Validated)
+        {
+            if (patchArray.Length == 0) throw new ArgumentException("A validated profile requires patches.", nameof(patches));
+            ArgumentNullException.ThrowIfNull(detectionPolicy);
+            if (detectionPolicy.MinimumCoherentPatches > patchArray.Length)
+                throw new ArgumentException("The detection policy requires more patches than the layout provides.", nameof(detectionPolicy));
+        }
+        else if (detectionPolicy is not null)
+        {
+            throw new ArgumentException("Only validated profiles can contain a detection policy.", nameof(detectionPolicy));
+        }
+
+        Provider = provider;
+        Version = version;
+        ValidationState = validationState;
+        ExpectedSurfaceWidth = expectedSurfaceWidth;
+        ExpectedSurfaceHeight = expectedSurfaceHeight;
+        _patches = Array.AsReadOnly(patchArray);
+        DetectionPolicy = detectionPolicy;
+    }
+
+    public MeetingProvider Provider { get; }
+    public int Version { get; }
+    public VisualProbeProfileValidationState ValidationState { get; }
+    public int ExpectedSurfaceWidth { get; }
+    public int ExpectedSurfaceHeight { get; }
+    public IReadOnlyList<VisualProbePatch> Patches => _patches;
+    public int ExpectedFeatureCount => _patches.Count;
+    public VisualProbeDetectionPolicy? DetectionPolicy { get; }
 }
 
 internal enum VisualProbeObservationStatus

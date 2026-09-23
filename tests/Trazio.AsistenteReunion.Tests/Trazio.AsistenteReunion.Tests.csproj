@@ -6,6 +6,7 @@
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
