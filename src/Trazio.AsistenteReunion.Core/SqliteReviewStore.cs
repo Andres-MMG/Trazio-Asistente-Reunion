@@ -7,7 +7,7 @@ public sealed partial class SqliteSessionStore
 {
     private static async Task InitializeReviewSchemaAsync(SqliteConnection connection, CancellationToken cancellationToken)
     {
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = """
             CREATE TABLE IF NOT EXISTS transcript_corrections (
               id TEXT PRIMARY KEY,
@@ -61,7 +61,7 @@ public sealed partial class SqliteSessionStore
     {
         var result = new List<TranscriptCorrection>();
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT id,session_id,revision,action,corrected_nonce,corrected_cipher,corrected_tag,
                    editor_nonce,editor_cipher,editor_tag,created_at
@@ -92,7 +92,7 @@ public sealed partial class SqliteSessionStore
         var segments = await GetSegmentsAsync(sessionId, cancellationToken);
         var latest = new Dictionary<string, TranscriptCorrection>(StringComparer.Ordinal);
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT id,segment_id,revision,action,corrected_nonce,corrected_cipher,corrected_tag,
                    editor_nonce,editor_cipher,editor_tag,created_at
@@ -131,7 +131,7 @@ public sealed partial class SqliteSessionStore
             throw new InvalidOperationException("Se requieren el término correcto, la forma incorrecta y la categoría.");
 
         await using var connection = await OpenAsync(cancellationToken);
-        var source = connection.CreateCommand();
+        await using var source = connection.CreateCommand();
         source.CommandText = "SELECT action FROM transcript_corrections WHERE id=$id";
         source.Parameters.AddWithValue("$id", sourceCorrectionId);
         var action = await source.ExecuteScalarAsync(cancellationToken);
@@ -149,7 +149,7 @@ public sealed partial class SqliteSessionStore
         var preferred = protector.Protect(Encoding.UTF8.GetBytes(entry.PreferredTerm), $"glossary:{entry.Id}:preferred");
         var mistaken = protector.Protect(Encoding.UTF8.GetBytes(entry.MistakenForm), $"glossary:{entry.Id}:mistaken");
         var encryptedCategory = protector.Protect(Encoding.UTF8.GetBytes(entry.Category), $"glossary:{entry.Id}:category");
-        var insert = connection.CreateCommand();
+        await using var insert = connection.CreateCommand();
         insert.CommandText = """
             INSERT INTO glossary_entries(
               id,preferred_nonce,preferred_cipher,preferred_tag,
@@ -172,7 +172,7 @@ public sealed partial class SqliteSessionStore
     {
         var result = new List<GlossaryEntry>();
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT id,preferred_nonce,preferred_cipher,preferred_tag,
                    mistaken_nonce,mistaken_cipher,mistaken_tag,
@@ -204,13 +204,13 @@ public sealed partial class SqliteSessionStore
     {
         await using var connection = await OpenAsync(cancellationToken);
         await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
-        var lookup = connection.CreateCommand();
+        await using var lookup = connection.CreateCommand();
         lookup.Transaction = transaction;
         lookup.CommandText = "SELECT session_id FROM segments WHERE id=$segment";
         lookup.Parameters.AddWithValue("$segment", segmentId);
         var sessionId = await lookup.ExecuteScalarAsync(cancellationToken) as string
             ?? throw new InvalidOperationException("El segmento de la transcripción ya no existe.");
-        var revisionCommand = connection.CreateCommand();
+        await using var revisionCommand = connection.CreateCommand();
         revisionCommand.Transaction = transaction;
         revisionCommand.CommandText = "SELECT COALESCE(MAX(revision),0)+1 FROM transcript_corrections WHERE segment_id=$segment";
         revisionCommand.Parameters.AddWithValue("$segment", segmentId);
@@ -220,7 +220,7 @@ public sealed partial class SqliteSessionStore
             correctedText, string.IsNullOrWhiteSpace(editorName) ? null : editorName.Trim(), DateTimeOffset.UtcNow);
         var text = ProtectReviewValue(correction.CorrectedText, $"correction:{correction.Id}:text");
         var editor = ProtectReviewValue(correction.EditorName, $"correction:{correction.Id}:editor");
-        var insert = connection.CreateCommand();
+        await using var insert = connection.CreateCommand();
         insert.Transaction = transaction;
         insert.CommandText = """
             INSERT INTO transcript_corrections(

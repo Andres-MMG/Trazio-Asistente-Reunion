@@ -11,7 +11,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
     {
         Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = """
             PRAGMA journal_mode=WAL;
             PRAGMA foreign_keys=ON;
@@ -54,7 +54,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
         var encrypted = protector.Protect(Encoding.UTF8.GetBytes(session.Title), $"session:{session.Id}:title");
         var speaker = ProtectOptional(session.LocalSpeakerName, $"session:{session.Id}:local-speaker");
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = """
             INSERT INTO sessions(id,title_nonce,title_cipher,title_tag,started_at,ended_at,state,local_speaker_nonce,local_speaker_cipher,local_speaker_tag,meeting_provider)
             VALUES($id,$n,$c,$t,$start,$end,$state,$sn,$sc,$st,$provider)
@@ -74,7 +74,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
         if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("El título de la reunión no puede estar vacío.", nameof(title));
         var encrypted = protector.Protect(Encoding.UTF8.GetBytes(title.Trim()), $"session:{id}:title");
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = "UPDATE sessions SET title_nonce=$n, title_cipher=$c, title_tag=$t WHERE id=$id";
         command.Parameters.AddWithValue("$id", id);
         AddPayload(command, encrypted);
@@ -84,7 +84,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
     public async Task CompleteSessionAsync(string id, SessionState state, DateTimeOffset endedAt, CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = "UPDATE sessions SET state=$state, ended_at=$ended WHERE id=$id";
         command.Parameters.AddWithValue("$id", id);
         command.Parameters.AddWithValue("$state", (int)state);
@@ -99,7 +99,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
             ? ProtectOptional(segment.SpeakerName, $"segment:{segment.Id}:speaker")
             : null;
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = """
           INSERT OR IGNORE INTO segments(id,session_id,source,sequence,start_ms,end_ms,text_nonce,text_cipher,text_tag,created_at,speaker_nonce,speaker_cipher,speaker_tag)
           VALUES($id,$session,$source,$sequence,$start,$end,$n,$c,$t,$created,$sn,$sc,$st)
@@ -120,7 +120,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
     {
         var encrypted = protector.Protect(chunk.Pcm16, $"pending:{chunk.Id}:audio");
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = """
           INSERT OR REPLACE INTO pending_audio VALUES($id,$session,$source,$sequence,$captured,$expires,$n,$c,$t)
           """;
@@ -137,7 +137,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
     public async Task DeletePendingAsync(string id, CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = "DELETE FROM pending_audio WHERE id=$id";
         command.Parameters.AddWithValue("$id", id);
         await command.ExecuteNonQueryAsync(cancellationToken);
@@ -147,7 +147,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
     {
         var result = new List<AudioChunk>();
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = "SELECT id,source,sequence,captured_at,audio_nonce,audio_cipher,audio_tag FROM pending_audio WHERE session_id=$session ORDER BY source,sequence";
         command.Parameters.AddWithValue("$session", sessionId);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -163,7 +163,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
     public async Task<int> DeleteExpiredPendingAsync(DateTimeOffset now, CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = """
             DELETE FROM pending_audio
             WHERE expires_at < $now
@@ -179,7 +179,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
     {
         await using var connection = await OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.Transaction = (SqliteTransaction)transaction;
         command.CommandText = """
             UPDATE sessions
@@ -198,7 +198,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
     {
         var result = new List<SessionSummary>();
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = "SELECT id,title_nonce,title_cipher,title_tag,started_at,ended_at,state,local_speaker_nonce,local_speaker_cipher,local_speaker_tag,meeting_provider FROM sessions ORDER BY started_at DESC";
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
@@ -215,7 +215,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
     {
         var result = new List<TranscriptSegment>();
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = "SELECT id,source,sequence,start_ms,end_ms,text_nonce,text_cipher,text_tag,created_at,speaker_nonce,speaker_cipher,speaker_tag FROM segments WHERE session_id=$session ORDER BY start_ms,source";
         command.Parameters.AddWithValue("$session", sessionId);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -233,7 +233,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
     public async Task DeleteSessionAsync(string id, CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = "DELETE FROM sessions WHERE id=$id";
         command.Parameters.AddWithValue("$id", id);
         await command.ExecuteNonQueryAsync(cancellationToken);
@@ -242,7 +242,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
     public async Task SaveArchivedAudioAsync(ArchivedAudioChunk chunk, CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = """
             INSERT INTO archived_audio(id,session_id,source,sequence,started_at,duration_ms,relative_path,encrypted_bytes)
             VALUES($id,$session,$source,$sequence,$started,$duration,$path,$bytes)
@@ -263,7 +263,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
     {
         var result = new List<ArchivedAudioChunk>();
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT id,source,sequence,started_at,duration_ms,relative_path,encrypted_bytes
             FROM archived_audio WHERE session_id=$session AND ($source IS NULL OR source=$source)
@@ -282,7 +282,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
     {
         var result = new List<AudioArchiveSummary>();
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT source,COUNT(*),COALESCE(SUM(duration_ms),0),COALESCE(SUM(encrypted_bytes),0)
             FROM archived_audio WHERE session_id=$session GROUP BY source ORDER BY source
@@ -298,7 +298,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
     {
         var result = new List<ArchivedAudioChunk>();
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT a.id,a.session_id,a.source,a.sequence,a.started_at,a.duration_ms,a.relative_path,a.encrypted_bytes
             FROM archived_audio a JOIN sessions s ON s.id=a.session_id
@@ -316,7 +316,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
     public async Task<long> GetTotalArchivedAudioBytesAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = "SELECT COALESCE(SUM(encrypted_bytes),0) FROM archived_audio";
         return Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken));
     }
@@ -324,7 +324,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
     public async Task<bool> DeleteArchivedAudioMetadataAsync(string id, CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = """
             DELETE FROM archived_audio WHERE id=$id AND session_id IN
             (SELECT id FROM sessions WHERE state IN ($completed,$interrupted))
@@ -338,11 +338,19 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
     private async Task<SqliteConnection> OpenAsync(CancellationToken ct)
     {
         var connection = new SqliteConnection(_connectionString);
-        await connection.OpenAsync(ct);
-        var pragma = connection.CreateCommand();
-        pragma.CommandText = "PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;";
-        await pragma.ExecuteNonQueryAsync(ct);
-        return connection;
+        try
+        {
+            await connection.OpenAsync(ct);
+            await using var pragma = connection.CreateCommand();
+            pragma.CommandText = "PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;";
+            await pragma.ExecuteNonQueryAsync(ct);
+            return connection;
+        }
+        catch
+        {
+            await connection.DisposeAsync();
+            throw;
+        }
     }
 
 
@@ -364,13 +372,13 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
 
     private static async Task EnsureColumnAsync(SqliteConnection connection, string table, string column, string definition, CancellationToken cancellationToken)
     {
-        var schema = connection.CreateCommand();
+        await using var schema = connection.CreateCommand();
         schema.CommandText = $"PRAGMA table_info({table})";
         await using var reader = await schema.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
             if (string.Equals(reader.GetString(1), column, StringComparison.OrdinalIgnoreCase)) return;
         await reader.DisposeAsync();
-        var alter = connection.CreateCommand();
+        await using var alter = connection.CreateCommand();
         alter.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {definition}";
         await alter.ExecuteNonQueryAsync(cancellationToken);
     }

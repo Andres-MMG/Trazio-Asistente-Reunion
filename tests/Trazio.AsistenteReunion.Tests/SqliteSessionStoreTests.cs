@@ -197,7 +197,7 @@ public sealed class SqliteSessionStoreTests : IAsyncLifetime
         await using (var connection = new SqliteConnection($"Data Source={oldDatabasePath};Pooling=False"))
         {
             await connection.OpenAsync();
-            var command = connection.CreateCommand();
+            await using var command = connection.CreateCommand();
             command.CommandText = """
                 CREATE TABLE sessions (
                   id TEXT PRIMARY KEY, title_nonce BLOB NOT NULL, title_cipher BLOB NOT NULL, title_tag BLOB NOT NULL,
@@ -229,7 +229,7 @@ public sealed class SqliteSessionStoreTests : IAsyncLifetime
     {
         await using var connection = new SqliteConnection($"Data Source={DatabasePath};Pooling=False");
         await connection.OpenAsync();
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = $"SELECT COUNT(*) FROM {table}";
         return (long)(await command.ExecuteScalarAsync())!;
     }

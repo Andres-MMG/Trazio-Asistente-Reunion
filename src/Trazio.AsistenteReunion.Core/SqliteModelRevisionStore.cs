@@ -7,7 +7,7 @@ public sealed partial class SqliteSessionStore
 {
     private async Task InitializeModelRevisionSchemaAsync(SqliteConnection connection, CancellationToken cancellationToken)
     {
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = """
             CREATE TABLE IF NOT EXISTS transcript_model_revisions (
               id TEXT PRIMARY KEY,
@@ -39,13 +39,13 @@ public sealed partial class SqliteSessionStore
     {
         if (string.IsNullOrWhiteSpace(modelIdentity) || string.IsNullOrWhiteSpace(language)) throw new ArgumentException("Se requieren la identidad del modelo y el idioma.");
         await using var connection = await OpenAsync(cancellationToken);
-        var session = connection.CreateCommand();
+        await using var session = connection.CreateCommand();
         session.CommandText = "SELECT state FROM sessions WHERE id=$id";
         session.Parameters.AddWithValue("$id", sessionId);
         var state = await session.ExecuteScalarAsync(cancellationToken);
         if (state is null) throw new InvalidOperationException("La sesión guardada ya no existe.");
         if ((SessionState)Convert.ToInt32(state) is SessionState.Recording or SessionState.Paused) throw new InvalidOperationException("Detén la sesión activa antes de retranscribirla.");
-        var running = connection.CreateCommand();
+        await using var running = connection.CreateCommand();
         running.CommandText = "SELECT COUNT(*) FROM transcript_model_revisions WHERE session_id=$session AND source=$source AND status=$running";
         running.Parameters.AddWithValue("$session", sessionId); running.Parameters.AddWithValue("$source", (int)source); running.Parameters.AddWithValue("$running", (int)ModelRevisionStatus.Running);
         if (Convert.ToInt32(await running.ExecuteScalarAsync(cancellationToken)) > 0) throw new InvalidOperationException("Ya hay una retranscripción en curso para esta sesión y fuente.");
@@ -53,7 +53,7 @@ public sealed partial class SqliteSessionStore
         var model = protector.Protect(Encoding.UTF8.GetBytes(revision.ModelIdentity), $"model-revision:{revision.Id}:model");
         var hash = ProtectRevisionOptional(revision.ModelHash, $"model-revision:{revision.Id}:hash");
         var glossary = protector.Protect(Encoding.UTF8.GetBytes(revision.GlossaryPromptVersion), $"model-revision:{revision.Id}:glossary");
-        var insert = connection.CreateCommand();
+        await using var insert = connection.CreateCommand();
         insert.CommandText = """
             INSERT INTO transcript_model_revisions(id,session_id,source,status,model_nonce,model_cipher,model_tag,model_hash_nonce,model_hash_cipher,model_hash_tag,language,started_at,glossary_version_nonce,glossary_version_cipher,glossary_version_tag)
             VALUES($id,$session,$source,$status,$mn,$mc,$mt,$hn,$hc,$ht,$language,$started,$gn,$gc,$gt)
@@ -78,7 +78,7 @@ public sealed partial class SqliteSessionStore
             Encoding.UTF8.GetBytes(verifiedModelHash.Trim()),
             $"model-revision:{revisionId}:hash");
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = "UPDATE transcript_model_revisions SET model_hash_nonce=$hn,model_hash_cipher=$hc,model_hash_tag=$ht WHERE id=$id AND status=$running";
         command.Parameters.AddWithValue("$id", revisionId);
         command.Parameters.AddWithValue("$running", (int)ModelRevisionStatus.Running);
@@ -90,7 +90,7 @@ public sealed partial class SqliteSessionStore
     {
         var text = protector.Protect(Encoding.UTF8.GetBytes(segment.Text), $"model-revision-segment:{segment.Id}:text");
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = "INSERT INTO transcript_model_revision_segments(id,revision_id,sequence,start_ms,end_ms,text_nonce,text_cipher,text_tag) VALUES($id,$revision,$sequence,$start,$end,$n,$c,$t)";
         command.Parameters.AddWithValue("$id",segment.Id); command.Parameters.AddWithValue("$revision",segment.RevisionId); command.Parameters.AddWithValue("$sequence",segment.Sequence); command.Parameters.AddWithValue("$start",(long)segment.Start.TotalMilliseconds); command.Parameters.AddWithValue("$end",(long)segment.End.TotalMilliseconds); AddPayload(command,text);
         await command.ExecuteNonQueryAsync(cancellationToken);
@@ -101,7 +101,7 @@ public sealed partial class SqliteSessionStore
         if (status == ModelRevisionStatus.Running) throw new ArgumentException("Se requiere un estado final.", nameof(status));
         var encryptedError = ProtectRevisionOptional(error, $"model-revision:{revisionId}:error");
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = "UPDATE transcript_model_revisions SET status=$status,ended_at=$ended,processing_ms=$duration,error_nonce=$en,error_cipher=$ec,error_tag=$et WHERE id=$id AND status=$running";
         command.Parameters.AddWithValue("$id",revisionId); command.Parameters.AddWithValue("$status",(int)status); command.Parameters.AddWithValue("$ended",endedAt.ToString("O")); command.Parameters.AddWithValue("$duration",(long)duration.TotalMilliseconds); command.Parameters.AddWithValue("$running",(int)ModelRevisionStatus.Running); AddRevisionOptionalPayload(command,"e",encryptedError);
         if (await command.ExecuteNonQueryAsync(cancellationToken) != 1) throw new InvalidOperationException("La versión del modelo ya no está en ejecución.");
@@ -111,7 +111,7 @@ public sealed partial class SqliteSessionStore
     {
         var result = new List<TranscriptModelRevision>();
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = "SELECT id,source,status,model_nonce,model_cipher,model_tag,model_hash_nonce,model_hash_cipher,model_hash_tag,language,started_at,ended_at,processing_ms,error_nonce,error_cipher,error_tag,glossary_version_nonce,glossary_version_cipher,glossary_version_tag FROM transcript_model_revisions WHERE session_id=$session" + (source is null ? "" : " AND source=$source") + (successfulOnly ? " AND status=$success" : "") + " ORDER BY started_at,id";
         command.Parameters.AddWithValue("$session",sessionId); if(source is not null) command.Parameters.AddWithValue("$source",(int)source.Value); if(successfulOnly) command.Parameters.AddWithValue("$success",(int)ModelRevisionStatus.Succeeded);
         await using var reader=await command.ExecuteReaderAsync(cancellationToken);
@@ -121,13 +121,13 @@ public sealed partial class SqliteSessionStore
 
     public async Task<IReadOnlyList<TranscriptModelRevisionSegment>> GetModelRevisionSegmentsAsync(string revisionId, CancellationToken cancellationToken = default)
     {
-        var result=new List<TranscriptModelRevisionSegment>(); await using var connection=await OpenAsync(cancellationToken); var command=connection.CreateCommand(); command.CommandText="SELECT id,sequence,start_ms,end_ms,text_nonce,text_cipher,text_tag FROM transcript_model_revision_segments WHERE revision_id=$id ORDER BY sequence"; command.Parameters.AddWithValue("$id",revisionId); await using var reader=await command.ExecuteReaderAsync(cancellationToken); while(await reader.ReadAsync(cancellationToken)){var id=reader.GetString(0); result.Add(new(id,revisionId,reader.GetInt64(1),TimeSpan.FromMilliseconds(reader.GetInt64(2)),TimeSpan.FromMilliseconds(reader.GetInt64(3)),UnprotectRevisionRequired(reader,4,$"model-revision-segment:{id}:text")));} return result;
+        var result=new List<TranscriptModelRevisionSegment>(); await using var connection=await OpenAsync(cancellationToken); await using var command = connection.CreateCommand(); command.CommandText="SELECT id,sequence,start_ms,end_ms,text_nonce,text_cipher,text_tag FROM transcript_model_revision_segments WHERE revision_id=$id ORDER BY sequence"; command.Parameters.AddWithValue("$id",revisionId); await using var reader=await command.ExecuteReaderAsync(cancellationToken); while(await reader.ReadAsync(cancellationToken)){var id=reader.GetString(0); result.Add(new(id,revisionId,reader.GetInt64(1),TimeSpan.FromMilliseconds(reader.GetInt64(2)),TimeSpan.FromMilliseconds(reader.GetInt64(3)),UnprotectRevisionRequired(reader,4,$"model-revision-segment:{id}:text")));} return result;
     }
 
     private async Task RecoverStaleModelRevisionsAsync(SqliteConnection connection, CancellationToken cancellationToken)
     {
         var ids = new List<string>();
-        var lookup = connection.CreateCommand();
+        await using var lookup = connection.CreateCommand();
         lookup.CommandText = "SELECT id FROM transcript_model_revisions WHERE status=$running";
         lookup.Parameters.AddWithValue("$running", (int)ModelRevisionStatus.Running);
         await using (var reader = await lookup.ExecuteReaderAsync(cancellationToken))
@@ -137,7 +137,7 @@ public sealed partial class SqliteSessionStore
         foreach (var id in ids)
         {
             var diagnostic = protector.Protect(Encoding.UTF8.GetBytes("Interrumpida porque la aplicación se cerró antes de completar la retranscripción."), $"model-revision:{id}:error");
-            var update = connection.CreateCommand();
+            await using var update = connection.CreateCommand();
             update.Transaction = transaction;
             update.CommandText = "UPDATE transcript_model_revisions SET status=$failed,ended_at=$ended,processing_ms=COALESCE(processing_ms,0),error_nonce=$en,error_cipher=$ec,error_tag=$et WHERE id=$id AND status=$running";
             update.Parameters.AddWithValue("$failed", (int)ModelRevisionStatus.Failed);

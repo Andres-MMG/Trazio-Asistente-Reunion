@@ -10,7 +10,7 @@ public sealed partial class SqliteSessionStore
         SqliteConnection connection,
         CancellationToken cancellationToken)
     {
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = """
             CREATE TABLE IF NOT EXISTS anonymous_visual_evidence (
               id TEXT PRIMARY KEY,
@@ -46,7 +46,7 @@ public sealed partial class SqliteSessionStore
             VisualEvidenceAssociatedData(evidence.SessionId, evidence.Id));
 
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = """
             INSERT OR IGNORE INTO anonymous_visual_evidence(
               id,session_id,payload_nonce,payload_cipher,payload_tag)
@@ -72,7 +72,7 @@ public sealed partial class SqliteSessionStore
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionId);
         var intervals = new List<AnonymousVisualEvidenceInterval>();
         await using var connection = await OpenAsync(cancellationToken);
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT id,payload_nonce,payload_cipher,payload_tag
             FROM anonymous_visual_evidence

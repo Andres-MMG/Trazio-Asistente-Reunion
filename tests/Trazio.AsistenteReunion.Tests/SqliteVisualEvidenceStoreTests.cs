@@ -267,7 +267,7 @@ public sealed class SqliteVisualEvidenceStoreTests : IAsyncLifetime
     {
         await using var connection = new SqliteConnection($"Data Source={DatabasePath};Pooling=False");
         await connection.OpenAsync();
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = "UPDATE anonymous_visual_evidence SET payload_cipher=zeroblob(length(payload_cipher)) WHERE id=$id";
         command.Parameters.AddWithValue("$id", id.ToString("N"));
         await command.ExecuteNonQueryAsync();
@@ -277,7 +277,7 @@ public sealed class SqliteVisualEvidenceStoreTests : IAsyncLifetime
     {
         await using var connection = new SqliteConnection($"Data Source={DatabasePath};Pooling=False");
         await connection.OpenAsync();
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = "UPDATE anonymous_visual_evidence SET payload_nonce=$n,payload_cipher=$c,payload_tag=$t WHERE id=$id";
         command.Parameters.AddWithValue("$id", evidence.Id.ToString("N"));
         command.Parameters.AddWithValue("$n", payload.Nonce);
@@ -291,7 +291,7 @@ public sealed class SqliteVisualEvidenceStoreTests : IAsyncLifetime
         await using var connection = new SqliteConnection($"Data Source={DatabasePath};Pooling=False");
         await connection.OpenAsync();
         var payloads = new Dictionary<string, EncryptedPayload>(StringComparer.Ordinal);
-        var select = connection.CreateCommand();
+        await using var select = connection.CreateCommand();
         select.CommandText = "SELECT id,payload_nonce,payload_cipher,payload_tag FROM anonymous_visual_evidence WHERE id IN ($first,$second)";
         select.Parameters.AddWithValue("$first", firstId.ToString("N"));
         select.Parameters.AddWithValue("$second", secondId.ToString("N"));
@@ -318,7 +318,7 @@ public sealed class SqliteVisualEvidenceStoreTests : IAsyncLifetime
         Guid id,
         EncryptedPayload payload)
     {
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.Transaction = (SqliteTransaction)transaction;
         command.CommandText = "UPDATE anonymous_visual_evidence SET payload_nonce=$n,payload_cipher=$c,payload_tag=$t WHERE id=$id";
         command.Parameters.AddWithValue("$id", id.ToString("N"));
@@ -334,7 +334,7 @@ public sealed class SqliteVisualEvidenceStoreTests : IAsyncLifetime
         var text = _protector.Protect(Encoding.UTF8.GetBytes("Legacy transcript"), $"segment:{segmentId}:text");
         await using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
         await connection.OpenAsync();
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = """
             PRAGMA foreign_keys=ON;
             CREATE TABLE sessions (
@@ -369,7 +369,7 @@ public sealed class SqliteVisualEvidenceStoreTests : IAsyncLifetime
     {
         await using var connection = new SqliteConnection($"Data Source={DatabasePath};Pooling=False");
         await connection.OpenAsync();
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = $"PRAGMA table_info({table})";
         var columns = new List<string>();
         await using var reader = await command.ExecuteReaderAsync();
@@ -390,7 +390,7 @@ public sealed class SqliteVisualEvidenceStoreTests : IAsyncLifetime
     {
         await using var connection = new SqliteConnection($"Data Source={databasePath};Pooling=False");
         await connection.OpenAsync();
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = $"SELECT COUNT(*) FROM {table}";
         return (long)(await command.ExecuteScalarAsync())!;
     }

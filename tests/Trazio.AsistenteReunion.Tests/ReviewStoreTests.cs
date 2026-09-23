@@ -83,7 +83,7 @@ public sealed class ReviewStoreTests : IAsyncLifetime
         await using (var connection = new SqliteConnection($"Data Source={path};Pooling=False"))
         {
             await connection.OpenAsync();
-            var command = connection.CreateCommand();
+            await using var command = connection.CreateCommand();
             command.CommandText = """
                 CREATE TABLE sessions (
                   id TEXT PRIMARY KEY, title_nonce BLOB NOT NULL, title_cipher BLOB NOT NULL, title_tag BLOB NOT NULL,
