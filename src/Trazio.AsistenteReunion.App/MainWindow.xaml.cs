@@ -58,6 +58,11 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     private readonly PlaybackOperationCoordinator _playbackOperations = new();
     private AesContentProtector? _protector;
     private SqliteSessionStore? _store;
+    private AnonymousVisualEvidenceProjector? _anonymousVisualEvidenceProjector;
+    private int _activeVisualEvidenceRefreshScheduled;
+    private int _historyVisualEvidenceRefreshScheduled;
+    private string? _pendingActiveVisualEvidenceSessionId;
+    private string? _pendingHistoryVisualEvidenceSessionId;
     private AudioArchiveStore? _audioArchive;
     private HistoryRetranscriptionService? _retranscription;
     private readonly OwnedCancellationOperationCoordinator _historyRetranscriptionOperation = new();
@@ -108,6 +113,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         _protector = new(MasterKeyStore.LoadOrCreate(ApplicationPaths.KeyPath));
         _store = new(ApplicationPaths.DatabasePath, _protector);
         await _store.InitializeAsync();
+        _anonymousVisualEvidenceProjector = new(_store.GetAnonymousVisualEvidenceAsync);
         var recoverableSessions = await new StartupRecoveryService(_store).PrepareAsync(DateTimeOffset.UtcNow);
         _audioArchive = new(ApplicationPaths.AudioDirectory, _store, _protector);
         _retranscription = new(_store, _audioArchive, new ProcessTranscriptionTransportFactory());
@@ -592,7 +598,9 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
             timelineContext,
             _store,
             analysisAuthorization,
-            new AnonymousVisualAnalysisComponentFactory(OnAnonymousVisualAnalysisFailure));
+            new AnonymousVisualAnalysisComponentFactory(
+                OnAnonymousVisualAnalysisFailure,
+                OnAnonymousVisualEvidencePersisted));
         if (analysisAuthorization is not null)
             _anonymousVisualAnalysisAuthorization = null;
 
@@ -639,6 +647,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         var controller = _visualCaptureController;
         var analysisSession = _anonymousVisualAnalysisSession;
         var analysisContext = _anonymousVisualAnalysisContext;
+        var analysisSessionId = analysisContext?.SessionId;
         _visualCaptureController = null;
         _anonymousVisualAnalysisSession = null;
         _anonymousVisualAnalysisContext = null;
@@ -674,6 +683,24 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
                 visualCleanupFailed = true;
                 try { await analysisSession.DisposeAsync(); } catch { }
             }
+        }
+
+        if (!string.IsNullOrWhiteSpace(analysisSessionId) && _anonymousVisualEvidenceProjector is not null)
+        {
+            _anonymousVisualEvidenceProjector.Invalidate(
+                AnonymousVisualEvidenceCacheScope.ActiveSession,
+                analysisSessionId);
+            await RefreshActiveVisualEvidenceAsync(
+                analysisSessionId,
+                CancellationToken.None,
+                allowAnalyzing: false);
+            _anonymousVisualEvidenceProjector.Invalidate(
+                AnonymousVisualEvidenceCacheScope.SelectedHistorySession,
+                analysisSessionId);
+            await RefreshSelectedHistoryVisualEvidenceAsync(
+                analysisSessionId,
+                CancellationToken.None,
+                allowAnalyzing: false);
         }
 
         _anonymousVisualAnalysisProfileValidationState = null;
@@ -807,6 +834,132 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         }));
     }
 
+    private void OnAnonymousVisualEvidencePersisted(string sessionId)
+    {
+        if (_closing || _anonymousVisualEvidenceProjector is null) return;
+        _anonymousVisualEvidenceProjector.Invalidate(
+            AnonymousVisualEvidenceCacheScope.ActiveSession,
+            sessionId);
+        _anonymousVisualEvidenceProjector.Invalidate(
+            AnonymousVisualEvidenceCacheScope.SelectedHistorySession,
+            sessionId);
+        QueueActiveVisualEvidenceRefresh(sessionId);
+        QueueHistoryVisualEvidenceRefresh(sessionId);
+    }
+
+    private void QueueActiveVisualEvidenceRefresh(string sessionId)
+    {
+        if (_closing || Dispatcher.HasShutdownStarted) return;
+        Interlocked.Exchange(ref _pendingActiveVisualEvidenceSessionId, sessionId);
+        if (Interlocked.Exchange(ref _activeVisualEvidenceRefreshScheduled, 1) != 0) return;
+        _ = Dispatcher.BeginInvoke(DispatcherPriority.DataBind, new Action(async () =>
+        {
+            Interlocked.Exchange(ref _activeVisualEvidenceRefreshScheduled, 0);
+            var requestedSessionId = Interlocked.Exchange(
+                ref _pendingActiveVisualEvidenceSessionId,
+                null);
+            if (_closing || requestedSessionId is null) return;
+            try { await RefreshActiveVisualEvidenceAsync(requestedSessionId, _lifetime.Token); }
+            catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        }));
+    }
+
+    private void QueueHistoryVisualEvidenceRefresh(string sessionId)
+    {
+        if (_closing || Dispatcher.HasShutdownStarted) return;
+        Interlocked.Exchange(ref _pendingHistoryVisualEvidenceSessionId, sessionId);
+        if (Interlocked.Exchange(ref _historyVisualEvidenceRefreshScheduled, 1) != 0) return;
+        _ = Dispatcher.BeginInvoke(DispatcherPriority.DataBind, new Action(async () =>
+        {
+            Interlocked.Exchange(ref _historyVisualEvidenceRefreshScheduled, 0);
+            var requestedSessionId = Interlocked.Exchange(
+                ref _pendingHistoryVisualEvidenceSessionId,
+                null);
+            if (_closing || requestedSessionId is null) return;
+            try { await RefreshSelectedHistoryVisualEvidenceAsync(requestedSessionId, _lifetime.Token); }
+            catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        }));
+    }
+
+    private async Task RefreshActiveVisualEvidenceAsync(
+        string sessionId,
+        CancellationToken cancellationToken,
+        bool allowAnalyzing = true)
+    {
+        var projector = _anonymousVisualEvidenceProjector;
+        if (projector is null) return;
+        var rows = _liveRows
+            .Where(row =>
+                row.Segment.Source == AudioSourceKind.SystemOutput &&
+                string.Equals(row.Segment.SessionId, sessionId, StringComparison.Ordinal))
+            .ToArray();
+        if (rows.Length == 0) return;
+
+        var projection = await projector.ProjectAsync(
+            AnonymousVisualEvidenceCacheScope.ActiveSession,
+            sessionId,
+            rows.Select(row => row.Segment).ToArray(),
+            validatedRunIncomplete:
+                allowAnalyzing &&
+                _anonymousVisualAnalysisProfileValidationState == VisualProbeProfileValidationState.Validated &&
+                _anonymousVisualAnalysisStatus == AnonymousVisualAnalysisStatus.Running,
+            cancellationToken: cancellationToken);
+        if (!projection.IsCurrent || !projector.IsCurrent(projection)) return;
+        if (!string.Equals(_coordinator?.ActiveSessionId, sessionId, StringComparison.Ordinal) && _recording) return;
+
+        foreach (var row in rows)
+        {
+            var current = _liveRows.FirstOrDefault(candidate =>
+                string.Equals(candidate.Segment.SessionId, sessionId, StringComparison.Ordinal) &&
+                string.Equals(candidate.Segment.Id, row.Segment.Id, StringComparison.Ordinal));
+            current?.SetVisualEvidence(projection.For(row.Segment));
+        }
+    }
+
+    private async Task RefreshSelectedHistoryVisualEvidenceAsync(
+        string sessionId,
+        CancellationToken cancellationToken,
+        bool allowAnalyzing = true)
+    {
+        var projector = _anonymousVisualEvidenceProjector;
+        var selectedSession = SelectedHistorySession();
+        if (projector is null ||
+            selectedSession is null ||
+            !string.Equals(selectedSession.Id, sessionId, StringComparison.Ordinal)) return;
+        HistoryLoadTicket historyTicket;
+        try { historyTicket = _historyLoads.Capture(sessionId); }
+        catch (OperationCanceledException) { return; }
+        var selectedRevisionId = SelectedHistoryRevisionId();
+        var selectedSource = SelectedHistorySource();
+        var rows = _historyRows
+            .Where(row => string.Equals(row.Segment.SessionId, sessionId, StringComparison.Ordinal))
+            .ToArray();
+        if (rows.Length == 0) return;
+
+        var projection = await projector.ProjectAsync(
+            AnonymousVisualEvidenceCacheScope.SelectedHistorySession,
+            sessionId,
+            rows.Select(row => row.Segment).ToArray(),
+            validatedRunIncomplete:
+                allowAnalyzing &&
+                string.Equals(_coordinator?.ActiveSessionId, sessionId, StringComparison.Ordinal) &&
+                _anonymousVisualAnalysisProfileValidationState == VisualProbeProfileValidationState.Validated &&
+                _anonymousVisualAnalysisStatus == AnonymousVisualAnalysisStatus.Running,
+            cancellationToken: cancellationToken);
+        if (!projection.IsCurrent || !projector.IsCurrent(projection) ||
+            !_historyLoads.IsCurrent(historyTicket, SelectedHistorySession()?.Id) ||
+            SelectedHistorySource() != selectedSource ||
+            !string.Equals(SelectedHistoryRevisionId(), selectedRevisionId, StringComparison.Ordinal)) return;
+
+        foreach (var row in rows)
+        {
+            var current = _historyRows.FirstOrDefault(candidate =>
+                string.Equals(candidate.Segment.SessionId, sessionId, StringComparison.Ordinal) &&
+                string.Equals(candidate.Segment.Id, row.Segment.Id, StringComparison.Ordinal));
+            current?.SetVisualEvidence(projection.For(row.Segment));
+        }
+    }
+
     private static string AnonymousVisualAnalysisFailureMessage(
         AnonymousVisualAnalysisActivationFailure failure) => failure switch
     {
@@ -900,6 +1053,10 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     {
         if (_store is null) throw new InvalidOperationException("El almacenamiento del historial todavía no está listo.");
         var selectedId = SelectedHistorySession()?.Id;
+        if (selectedId is not null)
+            _anonymousVisualEvidenceProjector?.Invalidate(
+                AnonymousVisualEvidenceCacheScope.SelectedHistorySession,
+                selectedId);
         var sessions = (await _store.ListSessionsAsync())
             .Select(session => HistorySessionItem.From(session))
             .ToArray();
@@ -947,8 +1104,10 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         });
         coordinator.SegmentReady += (_, segment) => Dispatcher.Invoke(() =>
         {
-            _liveRows.Add(new($"{segment.Start:hh\\:mm\\:ss} · {TranscriptPresentation.SpeakerLabel(segment)}", segment.Text));
+            _liveRows.Add(new(segment));
             LiveTranscript.ScrollIntoView(_liveRows.Last());
+            if (segment.Source == AudioSourceKind.SystemOutput)
+                QueueActiveVisualEvidenceRefresh(segment.SessionId);
         });
         coordinator.DiagnosticChanged += (_, diagnostic) => Dispatcher.Invoke(() =>
         {
@@ -974,6 +1133,8 @@ private async void HistoryList_SelectionChanged(object sender, SelectionChangedE
         if (session is null || _store is null)
         {
             _historyLoads.Invalidate();
+            _anonymousVisualEvidenceProjector?.Clear(
+                AnonymousVisualEvidenceCacheScope.SelectedHistorySession);
             ClearHistoryReview();
             ApplyHistoryState(HistoryPresenter.Create(false, null, [], [], SelectedHistorySource(), FormatTranscript));
             return;
@@ -1040,8 +1201,16 @@ private async void HistoryList_SelectionChanged(object sender, SelectionChangedE
             session.Id,
             selectedSource,
             ticket.CancellationToken);
+        AnonymousVisualEvidenceProjection? visualProjection = await ProjectHistoryVisualEvidenceAsync(
+            session.Id,
+            reviewed.Select(item => item.Segment).ToArray(),
+            ticket.CancellationToken);
         if (!_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) return;
         if (revisionTicket is not null && !IsCurrentRevisionSelection(revisionTicket)) return;
+        var refreshVisualAfterPublish = visualProjection is not null &&
+            (!visualProjection.IsCurrent ||
+             _anonymousVisualEvidenceProjector?.IsCurrent(visualProjection) != true);
+        if (refreshVisualAfterPublish) visualProjection = null;
         IReadOnlyList<double> waveform = _audioArchive is null
             ? []
             : await AudioWaveformBuilder.BuildAsync(
@@ -1051,6 +1220,12 @@ private async void HistoryList_SelectionChanged(object sender, SelectionChangedE
                 cancellationToken: ticket.CancellationToken);
         if (!_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) return;
         if (revisionTicket is not null && !IsCurrentRevisionSelection(revisionTicket)) return;
+        if (visualProjection is not null &&
+            _anonymousVisualEvidenceProjector?.IsCurrent(visualProjection) != true)
+        {
+            refreshVisualAfterPublish = true;
+            visualProjection = null;
+        }
         ApplyHistoryTrack(session, selectedSource, selectedSourceChunks, waveform);
         _historyAudio = audio;
         _historySelectedSourceAudioComplete = IsCompleteRetainedSource(selectedSourceChunks, session.StartedAt);
@@ -1061,7 +1236,10 @@ private async void HistoryList_SelectionChanged(object sender, SelectionChangedE
         try
         {
             _historyRows.Clear();
-            foreach (var item in reviewed) _historyRows.Add(new(item));
+            foreach (var item in reviewed)
+                _historyRows.Add(new(
+                    item,
+                    visualEvidence: visualProjection?.For(item.Segment)));
             HistorySegments.SelectedItem = _historyRows.FirstOrDefault(item => item.Segment.Id == selectedSegmentId);
         }
         finally { _suppressHistorySegmentPlayback = false; }
@@ -1069,6 +1247,26 @@ private async void HistoryList_SelectionChanged(object sender, SelectionChangedE
         ApplyHistoryState(HistoryPresenter.Create(true, session.State, reviewed.Select(item => item.Segment).ToArray(), audio,
             selectedSource, _ => TranscriptPresentation.FormatReviewed(reviewed)));
         UpdateSelectedSegmentEditor();
+        if (refreshVisualAfterPublish)
+            QueueHistoryVisualEvidenceRefresh(session.Id);
+    }
+
+    private async Task<AnonymousVisualEvidenceProjection?> ProjectHistoryVisualEvidenceAsync(
+        string sessionId,
+        IReadOnlyList<TranscriptSegment> segments,
+        CancellationToken cancellationToken)
+    {
+        var projector = _anonymousVisualEvidenceProjector;
+        if (projector is null) return null;
+        return await projector.ProjectAsync(
+            AnonymousVisualEvidenceCacheScope.SelectedHistorySession,
+            sessionId,
+            segments,
+            validatedRunIncomplete:
+                string.Equals(_coordinator?.ActiveSessionId, sessionId, StringComparison.Ordinal) &&
+                _anonymousVisualAnalysisProfileValidationState == VisualProbeProfileValidationState.Validated &&
+                _anonymousVisualAnalysisStatus == AnonymousVisualAnalysisStatus.Running,
+            cancellationToken: cancellationToken);
     }
 
     private async void HistoryAudioSource_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1501,16 +1699,37 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
             var segments = await _store.GetModelRevisionSegmentsAsync(
                 selectedRevision.Revision.Id,
                 revisionTicket.CancellationToken);
+            var transcriptSegments = segments
+                .Select(segment => new TranscriptSegment(
+                    segment.Id,
+                    session.Id,
+                    selectedRevision.Revision.Source,
+                    segment.Sequence,
+                    segment.Start,
+                    segment.End,
+                    segment.Text,
+                    selectedRevision.Revision.StartedAt))
+                .ToArray();
+            AnonymousVisualEvidenceProjection? visualProjection = await ProjectHistoryVisualEvidenceAsync(
+                session.Id,
+                transcriptSegments,
+                revisionTicket.CancellationToken);
             if (!_historyLoads.IsCurrent(historyTicket, SelectedHistorySession()?.Id) ||
                 !IsCurrentRevisionSelection(revisionTicket)) return;
+            var refreshVisualAfterPublish = visualProjection is not null &&
+                (!visualProjection.IsCurrent ||
+                 _anonymousVisualEvidenceProjector?.IsCurrent(visualProjection) != true);
+            if (refreshVisualAfterPublish) visualProjection = null;
             _suppressHistorySegmentPlayback = true;
             try
             {
                 _historyRows.Clear();
-                foreach (var segment in segments)
+                foreach (var transcript in transcriptSegments)
                 {
-                    var transcript = new TranscriptSegment(segment.Id, session.Id, selectedRevision.Revision.Source, segment.Sequence, segment.Start, segment.End, segment.Text, selectedRevision.Revision.StartedAt);
-                    _historyRows.Add(new(new ReviewedTranscriptSegment(transcript, null), "Versión generada por el modelo · sin correcciones humanas"));
+                    _historyRows.Add(new(
+                        new ReviewedTranscriptSegment(transcript, null),
+                        "Versión generada por el modelo · sin correcciones humanas",
+                        visualProjection?.For(transcript)));
                 }
                 HistorySegments.SelectedItem = null;
             }
@@ -1518,6 +1737,8 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
             HistoryEmptyText.Visibility = segments.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             StatusText.Text = $"Viendo la versión generada por el modelo el {selectedRevision.Revision.StartedAt:yyyy-MM-dd HH:mm}; no se aplican correcciones humanas.";
             UpdateSelectedSegmentEditor();
+            if (refreshVisualAfterPublish)
+                QueueHistoryVisualEvidenceRefresh(session.Id);
         }
         catch (OperationCanceledException) when (!IsCurrentRevisionSelection(revisionTicket)) { }
         catch (Exception ex)
@@ -1878,6 +2099,9 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
             _playback.Stop();
             if (_audioArchive is not null) await _audioArchive.DeleteSessionAsync(session.Id);
             else await _store.DeleteSessionAsync(session.Id);
+            _anonymousVisualEvidenceProjector?.Clear(
+                AnonymousVisualEvidenceCacheScope.SelectedHistorySession,
+                session.Id);
             ClearHistoryReview();
             HistoryAudioSummary.Text = HistoryPresenter.SelectSessionMessage;
             StatusText.Text = "Sesión eliminada";
@@ -2139,7 +2363,6 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
     private static string SafeFileName(string name) => string.Concat(name.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
     private void ShowError(string title, string message) { StatusText.Text = message; MessageBox.Show(this, message, title, MessageBoxButton.OK, MessageBoxImage.Error); }
 
-    private sealed record TranscriptRow(string Header, string Text);
 }
 
 

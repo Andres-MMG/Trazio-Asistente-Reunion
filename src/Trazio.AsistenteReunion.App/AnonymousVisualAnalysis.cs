@@ -104,11 +104,12 @@ internal interface IAnonymousVisualAnalysisComponentFactory
 }
 
 internal sealed class AnonymousVisualAnalysisComponentFactory(
-    Action<VisualProbeFailureKind>? failureObserver = null)
+    Action<VisualProbeFailureKind>? failureObserver = null,
+    Action<string>? evidencePersisted = null)
     : IAnonymousVisualAnalysisComponentFactory
 {
     public IVisualProbeEvidenceSink CreateSink(string sessionId, SqliteSessionStore store) =>
-        new SqliteVisualProbeEvidenceSink(sessionId, store);
+        new SqliteVisualProbeEvidenceSink(sessionId, store, evidencePersisted);
 
     public IVisualProbeDetector CreateDetector(string sessionId) =>
         new DeterministicVisualActivityDetector(sessionId);

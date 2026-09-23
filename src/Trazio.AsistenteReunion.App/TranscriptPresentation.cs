@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Trazio.AsistenteReunion.Core;
 
 namespace Trazio.AsistenteReunion.App;
@@ -21,12 +22,40 @@ public static class TranscriptPresentation
             segments.Select(segment =>
                 $"[{segment.Start:hh\\:mm\\:ss}] {SpeakerLabel(segment)}{Environment.NewLine}{segment.Text}"));
 }
-public sealed record HistorySegmentItem(ReviewedTranscriptSegment Review, string? ModelRevisionLabel = null)
+public sealed class HistorySegmentItem : INotifyPropertyChanged
 {
+    private AnonymousVisualEvidenceViewModel _visualEvidence;
+
+    public HistorySegmentItem(
+        ReviewedTranscriptSegment review,
+        string? modelRevisionLabel = null,
+        AnonymousVisualEvidenceViewModel? visualEvidence = null)
+    {
+        Review = review ?? throw new ArgumentNullException(nameof(review));
+        ModelRevisionLabel = modelRevisionLabel;
+        _visualEvidence = visualEvidence ??
+            (review.Segment.Source == AudioSourceKind.Microphone
+                ? AnonymousVisualEvidenceViewModel.Hidden
+                : AnonymousVisualEvidenceViewModel.Unavailable);
+    }
+
+    public ReviewedTranscriptSegment Review { get; }
+    public string? ModelRevisionLabel { get; }
     public TranscriptSegment Segment => Review.Segment;
     public string Header => $"{Segment.Start:hh\\:mm\\:ss} · {TranscriptPresentation.SpeakerLabel(Segment)}";
     public string Text => Review.EffectiveText;
     public string RevisionLabel => ModelRevisionLabel ?? (Review.IsCorrected ? $"Corregida · versión {Review.LatestRevision!.Revision}" : "Transcripción original");
+    public AnonymousVisualEvidenceViewModel VisualEvidence => _visualEvidence;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public void SetVisualEvidence(AnonymousVisualEvidenceViewModel visualEvidence)
+    {
+        ArgumentNullException.ThrowIfNull(visualEvidence);
+        if (ReferenceEquals(_visualEvidence, visualEvidence) || _visualEvidence == visualEvidence) return;
+        _visualEvidence = visualEvidence;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(VisualEvidence)));
+    }
 }
 public static class TranscriptExport
 {

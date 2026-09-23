@@ -34,7 +34,8 @@ public sealed class SqliteVisualProbeEvidenceSinkTests : IAsyncLifetime
     {
         var session = NewSession();
         await _store.CreateSessionAsync(session);
-        var sink = new SqliteVisualProbeEvidenceSink(session.Id, _store);
+        var notifications = new List<string>();
+        var sink = new SqliteVisualProbeEvidenceSink(session.Id, _store, notifications.Add);
         var interval = Coverage(session.Id);
 
         await sink.WriteAsync(interval, CancellationToken.None);
@@ -42,6 +43,31 @@ public sealed class SqliteVisualProbeEvidenceSinkTests : IAsyncLifetime
 
         var restored = await _store.GetAnonymousVisualEvidenceAsync(session.Id);
         Assert.Equal(AnonymousVisualEvidenceReadStatus.Loaded, restored.Status);
+        Assert.Equal(interval, Assert.Single(restored.Intervals));
+        Assert.Equal([session.Id], notifications);
+    }
+
+    [Fact]
+    [Trait("Area", "VisualCapture")]
+    public async Task WriteAsync_ObserverFailure_DoesNotAffectConfirmedPersistence()
+    {
+        var session = NewSession();
+        await _store.CreateSessionAsync(session);
+        var notifiedSessionId = string.Empty;
+        var sink = new SqliteVisualProbeEvidenceSink(
+            session.Id,
+            _store,
+            persistedSessionId =>
+            {
+                notifiedSessionId = persistedSessionId;
+                throw new InvalidOperationException("UI observer failed");
+            });
+        var interval = Coverage(session.Id);
+
+        await sink.WriteAsync(interval, CancellationToken.None);
+
+        Assert.Equal(session.Id, notifiedSessionId);
+        var restored = await _store.GetAnonymousVisualEvidenceAsync(session.Id);
         Assert.Equal(interval, Assert.Single(restored.Intervals));
     }
 

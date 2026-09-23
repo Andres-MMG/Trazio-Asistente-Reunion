@@ -116,7 +116,21 @@
                         <DockPanel>
                             <TextBlock DockPanel.Dock="Top" Text="Transcripción en vivo" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,10"/>
                             <ListBox x:Name="LiveTranscript" BorderThickness="0" ScrollViewer.CanContentScroll="True">
-                                <ListBox.ItemTemplate><DataTemplate><StackPanel Margin="0,5"><TextBlock Text="{Binding Header}" FontWeight="SemiBold" Foreground="#246BCE"/><TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="14"/></StackPanel></DataTemplate></ListBox.ItemTemplate>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="0,5">
+                                            <TextBlock Text="{Binding Header}" FontWeight="SemiBold" Foreground="#246BCE"/>
+                                            <TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="14"/>
+                                            <TextBlock Text="{Binding VisualEvidence.DisplayText}"
+                                                       Visibility="{Binding VisualEvidence.Visibility}"
+                                                       Foreground="#374151" FontSize="12" FontWeight="SemiBold" Margin="0,3,0,0"
+                                                       Focusable="False" IsHitTestVisible="False"
+                                                       automation:AutomationProperties.Name="{Binding VisualEvidence.AutomationName}"
+                                                       automation:AutomationProperties.HelpText="{Binding VisualEvidence.HelpText}"
+                                                       automation:AutomationProperties.LiveSetting="Polite"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
                             </ListBox>
                         </DockPanel>
                     </Border>
@@ -275,6 +289,12 @@
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding Header}" FontWeight="SemiBold" Foreground="#246BCE"/>
                                                         <TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="14"/>
+                                                        <TextBlock Text="{Binding VisualEvidence.DisplayText}"
+                                                                   Visibility="{Binding VisualEvidence.Visibility}"
+                                                                   Foreground="#374151" FontSize="12" FontWeight="SemiBold" Margin="0,3,0,0"
+                                                                   Focusable="False" IsHitTestVisible="False"
+                                                                   automation:AutomationProperties.Name="{Binding VisualEvidence.AutomationName}"
+                                                                   automation:AutomationProperties.HelpText="{Binding VisualEvidence.HelpText}"/>
                                                         <TextBlock Text="{Binding RevisionLabel}" Foreground="#6B7280" FontSize="11"/>
                                                     </StackPanel>
                                                 </DockPanel>

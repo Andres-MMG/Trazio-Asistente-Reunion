@@ -139,6 +139,38 @@ public sealed class HistoryWorkspacePublicationTests
         Assert.True(
             teardown.IndexOf("await analysisSession.CompleteAt(finalOffset)", StringComparison.Ordinal) <
             teardown.IndexOf("await analysisSession.DisposeAsync()", StringComparison.Ordinal));
+        Assert.True(
+            teardown.IndexOf("await analysisSession.DisposeAsync()", StringComparison.Ordinal) <
+            teardown.IndexOf("await RefreshActiveVisualEvidenceAsync", StringComparison.Ordinal));
+        Assert.Contains("allowAnalyzing: false", teardown, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Area", "VisualCapture")]
+    public void TranscriptTemplates_ShowNonInteractiveAnonymousEvidenceWithLiveAnnouncementsOnlyInLiveView()
+    {
+        var root = FindRepositoryRoot();
+        var mainXaml = File.ReadAllText(Path.Combine(
+            root, "src", "Trazio.AsistenteReunion.App", "MainWindow.xaml"));
+        var liveStart = mainXaml.IndexOf("x:Name=\"LiveTranscript\"", StringComparison.Ordinal);
+        var liveEnd = mainXaml.IndexOf("x:Name=\"HistoryTabItem\"", liveStart, StringComparison.Ordinal);
+        var historyStart = mainXaml.IndexOf("x:Name=\"HistorySegments\"", StringComparison.Ordinal);
+        var historyEnd = mainXaml.IndexOf("x:Name=\"CorrectionPanel\"", historyStart, StringComparison.Ordinal);
+        var comparisonStart = mainXaml.IndexOf("x:Name=\"ComparisonRows\"", StringComparison.Ordinal);
+        var comparisonEnd = mainXaml.IndexOf("</ListBox>", comparisonStart, StringComparison.Ordinal) + "</ListBox>".Length;
+        var liveTemplate = mainXaml[liveStart..liveEnd];
+        var historyTemplate = mainXaml[historyStart..historyEnd];
+        var comparisonTemplate = mainXaml[comparisonStart..comparisonEnd];
+
+        Assert.Equal(2, mainXaml.Split("Text=\"{Binding VisualEvidence.DisplayText}\"", StringSplitOptions.None).Length - 1);
+        Assert.Equal(2, mainXaml.Split("Visibility=\"{Binding VisualEvidence.Visibility}\"", StringSplitOptions.None).Length - 1);
+        Assert.Equal(2, mainXaml.Split("automation:AutomationProperties.Name=\"{Binding VisualEvidence.AutomationName}\"", StringSplitOptions.None).Length - 1);
+        Assert.Equal(2, mainXaml.Split("automation:AutomationProperties.HelpText=\"{Binding VisualEvidence.HelpText}\"", StringSplitOptions.None).Length - 1);
+        Assert.Contains("Focusable=\"False\" IsHitTestVisible=\"False\"", liveTemplate, StringComparison.Ordinal);
+        Assert.Contains("Focusable=\"False\" IsHitTestVisible=\"False\"", historyTemplate, StringComparison.Ordinal);
+        Assert.Contains("automation:AutomationProperties.LiveSetting=\"Polite\"", liveTemplate, StringComparison.Ordinal);
+        Assert.DoesNotContain("automation:AutomationProperties.LiveSetting", historyTemplate, StringComparison.Ordinal);
+        Assert.DoesNotContain("VisualEvidence", comparisonTemplate, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()
