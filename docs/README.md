@@ -9,6 +9,7 @@
 | Descargar la aplicación y grabar mi primera reunión | [Guía de uso](user-guide.md) |
 | Entender qué está construido y qué viene después | [Hoja de ruta del producto](../ROADMAP.md) |
 | Entender los componentes, el flujo de datos y las decisiones de ingeniería | [Arquitectura](architecture.md) |
+| Revisar el diseño de análisis visual y evidencia de hablante antes de implementarlo | [Plan técnico de la etapa 7.2](stage-7-visual-speaker-plan.md) |
 | Compilar, empaquetar o contribuir | [Guía de desarrollo](development.md) |
 | Entender el cifrado, las exportaciones y los límites de recuperación | [Seguridad y privacidad](security.md) |
 | Reproducir comprobaciones o validar una versión | [Guía de validación](validation.md) |

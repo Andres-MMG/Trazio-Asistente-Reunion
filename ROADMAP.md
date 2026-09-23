@@ -143,12 +143,19 @@ Esta etapa se divide intencionalmente en niveles de confianza separados. Trazio 
 
 Esta primera rebanada selecciona una **ventana superior**, no una pestaña individual. La lectura de pestaña, URL, DOM, subtítulos o estado del hablante requiere un adaptador y permiso independientes; no forma parte de 7.1a. La automatización de calendarios tampoco puede omitir silenciosamente ese permiso.
 
-### 7.2 Adaptadores de proveedores
+### 7.2 Análisis visual y adaptadores de proveedores
 
-- Construir adaptadores separados y versionados para Google Meet y Microsoft Teams.
-- Una extensión complementaria del navegador puede leer señales de accesibilidad/DOM, subtítulos, etiquetas de participantes y estado del hablante activo específicos del proveedor después de un permiso explícito.
-- La aplicación de escritorio sigue siendo la autoridad de grabación y almacenamiento cifrado.
-- Si un adaptador deja de funcionar después de un cambio de interfaz del proveedor, continuar la transcripción con `Hablante remoto` en vez de adivinar un nombre.
+**Planificada; no implementada.** El [plan técnico de la etapa 7.2](docs/stage-7-visual-speaker-plan.md) establece consentimiento visual por sesión, estado OFF por defecto, procesamiento efímero de la ventana seleccionada y degradación a `Hablante remoto`. Implementar Windows Graphics Capture requiere una autorización explícita adicional; este roadmap no la concede.
+
+El trabajo se divide en rebanadas verificables:
+
+1. **7.2a:** sustrato WGC para el HWND revalidado, 1–2 fps, frame pool/canal de capacidad 2 con descarte del frame más antiguo y cero persistencia de píxeles.
+2. **7.2b:** actividad visual anónima, eventos derivados cifrados y correlación exclusiva con `ComputerOutput`.
+3. **7.2c:** adaptador versionado de Google Meet web mediante una extensión con permiso mínimo y WGC como respaldo.
+4. **7.2d:** adaptador de Microsoft Teams web/escritorio; extensión para web y WGC para escritorio/respaldo.
+5. **7.2e:** evaluación de precisión, accesibilidad, recursos y duración; aprobar 2 horas antes de intentar 5 horas.
+
+La estrategia recomendada es híbrida. La extensión del navegador aporta señales semánticas más fiables en Meet/Teams web; WGC cubre Teams escritorio y el fallback anónimo. UI Automation es solo una señal secundaria. La aplicación de escritorio conserva la autoridad de grabación y almacenamiento cifrado.
 
 ### 7.3 Niveles de evidencia del hablante
 
@@ -163,6 +170,7 @@ La diarización de audio separa voces, pero no revela nombres reales. Asociar un
 
 ### 7.4 Capturas opcionales al cambiar de hablante
 
+- Esta capacidad futura está separada de 7.2: el análisis planificado descarta frames y no guarda imágenes por defecto.
 - No usar capturas de pantalla como mecanismo principal de identificación de hablantes.
 - Si se habilitan, capturar solo al detectar una transición de hablante, no continuamente.
 - Preferir recortar el recuadro del participante activo y la etiqueta de nombre en vez de almacenar toda la pantalla de la reunión.
@@ -173,6 +181,7 @@ La diarización de audio separa voces, pero no revela nombres reales. Asociar un
 ### Criterios de salida
 
 - El usuario puede seleccionar una ventana superior y ver el proveedor detectado; la validación física de 7.1a sigue pendiente. La selección de pestaña individual permanece fuera de esta rebanada.
+- Si se autoriza e implementa 7.2, el consentimiento visual es por sesión, separado de la selección de ventana y no conserva imágenes por defecto.
 - Trazio continúa de forma segura cuando los metadatos del proveedor no están disponibles o falla un adaptador.
 - Las etiquetas de hablantes remotos con nombre incluyen evidencia y confianza; los segmentos inciertos permanecen anónimos.
 - Las capturas opcionales están cifradas, acotadas y se pueden eliminar independientemente.
@@ -307,8 +316,8 @@ Antes de publicar en producción:
 
 1. Continuar fortaleciendo la distribución de la etapa 5 desde la base existente de código público/ZIP; mantener pendientes los requisitos de producción.
 2. Mantener la línea base funcional de la etapa 6 y completar su validación física pendiente sin ampliar silenciosamente su alcance.
-3. Construir la selección de fuente de la etapa 7 antes de intentar atribuir nombres a hablantes remotos.
-4. Agregar adaptadores de proveedores y evidencia visual opcional solo cuando el flujo de fuente seleccionada sea estable.
+3. Validar físicamente la selección de fuente 7.1a antes de intentar atribuir nombres a hablantes remotos.
+4. Después de una autorización explícita adicional, ejecutar 7.2 en orden: sustrato WGC efímero, actividad anónima, adaptadores web/escritorio y evaluación; no guardar imágenes por defecto.
 5. Implementar en la etapa 8 la navegación avanzada y la aplicación controlada del glosario.
 6. Completar las etapas 8–10 y la validación prolongada aplazada antes de publicar en producción.
 7. Implementar las cuentas conectadas, calendarios y automatización de reuniones con activación voluntaria de la etapa 11.
