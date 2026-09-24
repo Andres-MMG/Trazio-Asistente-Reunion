@@ -10,6 +10,8 @@ Beta 7 declara la secuencia de instalador **8** y está publicada. La coincidenc
 
 La beta 7 pública incluye la revisión de historial 8.1 completa. Sus pruebas automatizadas y artefactos publicados no sustituyen la validación audible, de interfaz, teclado/lector de pantalla, Meet/Teams reales ni las sesiones de 2/5 horas.
 
+La búsqueda local 8.2 está implementada en `main`, no en la beta 7 publicada. Su conjunto enfocado Release aprobó **61/61** pruebas y la aplicación compiló con **0 advertencias / 0 errores**. Cubre texto efectivo corregido/deshecho, exclusión de revisiones alternativas, normalización, orden/límite, cancelación generacional, drenaje seguro al eliminar/cerrar, ausencia de esquema/índice nuevo, fallo cerrado ante corrupción y contrato de navegación sin reproducción automática. Todavía no sustituye una prueba física de interfaz, teclado o lector de pantalla.
+
 | Evidencia | Resultado registrado / límite |
 |---|---|
 | `v0.1.1-mvp`, conjunto Release serial | 164/164 aprobadas; evidencia histórica |

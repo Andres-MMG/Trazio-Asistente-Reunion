@@ -6,6 +6,90 @@ namespace Trazio.AsistenteReunion.Tests;
 public sealed class AsyncOperationCoordinationTests
 {
     [Fact]
+    public void HistorySearchCoordinator_NewerQueryCancelsAndSupersedesOlderResults()
+    {
+        using var coordinator = new HistorySearchCoordinator();
+        var first = coordinator.Begin("primera");
+        var second = coordinator.Begin("segunda");
+
+        Assert.True(first.CancellationToken.IsCancellationRequested);
+        Assert.False(coordinator.IsCurrent(first, "primera"));
+        Assert.True(coordinator.IsCurrent(second, " segunda "));
+
+        coordinator.Invalidate();
+        Assert.True(second.CancellationToken.IsCancellationRequested);
+        Assert.False(coordinator.IsCurrent(second, "segunda"));
+    }
+
+    [Fact]
+    public void HistorySearchNavigationCoordinator_NewerSelectionCancelsAndSupersedesOlderNavigation()
+    {
+        using var coordinator = new HistorySearchNavigationCoordinator();
+        var firstKey = new HistorySearchNavigationKey("session-a", "segment-a", AudioSourceKind.Microphone);
+        var secondKey = new HistorySearchNavigationKey("session-b", "segment-b", AudioSourceKind.SystemOutput);
+        var first = coordinator.Begin(firstKey);
+        var second = coordinator.Begin(secondKey);
+
+        Assert.True(first.CancellationToken.IsCancellationRequested);
+        Assert.False(coordinator.IsCurrent(first, firstKey));
+        Assert.False(coordinator.IsCurrent(second, firstKey));
+        Assert.True(coordinator.IsCurrent(second, secondKey));
+
+        coordinator.Invalidate();
+        Assert.True(second.CancellationToken.IsCancellationRequested);
+        Assert.False(coordinator.IsCurrent(second, secondKey));
+    }
+
+    [Fact]
+    public async Task HistorySearchActivityGate_CloseBlocksNewWorkAndWaitsForSearchAndNavigation()
+    {
+        var gate = new HistorySearchActivityGate();
+        Assert.True(gate.TryBegin(out var search));
+        Assert.True(gate.TryBegin(out var navigation));
+
+        var closing = gate.BlockAndDrainAsync();
+
+        Assert.False(closing.IsCompleted);
+        Assert.False(gate.IsAccepting);
+        Assert.False(gate.TryBegin(out _));
+        search.Dispose();
+        Assert.False(closing.IsCompleted);
+        navigation.Dispose();
+        await closing;
+        Assert.False(gate.TryBegin(out _));
+    }
+
+    [Fact]
+    public async Task HistorySearchActivityGate_DeleteCanReopenOnlyAfterActiveWorkDrains()
+    {
+        var gate = new HistorySearchActivityGate();
+        Assert.True(gate.TryBegin(out var navigation));
+
+        var deleting = gate.BlockAndDrainAsync();
+        Assert.False(gate.TryBegin(out _));
+        navigation.Dispose();
+        await deleting;
+
+        gate.Reopen();
+        Assert.True(gate.IsAccepting);
+        Assert.True(gate.TryBegin(out var nextSearch));
+        nextSearch.Dispose();
+    }
+
+    [Fact]
+    public void HistorySelectionCoordinator_ParentNavigationCancellationInvalidatesLinkedLoad()
+    {
+        using var navigation = new CancellationTokenSource();
+        using var coordinator = new HistorySelectionCoordinator();
+        var load = coordinator.Begin("session", navigation.Token);
+
+        navigation.Cancel();
+
+        Assert.True(load.CancellationToken.IsCancellationRequested);
+        Assert.False(coordinator.IsCurrent(load, "session"));
+    }
+
+    [Fact]
     public void HistorySelectionCoordinator_NewSelectionInvalidatesOldTicket()
     {
         using var coordinator = new HistorySelectionCoordinator();

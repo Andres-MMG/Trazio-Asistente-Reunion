@@ -60,7 +60,8 @@ public static class HistoryPresenter
         IReadOnlyList<TranscriptSegment> segments,
         IReadOnlyList<AudioArchiveSummary> audio,
         AudioSourceKind requestedSource,
-        Func<IEnumerable<TranscriptSegment>, string> formatTranscript)
+        Func<IEnumerable<TranscriptSegment>, string> formatTranscript,
+        bool preserveRequestedSource = false)
     {
         if (!hasSelection)
             return new(false, false, false, false, null, false, requestedSource, SelectSessionMessage, SelectSessionMessage, "Selecciona una sesión para habilitar las acciones disponibles.");
@@ -68,8 +69,11 @@ public static class HistoryPresenter
         var microphone = audio.Any(item => item.Source == AudioSourceKind.Microphone && item.ChunkCount > 0);
         var output = audio.Any(item => item.Source == AudioSourceKind.SystemOutput && item.ChunkCount > 0);
         var selected = requestedSource;
-        if (selected == AudioSourceKind.Microphone && !microphone && output) selected = AudioSourceKind.SystemOutput;
-        else if (selected == AudioSourceKind.SystemOutput && !output && microphone) selected = AudioSourceKind.Microphone;
+        if (!preserveRequestedSource)
+        {
+            if (selected == AudioSourceKind.Microphone && !microphone && output) selected = AudioSourceKind.SystemOutput;
+            else if (selected == AudioSourceKind.SystemOutput && !output && microphone) selected = AudioSourceKind.Microphone;
+        }
 
         var hasAnyAudio = microphone || output;
         var hasSelectedAudio = selected == AudioSourceKind.Microphone ? microphone : output;

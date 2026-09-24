@@ -50,6 +50,23 @@ public sealed class HistoryPresenterTests
     }
 
     [Fact]
+    public void Create_SearchNavigation_PreservesSegmentSourceEvenWhenItsAudioWasPruned()
+    {
+        var state = HistoryPresenter.Create(
+            true,
+            SessionState.Completed,
+            [Segment(AudioSourceKind.Microphone)],
+            [Summary(AudioSourceKind.SystemOutput)],
+            AudioSourceKind.Microphone,
+            _ => "formatted",
+            preserveRequestedSource: true);
+
+        Assert.Equal(AudioSourceKind.Microphone, state.SelectedSource);
+        Assert.False(state.CanPlayAudio);
+        Assert.Contains("No hay audio conservado del micrófono", state.AudioGuidance, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Create_WithNoRetainedAudio_ExplainsRetentionOrPruning()
     {
         var state = HistoryPresenter.Create(true, SessionState.Completed, [Segment(AudioSourceKind.Microphone)], [], AudioSourceKind.Microphone, _ => "formatted");

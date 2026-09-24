@@ -148,18 +148,49 @@
                                         automation:AutomationProperties.Name="Actualizar sesiones guardadas"/>
                             </DockPanel>
                             <TextBlock Text="Elige una sesión para revisar su transcripción y el audio disponible." Foreground="#556070" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            <TextBlock Text="Buscar en reuniones" FontWeight="SemiBold" Margin="0,12,0,3"/>
+                            <TextBox x:Name="HistorySearchBox" MaxLength="120" VerticalContentAlignment="Center"
+                                     TextChanged="HistorySearchBox_TextChanged" KeyDown="HistorySearchBox_KeyDown"
+                                     automation:AutomationProperties.Name="Buscar en reuniones"
+                                     automation:AutomationProperties.HelpText="Busca literalmente en títulos y en el texto original o corregido. Escribe al menos dos caracteres."/>
+                            <WrapPanel Margin="0,5,0,0">
+                                <Button x:Name="SearchHistoryButton" Content="Buscar" Click="SearchHistory_Click" IsEnabled="False"
+                                        automation:AutomationProperties.Name="Buscar en reuniones guardadas"/>
+                                <Button x:Name="ClearHistorySearchButton" Content="Limpiar" Click="ClearHistorySearch_Click" IsEnabled="False"
+                                        automation:AutomationProperties.Name="Limpiar búsqueda de reuniones"/>
+                            </WrapPanel>
+                            <TextBlock x:Name="HistorySearchStatusText" Text="Busca por el título de la reunión o por el texto revisado de la transcripción."
+                                       Foreground="#556070" TextWrapping="Wrap" Margin="0,4,0,0"
+                                       automation:AutomationProperties.Name="Estado de búsqueda en reuniones"
+                                       automation:AutomationProperties.LiveSetting="Polite"/>
                         </StackPanel>
-                        <ListBox x:Name="HistoryList" SelectionChanged="HistoryList_SelectionChanged"
-                                 automation:AutomationProperties.Name="Sesiones guardadas">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate DataType="{x:Type local:HistorySessionItem}">
-                                    <StackPanel Margin="2,5">
-                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Text="{Binding Details}" Foreground="#556070" FontSize="12"/>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
+                        <Grid>
+                            <ListBox x:Name="HistoryList" SelectionChanged="HistoryList_SelectionChanged"
+                                     automation:AutomationProperties.Name="Sesiones guardadas">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type local:HistorySessionItem}">
+                                        <StackPanel Margin="2,5">
+                                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding Details}" Foreground="#556070" FontSize="12"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <ListBox x:Name="HistorySearchResults" Visibility="Collapsed"
+                                     SelectionChanged="HistorySearchResults_SelectionChanged"
+                                     ScrollViewer.CanContentScroll="True" VirtualizingPanel.IsVirtualizing="True"
+                                     automation:AutomationProperties.Name="Resultados de búsqueda en reuniones">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type local:HistorySearchResultItem}">
+                                        <StackPanel Margin="2,6" automation:AutomationProperties.Name="{Binding AutomationName}">
+                                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding Details}" Foreground="#246BCE" FontSize="12"/>
+                                            <TextBlock Text="{Binding Snippet}" TextWrapping="Wrap" MaxHeight="54" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
                     </DockPanel>
                     <Border Grid.Column="2" Background="White" CornerRadius="6" Padding="14" BorderBrush="#DDE2EA" BorderThickness="1">
                         <DockPanel>

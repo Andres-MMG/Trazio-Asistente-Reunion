@@ -22,6 +22,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     private readonly SettingsStore _settingsStore = new(ApplicationPaths.SettingsPath);
     private readonly ObservableCollection<TranscriptRow> _liveRows = [];
     private readonly ObservableCollection<HistorySegmentItem> _historyRows = [];
+    private readonly ObservableCollection<HistorySearchResultItem> _historySearchRows = [];
     private readonly ObservableCollection<TranscriptComparisonRow> _comparisonRows = [];
     private bool _settingComparisonSelectors;
     private bool _comparisonLoading;
@@ -64,6 +65,9 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     private bool _activePlaybackAllowsSeeking;
     private bool _historyDeleteInProgress;
     private readonly HistorySelectionCoordinator _historyLoads = new();
+    private readonly HistorySearchCoordinator _historySearch = new();
+    private readonly HistorySearchNavigationCoordinator _historySearchNavigation = new();
+    private readonly HistorySearchActivityGate _historySearchActivity = new();
     private readonly RevisionSelectionCoordinator _historyRevisionLoads = new();
     private readonly PlaybackOperationCoordinator _playbackOperations = new();
     private readonly PlaybackTransitionGate _playbackTransitions = new();
@@ -91,6 +95,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     private bool _initialized;
     private bool _historyPlaying;
     private bool _settingHistorySource;
+    private bool _suppressHistoryListSelectionChanged;
     private HistoryViewState _historyState = HistoryPresenter.Create(false, null, [], [], AudioSourceKind.Microphone, _ => string.Empty);
     private readonly CancellationTokenSource _lifetime = new();
     private CancellationTokenSource? _downloadCancellation;
@@ -105,6 +110,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         InitializeComponent();
         LiveTranscript.ItemsSource = _liveRows;
         HistorySegments.ItemsSource = _historyRows;
+        HistorySearchResults.ItemsSource = _historySearchRows;
         ComparisonRows.ItemsSource = _comparisonRows;
         GlossarySuggestionsList.ItemsSource = _glossarySuggestions;
         AudioWaveformItems.ItemsSource = _waveformBars;
@@ -158,6 +164,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         await RefreshHistoryAsync();
         _initialized = true;
         RefreshHistoryButton.IsEnabled = true;
+        UpdateHistorySearchControls();
         UpdateStorageControls();
         UpdateVisualCaptureUi();
         await OfferPendingRecoveryAsync(recoverableSessions);
@@ -1063,19 +1070,145 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         catch (Exception ex) { ShowError("No se pudieron actualizar las sesiones", ex.Message); }
     }
 
-    private async Task RefreshHistoryAsync()
+    private async void SearchHistory_Click(object sender, RoutedEventArgs e) => await RunTrackedHistorySearchAsync();
+
+    private async void HistorySearchBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        e.Handled = true;
+        await RunTrackedHistorySearchAsync();
+    }
+
+    private void HistorySearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (HistorySearchResults is null || HistoryList is null) return;
+        _historySearch.Invalidate();
+        _historySearchNavigation.Invalidate();
+        HideHistorySearchResults();
+        HistorySearchStatusText.Text = HistorySearchPresenter.IdleStatus;
+        UpdateHistorySearchControls();
+    }
+
+    private void ClearHistorySearch_Click(object sender, RoutedEventArgs e)
+    {
+        _historySearch.Invalidate();
+        _historySearchNavigation.Invalidate();
+        HistorySearchBox.Clear();
+        HideHistorySearchResults();
+        HistorySearchStatusText.Text = HistorySearchPresenter.IdleStatus;
+        UpdateHistorySearchControls();
+        HistorySearchBox.Focus();
+    }
+
+    private async Task RunHistorySearchAsync()
+    {
+        if (!_initialized || _store is null || _closing || _historyDeleteInProgress) return;
+        string query;
+        try { query = HistorySearchText.PrepareQuery(HistorySearchBox.Text); }
+        catch (ArgumentException ex)
+        {
+            HideHistorySearchResults();
+            HistorySearchStatusText.Text = ex.Message;
+            StatusText.Text = ex.Message;
+            UpdateHistorySearchControls();
+            return;
+        }
+
+        var ticket = _historySearch.Begin(query);
+        HistorySearchStatusText.Text = "Buscando localmente en el historial cifrado…";
+        StatusText.Text = "Buscando en reuniones guardadas";
+        UpdateHistorySearchControls();
+        try
+        {
+            var result = await Task.Run(
+                () => _store.SearchHistoryAsync(
+                    query,
+                    HistorySearchText.MaximumResults,
+                    ticket.CancellationToken),
+                ticket.CancellationToken);
+            if (!_historySearch.IsCurrent(ticket, HistorySearchBox.Text)) return;
+            var presentation = HistorySearchPresenter.Create(result);
+            _historySearchRows.Clear();
+            foreach (var item in presentation.Items) _historySearchRows.Add(item);
+            HistoryList.Visibility = Visibility.Collapsed;
+            HistorySearchResults.Visibility = Visibility.Visible;
+            HistorySearchStatusText.Text = presentation.Status;
+            StatusText.Text = presentation.Status;
+        }
+        catch (OperationCanceledException) when (!_historySearch.IsCurrent(ticket, HistorySearchBox.Text)) { }
+        catch (Exception ex)
+        {
+            if (!_historySearch.IsCurrent(ticket, HistorySearchBox.Text)) return;
+            _historySearchRows.Clear();
+            HistoryList.Visibility = Visibility.Collapsed;
+            HistorySearchResults.Visibility = Visibility.Visible;
+            HistorySearchStatusText.Text = "No se pudo completar la búsqueda. No se muestran resultados parciales.";
+            ShowError("No se pudo buscar en las reuniones", ex.Message);
+        }
+        finally { UpdateHistorySearchControls(); }
+    }
+
+    private async Task RunTrackedHistorySearchAsync()
+    {
+        if (!_historySearchActivity.TryBegin(out var lease)) return;
+        using (lease) await RunHistorySearchAsync();
+    }
+
+    private void HideHistorySearchResults()
+    {
+        _historySearchRows.Clear();
+        HistorySearchResults.SelectedItem = null;
+        HistorySearchResults.Visibility = Visibility.Collapsed;
+        HistoryList.Visibility = Visibility.Visible;
+    }
+
+    private void UpdateHistorySearchControls()
+    {
+        if (SearchHistoryButton is null || ClearHistorySearchButton is null ||
+            HistorySearchBox is null || HistorySearchResults is null)
+            return;
+        var hasQuery = !string.IsNullOrWhiteSpace(HistorySearchBox.Text);
+        var canSearch = false;
+        if (hasQuery)
+        {
+            try
+            {
+                HistorySearchText.PrepareQuery(HistorySearchBox.Text);
+                canSearch = true;
+            }
+            catch (ArgumentException) { }
+        }
+        var interactionsAllowed = !_closing && !_historyDeleteInProgress && _historySearchActivity.IsAccepting;
+        SearchHistoryButton.IsEnabled = _initialized && interactionsAllowed && canSearch;
+        ClearHistorySearchButton.IsEnabled = interactionsAllowed &&
+            (hasQuery || HistorySearchResults.Visibility == Visibility.Visible);
+    }
+
+    private async Task RefreshHistoryAsync(
+        CancellationToken cancellationToken = default,
+        bool suppressSelectionChanged = false)
     {
         if (_store is null) throw new InvalidOperationException("El almacenamiento del historial todavía no está listo.");
+        cancellationToken.ThrowIfCancellationRequested();
         var selectedId = SelectedHistorySession()?.Id;
         if (selectedId is not null)
             _anonymousVisualEvidenceProjector?.Invalidate(
                 AnonymousVisualEvidenceCacheScope.SelectedHistorySession,
                 selectedId);
-        var sessions = (await _store.ListSessionsAsync())
+        var sessions = (await _store.ListSessionsAsync(cancellationToken))
             .Select(session => HistorySessionItem.From(session))
             .ToArray();
-        HistoryList.ItemsSource = sessions;
-        HistoryList.SelectedItem = sessions.FirstOrDefault(item => item.Session.Id == selectedId);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (suppressSelectionChanged) _suppressHistoryListSelectionChanged = true;
+        try
+        {
+            HistoryList.ItemsSource = sessions;
+            HistoryList.SelectedItem = sessions.FirstOrDefault(item => item.Session.Id == selectedId);
+        }
+        finally
+        {
+            if (suppressSelectionChanged) _suppressHistoryListSelectionChanged = false;
+        }
         if (HistoryList.SelectedItem is null) ApplyHistoryState(HistoryPresenter.Create(false, null, [], [], SelectedHistorySource(), FormatTranscript));
     }
 
@@ -1136,14 +1269,36 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         return coordinator;
     }
 
-private async void HistoryList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void HistoryList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_suppressHistoryListSelectionChanged) return;
+        var session = SelectedHistorySession();
+        _historySearchNavigation.Invalidate();
+        await SelectHistorySessionAsync(session);
+    }
+
+    private async Task SelectHistorySessionAsync(
+        SessionSummary? session,
+        HistorySearchNavigationIntent? navigation = null,
+        HistorySearchNavigationTicket? navigationTicket = null)
+    {
+        if (navigationTicket is not null && !IsCurrentHistorySearchNavigation(navigationTicket)) return;
         CancelHistoryRetranscription();
         _historyRevisionLoads.Invalidate();
         await SupersedePlaybackAsync();
+        if (navigationTicket is not null && !IsCurrentHistorySearchNavigation(navigationTicket)) return;
         if (!HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing)) return;
+        if (navigation?.Source is { } requestedSource)
+        {
+            _settingHistorySource = true;
+            try
+            {
+                HistoryAudioSource.SelectedItem = HistoryAudioSource.Items.Cast<ComboBoxItem>()
+                    .First(item => string.Equals(item.Tag?.ToString(), requestedSource.ToString(), StringComparison.Ordinal));
+            }
+            finally { _settingHistorySource = false; }
+        }
         PopulateComparisonSelectors([]);
-        var session = SelectedHistorySession();
         UpdateSessionTitleEditor(session);
         if (session is null || _store is null)
         {
@@ -1155,10 +1310,104 @@ private async void HistoryList_SelectionChanged(object sender, SelectionChangedE
             return;
         }
 
-        var ticket = _historyLoads.Begin(session.Id);
-        try { await LoadHistoryReviewAsync(session, ticket); }
-        catch (OperationCanceledException) when (!_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) { }
-        catch (Exception ex) { if (_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) ShowError("No se pudo cargar la sesión", ex.Message); }
+        var ticket = _historyLoads.Begin(session.Id, navigationTicket?.CancellationToken ?? default);
+        try
+        {
+            await LoadHistoryReviewAsync(
+                session,
+                ticket,
+                navigation?.SegmentId,
+                preserveRequestedSource: navigation?.Source is not null);
+            if (navigationTicket is not null && !IsCurrentHistorySearchNavigation(navigationTicket)) return;
+            if (navigation?.SegmentId is { } segmentId)
+            {
+                var selected = SelectedHistorySegment();
+                if (selected is null || !string.Equals(selected.Segment.Id, segmentId, StringComparison.Ordinal))
+                    throw new InvalidOperationException("El fragmento encontrado ya no existe. Ejecuta la búsqueda nuevamente.");
+                HistorySegments.ScrollIntoView(selected);
+                StatusText.Text = "Resultado abierto en la transcripción original; el audio no se reprodujo automáticamente.";
+            }
+        }
+        catch (OperationCanceledException) when (
+            !_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id) ||
+            navigationTicket is not null && !IsCurrentHistorySearchNavigation(navigationTicket)) { }
+        catch (Exception ex)
+        {
+            if (_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id) &&
+                (navigationTicket is null || IsCurrentHistorySearchNavigation(navigationTicket)))
+                ShowError("No se pudo cargar la sesión", ex.Message);
+        }
+    }
+
+    private async void HistorySearchResults_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (HistorySearchResults.SelectedItem is not HistorySearchResultItem selected)
+        {
+            _historySearchNavigation.Invalidate();
+            return;
+        }
+        if (_store is null ||
+            !HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing))
+            return;
+
+        var intent = HistorySearchNavigationIntent.From(selected.Hit);
+        var ticket = _historySearchNavigation.Begin(CreateHistorySearchNavigationKey(intent));
+        if (!_historySearchActivity.TryBegin(out var lease))
+        {
+            if (IsCurrentHistorySearchNavigation(ticket)) _historySearchNavigation.Invalidate();
+            return;
+        }
+
+        using (lease)
+        {
+            await OpenHistorySearchResultAsync(intent, ticket);
+        }
+    }
+
+    private async Task OpenHistorySearchResultAsync(
+        HistorySearchNavigationIntent intent,
+        HistorySearchNavigationTicket ticket)
+    {
+        try
+        {
+            if (_store is null || !IsCurrentHistorySearchNavigation(ticket)) return;
+            var storedSessions = await _store.ListSessionsAsync(ticket.CancellationToken);
+            if (!IsCurrentHistorySearchNavigation(ticket)) return;
+            var storedSession = storedSessions
+                .FirstOrDefault(session => string.Equals(session.Id, intent.SessionId, StringComparison.Ordinal));
+            if (storedSession is null)
+                throw new InvalidOperationException("La reunión encontrada ya no existe. Ejecuta la búsqueda nuevamente.");
+
+            var item = HistoryList.Items.OfType<HistorySessionItem>()
+                .FirstOrDefault(candidate => string.Equals(candidate.Session.Id, intent.SessionId, StringComparison.Ordinal));
+            if (item is null)
+            {
+                await RefreshHistoryAsync(ticket.CancellationToken, suppressSelectionChanged: true);
+                if (!IsCurrentHistorySearchNavigation(ticket)) return;
+                item = HistoryList.Items.OfType<HistorySessionItem>()
+                    .FirstOrDefault(candidate => string.Equals(candidate.Session.Id, intent.SessionId, StringComparison.Ordinal));
+            }
+            if (item is null)
+                throw new InvalidOperationException("La reunión encontrada ya no está disponible en el historial.");
+
+            if (!ReferenceEquals(HistoryList.SelectedItem, item))
+            {
+                if (!IsCurrentHistorySearchNavigation(ticket)) return;
+                _suppressHistoryListSelectionChanged = true;
+                try { HistoryList.SelectedItem = item; }
+                finally { _suppressHistoryListSelectionChanged = false; }
+                if (!IsCurrentHistorySearchNavigation(ticket)) return;
+            }
+            await SelectHistorySessionAsync(storedSession, intent, ticket);
+            if (!IsCurrentHistorySearchNavigation(ticket)) return;
+            HistoryList.ScrollIntoView(item);
+        }
+        catch (OperationCanceledException) when (!IsCurrentHistorySearchNavigation(ticket)) { }
+        catch (Exception ex)
+        {
+            if (IsCurrentHistorySearchNavigation(ticket))
+                ShowError("No se pudo abrir el resultado", ex.Message);
+        }
     }
 
     private void UpdateSessionTitleEditor(SessionSummary? session)
@@ -1201,7 +1450,8 @@ private async void HistoryList_SelectionChanged(object sender, SelectionChangedE
         HistoryLoadTicket ticket,
         string? selectedSegmentId = null,
         RevisionSelectionTicket? revisionTicket = null,
-        bool refreshRevisionSelector = true)
+        bool refreshRevisionSelector = true,
+        bool preserveRequestedSource = false)
     {
         if (_store is null) return;
         var selectedSource = SelectedHistorySource();
@@ -1274,7 +1524,7 @@ private async void HistoryList_SelectionChanged(object sender, SelectionChangedE
         if (_historyPlaying) UpdatePlaybackHighlight(CurrentPlaybackPosition());
         HistoryEmptyText.Visibility = reviewed.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         ApplyHistoryState(HistoryPresenter.Create(true, session.State, reviewed.Select(item => item.Segment).ToArray(), audio,
-            selectedSource, _ => TranscriptPresentation.FormatReviewed(reviewed)));
+            selectedSource, _ => TranscriptPresentation.FormatReviewed(reviewed), preserveRequestedSource));
         UpdateSelectedSegmentEditor();
         if (refreshVisualAfterPublish)
             QueueHistoryVisualEvidenceRefresh(session.Id);
@@ -2449,9 +2699,14 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
         {
             if (MessageBox.Show(this, $"¿Eliminar definitivamente '{session.Title}', su transcripción y todo el audio conservado? Esta acción no se puede deshacer.", "Eliminar sesión guardada", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
             _historyDeleteInProgress = true;
+            _historySearch.Invalidate();
+            _historySearchNavigation.Invalidate();
             _historyLoads.Invalidate();
             _historyRevisionLoads.Invalidate();
+            HideHistorySearchResults();
+            HistorySearchStatusText.Text = HistorySearchPresenter.IdleStatus;
             UpdateHistoryControls();
+            await _historySearchActivity.BlockAndDrainAsync();
             await SupersedePlaybackAsync(announce: false);
             if (_audioArchive is not null) await _audioArchive.DeleteSessionAsync(session.Id);
             else await _store.DeleteSessionAsync(session.Id);
@@ -2467,6 +2722,7 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
         finally
         {
             _historyDeleteInProgress = false;
+            if (!_closing) _historySearchActivity.Reopen();
             UpdateHistoryControls();
         }
     }
@@ -2582,6 +2838,7 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
         var canSeek = !playbackBlocked &&
             (!playbackActive ? selectedTrackReady : _historyPlaying && _activePlaybackAllowsSeeking);
         HistoryList.IsEnabled = !playbackBlocked;
+        HistorySearchResults.IsEnabled = !playbackBlocked;
         HistorySegments.IsEnabled = !playbackBlocked;
         HistoryAudioSource.IsEnabled = !playbackBlocked && _historyState.CanChooseSource && !playbackActive && !_historyRetranscriptionOperation.IsRunning;
         HistoryRevisionSelector.IsEnabled = !playbackBlocked && _historyState.HasSelection && !playbackActive && !_historyRetranscriptionOperation.IsRunning;
@@ -2635,6 +2892,7 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
         DeleteSessionButton.ToolTip = _historyState.DeleteReason;
         UpdateComparisonControls();
         UpdateStorageControls();
+        UpdateHistorySearchControls();
     }
     private async void Window_Closing(object? sender, CancelEventArgs e)
     {
@@ -2643,8 +2901,11 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
         if (_closing) return;
         if (_recording && MessageBox.Show(this, "Hay una transcripción activa. ¿Deseas detenerla y salir?", "Sesión activa", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
         _closing = true;
+        _historySearch.Invalidate();
+        _historySearchNavigation.Invalidate();
         _historyLoads.Invalidate();
         _historyRevisionLoads.Invalidate();
+        await _historySearchActivity.BlockAndDrainAsync();
         await SupersedePlaybackAsync(announce: false);
         SetRecordingButtons(_recording, _recordingPaused);
         _downloadCancellation?.Cancel();
@@ -2661,6 +2922,8 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
                     if (_coordinator is not null) await _coordinator.DisposeAsync();
                     await _capture.DisposeAsync();
                     await _playback.DisposeAsync();
+                    _historySearch.Dispose();
+                    _historySearchNavigation.Dispose();
                     _historyRetranscriptionOperation.Dispose();
                     _protector?.Dispose();
                 });
@@ -2706,6 +2969,14 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
     private SessionSummary? SelectedHistorySession() => (HistoryList.SelectedItem as HistorySessionItem)?.Session;
     private HistorySegmentItem? SelectedHistorySegment() => HistorySegments.SelectedItem as HistorySegmentItem;
     private string? SelectedHistoryRevisionId() => (HistoryRevisionSelector.SelectedItem as HistoryRevisionItem)?.Revision.Id;
+    private static HistorySearchNavigationKey CreateHistorySearchNavigationKey(HistorySearchNavigationIntent intent) =>
+        new(intent.SessionId, intent.SegmentId, intent.Source);
+    private HistorySearchNavigationKey? SelectedHistorySearchNavigationKey() =>
+        HistorySearchResults.SelectedItem is HistorySearchResultItem selected
+            ? CreateHistorySearchNavigationKey(HistorySearchNavigationIntent.From(selected.Hit))
+            : null;
+    private bool IsCurrentHistorySearchNavigation(HistorySearchNavigationTicket ticket) =>
+        _historySearchNavigation.IsCurrent(ticket, SelectedHistorySearchNavigationKey());
     private bool IsCurrentRevisionSelection(RevisionSelectionTicket ticket) =>
         _historyRevisionLoads.IsCurrent(ticket, SelectedHistorySession()?.Id, SelectedHistorySource(), SelectedHistoryRevisionId());
 
