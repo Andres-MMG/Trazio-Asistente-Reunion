@@ -14,12 +14,16 @@ public sealed record TranscriptCorrection(
 
 public sealed record ReviewedTranscriptSegment(
     TranscriptSegment Segment,
-    TranscriptCorrection? LatestRevision)
+    TranscriptCorrection? LatestRevision,
+    SegmentReviewDecision? LatestDecision = null)
 {
     public string EffectiveText => LatestRevision is { Action: CorrectionAction.SetText, CorrectedText: not null }
         ? LatestRevision.CorrectedText
         : Segment.Text;
     public bool IsCorrected => LatestRevision?.Action == CorrectionAction.SetText;
+    public bool HasCorrectionHistory => LatestRevision is not null;
+    public bool IsOriginalApproved =>
+        LatestRevision is null && LatestDecision?.Action == SegmentReviewDecisionAction.ApproveOriginal;
 }
 
 public enum GlossaryEntryOrigin

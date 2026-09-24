@@ -60,6 +60,26 @@ public sealed class TranscriptPresentationTests
     }
 
     [Fact]
+    public void HistorySegmentItem_IneligibleSession_DoesNotClaimOriginalIsPendingReview()
+    {
+        var segment = new TranscriptSegment(
+            "active-segment",
+            "session",
+            AudioSourceKind.Microphone,
+            0,
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(1),
+            "generated",
+            DateTimeOffset.UtcNow);
+
+        var item = new HistorySegmentItem(
+            new ReviewedTranscriptSegment(segment, null),
+            reviewEligible: false);
+
+        Assert.Equal("Transcripción original", item.RevisionLabel);
+    }
+
+    [Fact]
     public void HistorySegmentItem_PlaybackHighlightChangesWithoutChangingReviewOrText()
     {
         var review = new ReviewedTranscriptSegment(

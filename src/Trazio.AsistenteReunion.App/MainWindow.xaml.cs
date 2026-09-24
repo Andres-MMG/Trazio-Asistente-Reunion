@@ -23,6 +23,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     private readonly ObservableCollection<TranscriptRow> _liveRows = [];
     private readonly ObservableCollection<HistorySegmentItem> _historyRows = [];
     private readonly ObservableCollection<HistorySearchResultItem> _historySearchRows = [];
+    private readonly ObservableCollection<PendingReviewItem> _pendingReviewRows = [];
     private readonly ObservableCollection<TranscriptComparisonRow> _comparisonRows = [];
     private readonly ObservableCollection<GlossaryWorkspaceItem> _glossaryWorkspaceRows = [];
     private IReadOnlyList<GlossaryEntry> _glossaryWorkspaceEntries = [];
@@ -88,6 +89,12 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     private HistoryRetranscriptionService? _retranscription;
     private readonly OwnedCancellationOperationCoordinator _historyRetranscriptionOperation = new();
     private readonly OwnedCancellationOperationCoordinator _glossaryWorkspaceOperation = new();
+    private readonly OwnedCancellationOperationCoordinator _pendingReviewOperation = new();
+    private readonly OwnedCancellationOperationCoordinator _historyNavigationOperation = new();
+    private readonly PendingReviewCoordinator _pendingReviewLoads = new();
+    private readonly CorrectionDraftNavigationGuard _correctionDraftNavigation = new();
+    private readonly SemaphoreSlim _pendingReviewTransition = new(1, 1);
+    private readonly SemaphoreSlim _historyNavigationTransition = new(1, 1);
     private bool _settingHistoryRevision;
     private readonly AudioPlaybackService _playback = new();
     private RecordingCoordinator? _coordinator;
@@ -101,6 +108,10 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     private bool _historyPlaying;
     private bool _settingHistorySource;
     private bool _suppressHistoryListSelectionChanged;
+    private bool _suppressPendingReviewSelectionChanged;
+    private bool _suppressHistorySegmentSelectionChanged;
+    private bool _suppressHistorySearchResultSelectionChanged;
+    private bool _settingCorrectionEditor;
     private HistoryViewState _historyState = HistoryPresenter.Create(false, null, [], [], AudioSourceKind.Microphone, _ => string.Empty);
     private readonly CancellationTokenSource _lifetime = new();
     private CancellationTokenSource? _downloadCancellation;
@@ -116,6 +127,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         LiveTranscript.ItemsSource = _liveRows;
         HistorySegments.ItemsSource = _historyRows;
         HistorySearchResults.ItemsSource = _historySearchRows;
+        PendingReviewList.ItemsSource = _pendingReviewRows;
         ComparisonRows.ItemsSource = _comparisonRows;
         GlossarySuggestionsList.ItemsSource = _glossarySuggestions;
         GlossaryWorkspaceList.ItemsSource = _glossaryWorkspaceRows;
@@ -171,6 +183,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         _initialized = true;
         RefreshHistoryButton.IsEnabled = true;
         UpdateHistorySearchControls();
+        UpdatePendingReviewControls();
         UpdateGlossaryWorkspaceControls();
         UpdateStorageControls();
         UpdateVisualCaptureUi();
@@ -1054,7 +1067,13 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     {
         if (!ReferenceEquals(e.OriginalSource, sender)) return;
         if (!_initialized) { StatusText.Text = "El historial todavía se está cargando"; return; }
-        try { await RefreshHistoryAsync(); }
+        if (BlockCorrectionDraftNavigation()) return;
+        try
+        {
+            await RefreshHistoryAsync();
+            if (ReferenceEquals(HistoryWorkspaceTabs.SelectedItem, PendingReviewTabItem))
+                await LoadPendingReviewsAsync();
+        }
         catch (Exception ex) { ShowError("No se pudieron actualizar las sesiones", ex.Message); }
     }
 
@@ -1066,6 +1085,8 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
 
         if (!ReferenceEquals(MainTabs.SelectedItem, HistoryTabItem))
         {
+            await CancelHistoryNavigationAsync();
+            await CancelPendingReviewLoadAsync();
             _playbackSpeedChanges.InvalidatePlaybackIntent();
             if (_historyPlaying || _activePlaybackOperation is not null)
             {
@@ -1448,12 +1469,175 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     private async void RefreshHistory_Click(object sender, RoutedEventArgs e)
     {
         if (!_initialized || _store is null) { StatusText.Text = "El historial todavía se está cargando"; return; }
+        if (BlockCorrectionDraftNavigation()) return;
         try
         {
             await RefreshHistoryAsync();
+            if (ReferenceEquals(HistoryWorkspaceTabs.SelectedItem, PendingReviewTabItem))
+                await LoadPendingReviewsAsync();
             StatusText.Text = "Sesiones guardadas actualizadas";
         }
         catch (Exception ex) { ShowError("No se pudieron actualizar las sesiones", ex.Message); }
+    }
+
+    private async void HistoryWorkspaceTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!ReferenceEquals(e.OriginalSource, HistoryWorkspaceTabs) || !_initialized || _closing) return;
+        if (ReferenceEquals(HistoryWorkspaceTabs.SelectedItem, PendingReviewTabItem))
+            await LoadPendingReviewsAsync();
+        else
+        {
+            await CancelHistoryNavigationAsync();
+            await CancelPendingReviewLoadAsync();
+        }
+    }
+
+    private async void RefreshPendingReviews_Click(object sender, RoutedEventArgs e) =>
+        await LoadPendingReviewsAsync();
+
+    private async Task LoadPendingReviewsAsync()
+    {
+        if (!_initialized || _store is null || _closing || _historyDeleteInProgress) return;
+
+        await CancelHistoryNavigationAsync();
+
+        PendingReviewTicket ticket;
+        OwnedCancellationOperationCoordinator.Operation operation;
+        await _pendingReviewTransition.WaitAsync(_lifetime.Token);
+        try
+        {
+            _pendingReviewLoads.Invalidate();
+            await _pendingReviewOperation.CancelAndWaitAsync();
+            if (_closing || _historyDeleteInProgress) return;
+            ticket = _pendingReviewLoads.Begin();
+            if (!_pendingReviewOperation.TryBegin(
+                    [_lifetime.Token, ticket.CancellationToken],
+                    out operation))
+                return;
+        }
+        finally
+        {
+            _pendingReviewTransition.Release();
+        }
+
+        PendingReviewStatusText.Text = PendingReviewPresenter.LoadingStatus;
+        PendingReviewEmptyText.Visibility = Visibility.Collapsed;
+        _suppressPendingReviewSelectionChanged = true;
+        try { _pendingReviewRows.Clear(); }
+        finally { _suppressPendingReviewSelectionChanged = false; }
+        UpdatePendingReviewControls();
+
+        try
+        {
+            var result = await PendingReviewQueryDispatcher.RunAsync(
+                cancellationToken => _store.ListPendingSegmentReviewsAsync(
+                    PendingSegmentReviewLimits.MaximumVisibleItems,
+                    cancellationToken),
+                operation.CancellationToken);
+            if (!IsCurrentPendingReviewLoad(ticket, operation)) return;
+
+            var presentation = PendingReviewPresenter.Create(result);
+            _suppressPendingReviewSelectionChanged = true;
+            try
+            {
+                _pendingReviewRows.Clear();
+                foreach (var item in presentation.Items) _pendingReviewRows.Add(item);
+            }
+            finally { _suppressPendingReviewSelectionChanged = false; }
+            PendingReviewStatusText.Text = presentation.Status;
+            PendingReviewEmptyText.Visibility = presentation.Items.Count == 0
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+        catch (OperationCanceledException) when (!IsCurrentPendingReviewLoad(ticket, operation)) { }
+        catch (Exception)
+        {
+            if (!IsCurrentPendingReviewLoad(ticket, operation)) return;
+            _suppressPendingReviewSelectionChanged = true;
+            try { _pendingReviewRows.Clear(); }
+            finally { _suppressPendingReviewSelectionChanged = false; }
+            PendingReviewEmptyText.Visibility = Visibility.Collapsed;
+            PendingReviewStatusText.Text = PendingReviewPresenter.ErrorStatus;
+            StatusText.Text = PendingReviewPresenter.ErrorStatus;
+        }
+        finally
+        {
+            if (_pendingReviewOperation.Complete(operation)) UpdatePendingReviewControls();
+        }
+    }
+
+    private bool IsCurrentPendingReviewLoad(
+        PendingReviewTicket ticket,
+        OwnedCancellationOperationCoordinator.Operation operation) =>
+        _pendingReviewLoads.IsCurrent(ticket) &&
+        _pendingReviewOperation.IsCurrent(operation) &&
+        !_closing &&
+        !_historyDeleteInProgress;
+
+    private async Task CancelPendingReviewLoadAsync()
+    {
+        await _pendingReviewTransition.WaitAsync();
+        try
+        {
+            _pendingReviewLoads.Invalidate();
+            await _pendingReviewOperation.CancelAndWaitAsync();
+        }
+        finally { _pendingReviewTransition.Release(); }
+        UpdatePendingReviewControls();
+    }
+
+    private async void PendingReviewList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressPendingReviewSelectionChanged ||
+            PendingReviewList.SelectedItem is not PendingReviewItem selected)
+            return;
+        if (!_correctionDraftNavigation.CanNavigate())
+        {
+            await CancelHistoryNavigationAsync();
+            _suppressPendingReviewSelectionChanged = true;
+            try { PendingReviewList.SelectedItem = null; }
+            finally { _suppressPendingReviewSelectionChanged = false; }
+            AnnounceBlockedCorrectionDraftNavigation();
+            return;
+        }
+        if (_store is null ||
+            !HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing))
+            return;
+
+        var pendingIntent = PendingReviewNavigationIntent.From(selected);
+        var intent = new HistorySearchNavigationIntent(
+            pendingIntent.SessionId,
+            pendingIntent.SegmentId,
+            pendingIntent.Source,
+            pendingIntent.UseOriginalRevision,
+            pendingIntent.AutoPlay);
+        var editorTicket = _correctionDraftNavigation.CaptureOperation();
+        var navigation = await BeginHistoryNavigationAsync(intent);
+        if (navigation is null) return;
+        var (ticket, operation) = navigation.Value;
+        if (!_historySearchActivity.TryBegin(out var lease))
+        {
+            if (IsCurrentHistorySearchNavigation(ticket)) _historySearchNavigation.Invalidate();
+            _historyNavigationOperation.Complete(operation);
+            return;
+        }
+
+        try
+        {
+            using (lease)
+            {
+                await OpenHistorySearchResultAsync(intent, ticket, editorTicket);
+            }
+            if (!IsCurrentHistorySearchNavigation(ticket) ||
+                !string.Equals(SelectedHistorySession()?.Id, pendingIntent.SessionId, StringComparison.Ordinal) ||
+                !string.Equals(SelectedHistorySegment()?.Segment.Id, pendingIntent.SegmentId, StringComparison.Ordinal))
+                return;
+
+            StatusText.Text = "Pendiente abierto en la transcripción original; el audio no se reprodujo automáticamente.";
+            UpdateSegmentReviewStatus();
+            HistorySegments.Focus();
+        }
+        finally { _historyNavigationOperation.Complete(operation); }
     }
 
     private async void SearchHistory_Click(object sender, RoutedEventArgs e) => await RunTrackedHistorySearchAsync();
@@ -1465,20 +1649,20 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         await RunTrackedHistorySearchAsync();
     }
 
-    private void HistorySearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    private async void HistorySearchBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (HistorySearchResults is null || HistoryList is null) return;
         _historySearch.Invalidate();
-        _historySearchNavigation.Invalidate();
+        await CancelHistoryNavigationAsync();
         HideHistorySearchResults();
         HistorySearchStatusText.Text = HistorySearchPresenter.IdleStatus;
         UpdateHistorySearchControls();
     }
 
-    private void ClearHistorySearch_Click(object sender, RoutedEventArgs e)
+    private async void ClearHistorySearch_Click(object sender, RoutedEventArgs e)
     {
         _historySearch.Invalidate();
-        _historySearchNavigation.Invalidate();
+        await CancelHistoryNavigationAsync();
         HistorySearchBox.Clear();
         HideHistorySearchResults();
         HistorySearchStatusText.Text = HistorySearchPresenter.IdleStatus;
@@ -1536,6 +1720,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
 
     private async Task RunTrackedHistorySearchAsync()
     {
+        await CancelHistoryNavigationAsync();
         if (!_historySearchActivity.TryBegin(out var lease)) return;
         using (lease) await RunHistorySearchAsync();
     }
@@ -1575,6 +1760,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         bool suppressSelectionChanged = false)
     {
         if (_store is null) throw new InvalidOperationException("El almacenamiento del historial todavía no está listo.");
+        var preserveCorrectionDraft = HasUnsavedCorrectionDraft();
         cancellationToken.ThrowIfCancellationRequested();
         var selectedId = SelectedHistorySession()?.Id;
         if (selectedId is not null)
@@ -1585,7 +1771,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
             .Select(session => HistorySessionItem.From(session))
             .ToArray();
         cancellationToken.ThrowIfCancellationRequested();
-        if (suppressSelectionChanged) _suppressHistoryListSelectionChanged = true;
+        if (suppressSelectionChanged || preserveCorrectionDraft) _suppressHistoryListSelectionChanged = true;
         try
         {
             HistoryList.ItemsSource = sessions;
@@ -1593,9 +1779,11 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         }
         finally
         {
-            if (suppressSelectionChanged) _suppressHistoryListSelectionChanged = false;
+            if (suppressSelectionChanged || preserveCorrectionDraft) _suppressHistoryListSelectionChanged = false;
         }
-        if (HistoryList.SelectedItem is null) ApplyHistoryState(HistoryPresenter.Create(false, null, [], [], SelectedHistorySource(), FormatTranscript));
+        if (HistoryList.SelectedItem is null && !preserveCorrectionDraft)
+            ApplyHistoryState(HistoryPresenter.Create(false, null, [], [], SelectedHistorySource(), FormatTranscript));
+        UpdateHistoryControls();
     }
 
     private async Task OfferPendingRecoveryAsync(IReadOnlyList<RecoverableSession> recoverableSessions)
@@ -1658,21 +1846,27 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     private async void HistoryList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressHistoryListSelectionChanged) return;
+        if (RestoreCorrectionDraftSessionSelectionIfNeeded()) return;
+        if (HasUnsavedCorrectionDraft()) return;
+        var editorTicket = _correctionDraftNavigation.CaptureOperation();
         var session = SelectedHistorySession();
-        _historySearchNavigation.Invalidate();
-        await SelectHistorySessionAsync(session);
+        await CancelHistoryNavigationAsync();
+        if (!CanPublishCorrectionEditor(editorTicket)) return;
+        await SelectHistorySessionAsync(session, editorTicket: editorTicket);
     }
 
     private async Task SelectHistorySessionAsync(
         SessionSummary? session,
         HistorySearchNavigationIntent? navigation = null,
-        HistorySearchNavigationTicket? navigationTicket = null)
+        HistorySearchNavigationTicket? navigationTicket = null,
+        CorrectionEditorOperationTicket? editorTicket = null)
     {
         if (navigationTicket is not null && !IsCurrentHistorySearchNavigation(navigationTicket)) return;
         CancelHistoryRetranscription();
         _historyRevisionLoads.Invalidate();
         await SupersedePlaybackAsync();
         if (navigationTicket is not null && !IsCurrentHistorySearchNavigation(navigationTicket)) return;
+        if (!CanPublishCorrectionEditor(editorTicket)) return;
         if (!HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing)) return;
         if (navigation?.Source is { } requestedSource)
         {
@@ -1688,6 +1882,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         UpdateSessionTitleEditor(session);
         if (session is null || _store is null)
         {
+            if (!CanPublishCorrectionEditor(editorTicket)) return;
             _historyLoads.Invalidate();
             _anonymousVisualEvidenceProjector?.Clear(
                 AnonymousVisualEvidenceCacheScope.SelectedHistorySession);
@@ -1699,12 +1894,14 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         var ticket = _historyLoads.Begin(session.Id, navigationTicket?.CancellationToken ?? default);
         try
         {
-            await LoadHistoryReviewAsync(
+            var published = await LoadHistoryReviewAsync(
                 session,
                 ticket,
                 navigation?.SegmentId,
-                preserveRequestedSource: navigation?.Source is not null);
+                preserveRequestedSource: navigation?.Source is not null,
+                editorTicket: editorTicket);
             if (navigationTicket is not null && !IsCurrentHistorySearchNavigation(navigationTicket)) return;
+            if (!published) return;
             if (navigation?.SegmentId is { } segmentId)
             {
                 var selected = SelectedHistorySegment();
@@ -1727,9 +1924,19 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
 
     private async void HistorySearchResults_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_suppressHistorySearchResultSelectionChanged) return;
+        if (HasUnsavedCorrectionDraft() && HistorySearchResults.SelectedItem is not null)
+        {
+            await CancelHistoryNavigationAsync();
+            _suppressHistorySearchResultSelectionChanged = true;
+            try { HistorySearchResults.SelectedItem = null; }
+            finally { _suppressHistorySearchResultSelectionChanged = false; }
+            AnnounceBlockedCorrectionDraftNavigation();
+            return;
+        }
         if (HistorySearchResults.SelectedItem is not HistorySearchResultItem selected)
         {
-            _historySearchNavigation.Invalidate();
+            await CancelHistoryNavigationAsync();
             return;
         }
         if (_store is null ||
@@ -1737,28 +1944,38 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
             return;
 
         var intent = HistorySearchNavigationIntent.From(selected.Hit);
-        var ticket = _historySearchNavigation.Begin(CreateHistorySearchNavigationKey(intent));
+        var editorTicket = _correctionDraftNavigation.CaptureOperation();
+        var navigation = await BeginHistoryNavigationAsync(intent);
+        if (navigation is null) return;
+        var (ticket, operation) = navigation.Value;
         if (!_historySearchActivity.TryBegin(out var lease))
         {
             if (IsCurrentHistorySearchNavigation(ticket)) _historySearchNavigation.Invalidate();
+            _historyNavigationOperation.Complete(operation);
             return;
         }
 
-        using (lease)
+        try
         {
-            await OpenHistorySearchResultAsync(intent, ticket);
+            using (lease)
+            {
+                await OpenHistorySearchResultAsync(intent, ticket, editorTicket);
+            }
         }
+        finally { _historyNavigationOperation.Complete(operation); }
     }
 
     private async Task OpenHistorySearchResultAsync(
         HistorySearchNavigationIntent intent,
-        HistorySearchNavigationTicket ticket)
+        HistorySearchNavigationTicket ticket,
+        CorrectionEditorOperationTicket editorTicket)
     {
         try
         {
             if (_store is null || !IsCurrentHistorySearchNavigation(ticket)) return;
             var storedSessions = await _store.ListSessionsAsync(ticket.CancellationToken);
             if (!IsCurrentHistorySearchNavigation(ticket)) return;
+            if (!CanPublishCorrectionEditor(editorTicket)) return;
             var storedSession = storedSessions
                 .FirstOrDefault(session => string.Equals(session.Id, intent.SessionId, StringComparison.Ordinal));
             if (storedSession is null)
@@ -1770,6 +1987,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
             {
                 await RefreshHistoryAsync(ticket.CancellationToken, suppressSelectionChanged: true);
                 if (!IsCurrentHistorySearchNavigation(ticket)) return;
+                if (!CanPublishCorrectionEditor(editorTicket)) return;
                 item = HistoryList.Items.OfType<HistorySessionItem>()
                     .FirstOrDefault(candidate => string.Equals(candidate.Session.Id, intent.SessionId, StringComparison.Ordinal));
             }
@@ -1784,8 +2002,9 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
                 finally { _suppressHistoryListSelectionChanged = false; }
                 if (!IsCurrentHistorySearchNavigation(ticket)) return;
             }
-            await SelectHistorySessionAsync(storedSession, intent, ticket);
+            await SelectHistorySessionAsync(storedSession, intent, ticket, editorTicket);
             if (!IsCurrentHistorySearchNavigation(ticket)) return;
+            _historyLoads.Begin(storedSession.Id);
             HistoryList.ScrollIntoView(item);
         }
         catch (OperationCanceledException) when (!IsCurrentHistorySearchNavigation(ticket)) { }
@@ -1831,15 +2050,16 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         StatusText.Text = "Título de la reunión actualizado.";
     }
 
-    private async Task LoadHistoryReviewAsync(
+    private async Task<bool> LoadHistoryReviewAsync(
         SessionSummary session,
         HistoryLoadTicket ticket,
         string? selectedSegmentId = null,
         RevisionSelectionTicket? revisionTicket = null,
         bool refreshRevisionSelector = true,
-        bool preserveRequestedSource = false)
+        bool preserveRequestedSource = false,
+        CorrectionEditorOperationTicket? editorTicket = null)
     {
-        if (_store is null) return;
+        if (_store is null) return false;
         var selectedSource = SelectedHistorySource();
         var reviewed = await _store.GetReviewedSegmentsAsync(session.Id, ticket.CancellationToken);
         var audio = await _store.GetAudioArchiveSummaryAsync(session.Id, ticket.CancellationToken);
@@ -1856,8 +2076,8 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
             session.Id,
             reviewed.Select(item => item.Segment).ToArray(),
             ticket.CancellationToken);
-        if (!_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) return;
-        if (revisionTicket is not null && !IsCurrentRevisionSelection(revisionTicket)) return;
+        if (!_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) return false;
+        if (revisionTicket is not null && !IsCurrentRevisionSelection(revisionTicket)) return false;
         var refreshVisualAfterPublish = visualProjection is not null &&
             (!visualProjection.IsCurrent ||
              _anonymousVisualEvidenceProjector?.IsCurrent(visualProjection) != true);
@@ -1869,9 +2089,10 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
                 session.StartedAt,
                 selectedSourceChunks,
                 cancellationToken: ticket.CancellationToken);
-        if (!_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) return;
-        if (revisionTicket is not null && !IsCurrentRevisionSelection(revisionTicket)) return;
-        if (!HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing)) return;
+        if (!_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) return false;
+        if (revisionTicket is not null && !IsCurrentRevisionSelection(revisionTicket)) return false;
+        if (!HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing)) return false;
+        if (!CanPublishCorrectionEditor(editorTicket)) return false;
         if (visualProjection is not null &&
             _anonymousVisualEvidenceProjector?.IsCurrent(visualProjection) != true)
         {
@@ -1886,11 +2107,13 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
             () =>
                 _historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id) &&
                 (revisionTicket is null || IsCurrentRevisionSelection(revisionTicket)) &&
+                IsCorrectionEditorPublicationCurrent(editorTicket) &&
                 HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing));
-        if (!trackPublished) return;
-        if (!_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) return;
-        if (revisionTicket is not null && !IsCurrentRevisionSelection(revisionTicket)) return;
-        if (!HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing)) return;
+        if (!trackPublished) return false;
+        if (!_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) return false;
+        if (revisionTicket is not null && !IsCurrentRevisionSelection(revisionTicket)) return false;
+        if (!HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing)) return false;
+        if (!CanPublishCorrectionEditor(editorTicket)) return false;
         _historyAudio = audio;
         _historySelectedSourceAudioComplete = IsCompleteRetainedSource(selectedSourceChunks, session.StartedAt);
         if (refreshRevisionSelector) PopulateHistoryRevisionSelector(revisions);
@@ -1903,7 +2126,8 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
             foreach (var item in reviewed)
                 _historyRows.Add(new(
                     item,
-                    visualEvidence: visualProjection?.For(item.Segment)));
+                    visualEvidence: visualProjection?.For(item.Segment),
+                    reviewEligible: SegmentReviewActionsPresenter.IsSessionEligible(session.State)));
             HistorySegments.SelectedItem = _historyRows.FirstOrDefault(item => item.Segment.Id == selectedSegmentId);
         }
         finally { _suppressHistorySegmentPlayback = false; }
@@ -1914,6 +2138,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         UpdateSelectedSegmentEditor();
         if (refreshVisualAfterPublish)
             QueueHistoryVisualEvidenceRefresh(session.Id);
+        return true;
     }
 
     private async Task<AnonymousVisualEvidenceProjection?> ProjectHistoryVisualEvidenceAsync(
@@ -1937,9 +2162,12 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     private async void HistoryAudioSource_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_settingHistorySource || !_initialized) return;
+        if (RestoreCorrectionDraftSourceSelectionIfNeeded()) return;
+        var editorTicket = _correctionDraftNavigation.CaptureOperation();
         CancelHistoryRetranscription();
         _historyRevisionLoads.Invalidate();
         await SupersedePlaybackAsync();
+        if (!CanPublishCorrectionEditor(editorTicket)) return;
         if (!HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing)) return;
         PopulateComparisonSelectors([]);
         var session = SelectedHistorySession();
@@ -1951,13 +2179,15 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         }
         var selectedSegmentId = SelectedHistorySegment()?.Segment.Id;
         var ticket = _historyLoads.Begin(session.Id);
-        try { await LoadHistoryReviewAsync(session, ticket, selectedSegmentId); }
+        try { await LoadHistoryReviewAsync(session, ticket, selectedSegmentId, editorTicket: editorTicket); }
         catch (OperationCanceledException) when (!_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) { }
         catch (Exception ex) { if (_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) ShowError("No se pudo cambiar la fuente de audio", ex.Message); }
     }
 
     private void HistorySegments_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_suppressHistorySegmentSelectionChanged) return;
+        if (RestoreCorrectionDraftSegmentSelectionIfNeeded()) return;
         UpdateSelectedSegmentEditor();
         var selected = SelectedHistorySegment();
         if (_suppressHistorySegmentPlayback || selected is null || _historyPlaying) return;
@@ -1973,6 +2203,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
 
     private void NavigateHistorySegment(bool previous)
     {
+        if (BlockCorrectionDraftNavigation()) return;
         var navigation = CurrentHistoryNavigation();
         var targetId = previous ? navigation.PreviousId : navigation.NextId;
         if (targetId is null) return;
@@ -1991,6 +2222,15 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     private async void HistorySegmentPlay_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not HistorySegmentItem item) return;
+        var draft = _correctionDraftNavigation.Current;
+        if (draft is not null &&
+            (!string.Equals(draft.SessionId, item.Segment.SessionId, StringComparison.Ordinal) ||
+             !string.Equals(draft.SegmentId, item.Segment.Id, StringComparison.Ordinal)))
+        {
+            AnnounceBlockedCorrectionDraftNavigation();
+            e.Handled = true;
+            return;
+        }
         HistorySegments.SelectedItem = item;
         HistorySegments.ScrollIntoView(item);
         await PlaySelectedSegmentAsync();
@@ -2007,14 +2247,34 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         GlossaryNoSuggestionsText.Visibility = Visibility.Collapsed;
         if (selected is null)
         {
-            OriginalSegmentText.Clear();
-            CorrectedSegmentText.Clear();
+            _correctionDraftNavigation.Clear();
+            _settingCorrectionEditor = true;
+            try
+            {
+                OriginalSegmentText.Clear();
+                CorrectedSegmentText.Clear();
+            }
+            finally { _settingCorrectionEditor = false; }
             SelectedSegmentAudioText.Text = "Selecciona un fragmento de la transcripción para ubicar su audio exacto.";
+            UpdateSegmentReviewStatus();
             UpdateHistoryControls();
             return;
         }
-        OriginalSegmentText.Text = selected.Segment.Text;
-        CorrectedSegmentText.Text = selected.Text;
+        if (modelRevision)
+            _correctionDraftNavigation.Clear();
+        else
+            _correctionDraftNavigation.SetContext(
+                selected.Segment.SessionId,
+                selected.Segment.Id,
+                selected.Segment.Source,
+                selected.Text);
+        _settingCorrectionEditor = true;
+        try
+        {
+            OriginalSegmentText.Text = selected.Segment.Text;
+            CorrectedSegmentText.Text = selected.Text;
+        }
+        finally { _settingCorrectionEditor = false; }
         SelectedSegmentAudioText.Text =
             $"Fragmento seleccionado: {FormatPlaybackTime(selected.Segment.Start)} · {TrackSourceName(selected.Segment.Source)}. Usa “Escuchar fragmento” para reproducir solamente esta parte.";
         if (!modelRevision && selected.Review.LatestRevision is { Action: CorrectionAction.SetText })
@@ -2025,7 +2285,231 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
             GlossarySuggestionsPanel.Visibility = _glossarySuggestions.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             GlossaryNoSuggestionsText.Visibility = _glossarySuggestions.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         }
+        UpdateSegmentReviewStatus();
         UpdateHistoryControls();
+    }
+
+    private void CorrectedSegmentText_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_settingCorrectionEditor) return;
+        var selected = SelectedHistorySegment();
+        var session = SelectedHistorySession();
+        if (selected is null || session is null ||
+            HistoryRevisionSelector.SelectedItem is HistoryRevisionItem)
+            _correctionDraftNavigation.Clear();
+        else
+            _correctionDraftNavigation.ObserveEditor(CorrectedSegmentText.Text);
+        UpdateSegmentReviewStatus();
+        UpdateHistoryControls();
+    }
+
+    private bool HasUnsavedCorrectionDraft() => _correctionDraftNavigation.HasUnsavedDraft;
+
+    private bool BlockCorrectionDraftNavigation()
+    {
+        if (_correctionDraftNavigation.CanNavigate()) return false;
+        AnnounceBlockedCorrectionDraftNavigation();
+        return true;
+    }
+
+    private bool RestoreCorrectionDraftSegmentSelectionIfNeeded()
+    {
+        var draft = _correctionDraftNavigation.Current;
+        if (draft is null) return false;
+        var requested = SelectedHistorySegment();
+        if (requested is not null &&
+            string.Equals(requested.Segment.SessionId, draft.SessionId, StringComparison.Ordinal) &&
+            string.Equals(requested.Segment.Id, draft.SegmentId, StringComparison.Ordinal))
+            return false;
+
+        var transition = requested is null
+            ? new CorrectionDraftTransition(
+                false,
+                draft.SessionId,
+                draft.SegmentId,
+                draft.Source,
+                draft.EditorText)
+            : _correctionDraftNavigation.ResolveSegmentTransition(
+                requested.Segment.SessionId,
+                requested.Segment.Id,
+                requested.Segment.Source,
+                requested.Text);
+        var preserved = _historyRows.FirstOrDefault(item =>
+            string.Equals(item.Segment.SessionId, transition.SessionId, StringComparison.Ordinal) &&
+            string.Equals(item.Segment.Id, transition.SegmentId, StringComparison.Ordinal));
+        if (preserved is not null)
+        {
+            _suppressHistorySegmentSelectionChanged = true;
+            try
+            {
+                HistorySegments.SelectedItem = preserved;
+                HistorySegments.ScrollIntoView(preserved);
+            }
+            finally { _suppressHistorySegmentSelectionChanged = false; }
+        }
+        AnnounceBlockedCorrectionDraftNavigation();
+        return true;
+    }
+
+    private bool RestoreCorrectionDraftSessionSelectionIfNeeded()
+    {
+        var draft = _correctionDraftNavigation.Current;
+        if (draft is null ||
+            string.Equals(SelectedHistorySession()?.Id, draft.SessionId, StringComparison.Ordinal))
+            return false;
+        var preserved = HistoryList.Items
+            .OfType<HistorySessionItem>()
+            .FirstOrDefault(item => string.Equals(item.Session.Id, draft.SessionId, StringComparison.Ordinal));
+        if (preserved is not null)
+        {
+            _suppressHistoryListSelectionChanged = true;
+            try
+            {
+                HistoryList.SelectedItem = preserved;
+                HistoryList.ScrollIntoView(preserved);
+            }
+            finally { _suppressHistoryListSelectionChanged = false; }
+        }
+        AnnounceBlockedCorrectionDraftNavigation();
+        return true;
+    }
+
+    private bool RestoreCorrectionDraftSourceSelectionIfNeeded()
+    {
+        var draft = _correctionDraftNavigation.Current;
+        if (draft is null || SelectedHistorySource() == draft.Source) return false;
+        _settingHistorySource = true;
+        try
+        {
+            HistoryAudioSource.SelectedItem = HistoryAudioSource.Items
+                .Cast<ComboBoxItem>()
+                .First(item => string.Equals(
+                    item.Tag?.ToString(),
+                    draft.Source.ToString(),
+                    StringComparison.Ordinal));
+        }
+        finally { _settingHistorySource = false; }
+        AnnounceBlockedCorrectionDraftNavigation();
+        return true;
+    }
+
+    private bool IsCorrectionEditorPublicationCurrent(CorrectionEditorOperationTicket? ticket) =>
+        ticket is null || _correctionDraftNavigation.CanReplaceEditor(ticket.Value);
+
+    private bool CanPublishCorrectionEditor(CorrectionEditorOperationTicket? ticket)
+    {
+        if (IsCorrectionEditorPublicationCurrent(ticket)) return true;
+        RestoreCorrectionDraftUiAfterAwait();
+        return false;
+    }
+
+    private void RestoreCorrectionDraftUiAfterAwait()
+    {
+        var draft = _correctionDraftNavigation.Current;
+        if (draft is null) return;
+
+        var session = HistoryList.Items
+            .OfType<HistorySessionItem>()
+            .FirstOrDefault(item => string.Equals(item.Session.Id, draft.SessionId, StringComparison.Ordinal));
+        if (session is not null && !ReferenceEquals(HistoryList.SelectedItem, session))
+        {
+            _suppressHistoryListSelectionChanged = true;
+            try { HistoryList.SelectedItem = session; }
+            finally { _suppressHistoryListSelectionChanged = false; }
+        }
+        if (session is not null)
+        {
+            _historyLoads.Begin(draft.SessionId);
+            UpdateSessionTitleEditor(session.Session);
+        }
+        _historyRevisionLoads.Invalidate();
+
+        _settingHistorySource = true;
+        try
+        {
+            HistoryAudioSource.SelectedItem = HistoryAudioSource.Items
+                .Cast<ComboBoxItem>()
+                .First(item => string.Equals(
+                    item.Tag?.ToString(),
+                    draft.Source.ToString(),
+                    StringComparison.Ordinal));
+        }
+        finally { _settingHistorySource = false; }
+
+        _settingHistoryRevision = true;
+        try { HistoryRevisionSelector.SelectedIndex = 0; }
+        finally { _settingHistoryRevision = false; }
+
+        var segment = _historyRows.FirstOrDefault(item =>
+            string.Equals(item.Segment.SessionId, draft.SessionId, StringComparison.Ordinal) &&
+            string.Equals(item.Segment.Id, draft.SegmentId, StringComparison.Ordinal));
+        if (segment is not null)
+        {
+            _suppressHistorySegmentSelectionChanged = true;
+            try { HistorySegments.SelectedItem = segment; }
+            finally { _suppressHistorySegmentSelectionChanged = false; }
+        }
+
+        _settingCorrectionEditor = true;
+        try { CorrectedSegmentText.Text = draft.EditorText; }
+        finally { _settingCorrectionEditor = false; }
+        AnnounceBlockedCorrectionDraftNavigation();
+    }
+
+    private void AnnounceBlockedCorrectionDraftNavigation()
+    {
+        var status = CorrectionDraftNavigationGuard.BlockedStatus;
+        SegmentReviewStatusText.Text = status;
+        PendingReviewStatusText.Text = status;
+        StatusText.Text = status;
+        CorrectedSegmentText.Focus();
+    }
+
+    private void UpdateSegmentReviewStatus()
+    {
+        var selected = SelectedHistorySegment();
+        if (selected is null)
+        {
+            SegmentReviewStatusText.Text = "Selecciona un segmento para revisar su estado.";
+            return;
+        }
+        if (HistoryRevisionSelector.SelectedItem is HistoryRevisionItem)
+        {
+            SegmentReviewStatusText.Text = "Las versiones alternativas del modelo son de solo lectura.";
+            return;
+        }
+        if (HasUnsavedCorrectionDraft())
+        {
+            SegmentReviewStatusText.Text = CorrectionDraftNavigationGuard.BlockedStatus;
+            return;
+        }
+        if (!SegmentReviewActionsPresenter.IsSessionEligible(SelectedHistorySession()?.State) &&
+            selected.Review.LatestRevision is null &&
+            !selected.Review.IsOriginalApproved)
+        {
+            SegmentReviewStatusText.Text = "La revisión individual está disponible cuando la sesión finaliza.";
+            return;
+        }
+        SegmentReviewStatusText.Text = selected.Review.LatestRevision switch
+        {
+            { Action: CorrectionAction.SetText } => "Corrección humana guardada; este segmento ya no está pendiente.",
+            { Action: CorrectionAction.Undo } => "Revisión humana guardada; se restauró el texto original.",
+            null when selected.Review.IsOriginalApproved => "Texto original marcado como revisado.",
+            _ => "Pendiente de revisión. Corrige el texto o confirma que el original es correcto."
+        };
+    }
+
+    private void DiscardCorrectionDraft_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = SelectedHistorySegment();
+        if (selected is null) return;
+        var savedText = _correctionDraftNavigation.DiscardDraft() ?? selected.Text;
+        _settingCorrectionEditor = true;
+        try { CorrectedSegmentText.Text = savedText; }
+        finally { _settingCorrectionEditor = false; }
+        UpdateSegmentReviewStatus();
+        UpdateHistoryControls();
+        StatusText.Text = "Borrador descartado; no se modificó la transcripción guardada.";
     }
 
     private async Task PlaySelectedSegmentAsync()
@@ -2079,21 +2563,53 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         }
         finally { CompletePlaybackOperation(operation); }
     }
-private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
+    private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
     {
         var selected = SelectedHistorySegment();
         var session = SelectedHistorySession();
         if (selected is null || session is null || _store is null || selected.Segment.SessionId != session.Id) return;
+        CorrectionEditorSaveTicket saveTicket;
+        try { saveTicket = _correctionDraftNavigation.CaptureSave(); }
+        catch (InvalidOperationException) { return; }
         HistoryLoadTicket ticket;
         try { ticket = _historyLoads.Capture(session.Id); }
         catch (OperationCanceledException) { return; }
         try
         {
-            await _store.SaveCorrectionAsync(selected.Segment.Id, CorrectedSegmentText.Text, _settings.LocalDisplayName, ticket.CancellationToken);
+            var saveResult = await _correctionDraftNavigation.RunSaveAsync(
+                saveTicket,
+                (frozenText, cancellationToken) => _store.SaveCorrectionAsync(
+                    selected.Segment.Id,
+                    frozenText,
+                    _settings.LocalDisplayName,
+                    cancellationToken),
+                ticket.CancellationToken);
             if (!_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) return;
-            await LoadHistoryReviewAsync(session, ticket, selected.Segment.Id);
-            if (_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id))
-                StatusText.Text = "Corrección guardada; se conservó el texto original del modelo";
+            var advance = saveResult.Baseline;
+            if (!advance.CanReplaceEditor)
+            {
+                await LoadPendingReviewsAsync();
+                StatusText.Text = advance.HasUnsavedDraft
+                    ? "Corrección guardada; los cambios posteriores siguen sin guardar."
+                    : "Corrección guardada; la vista cambió y no se reemplazó el editor.";
+                UpdateSegmentReviewStatus();
+                UpdateHistoryControls();
+                return;
+            }
+            var reloadTicket = _correctionDraftNavigation.CaptureOperation();
+            var published = await LoadHistoryReviewAsync(
+                session,
+                ticket,
+                selected.Segment.Id,
+                editorTicket: reloadTicket);
+            await LoadPendingReviewsAsync();
+            if (!published)
+            {
+                if (HasUnsavedCorrectionDraft())
+                    StatusText.Text = "Corrección guardada; los cambios posteriores siguen sin guardar.";
+                return;
+            }
+            StatusText.Text = "Corrección guardada; se conservó el texto original del modelo";
         }
         catch (OperationCanceledException) when (!_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) { }
         catch (Exception ex) { if (_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) ShowError("No se pudo guardar la corrección", ex.Message); }
@@ -2101,22 +2617,157 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
 
     private async void UndoCorrection_Click(object sender, RoutedEventArgs e)
     {
+        if (BlockCorrectionDraftNavigation()) return;
         var selected = SelectedHistorySegment();
         var session = SelectedHistorySession();
         if (selected is null || session is null || _store is null || selected.Segment.SessionId != session.Id) return;
         HistoryLoadTicket ticket;
         try { ticket = _historyLoads.Capture(session.Id); }
         catch (OperationCanceledException) { return; }
+        var editorTicket = _correctionDraftNavigation.CaptureOperation();
         try
         {
-            await _store.UndoCorrectionAsync(selected.Segment.Id, _settings.LocalDisplayName, ticket.CancellationToken);
+            var editorOperation = await _correctionDraftNavigation.RunAsync(
+                editorTicket,
+                cancellationToken => _store.UndoCorrectionAsync(
+                    selected.Segment.Id,
+                    _settings.LocalDisplayName,
+                    cancellationToken),
+                ticket.CancellationToken);
             if (!_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) return;
-            await LoadHistoryReviewAsync(session, ticket, selected.Segment.Id);
-            if (_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id))
-                StatusText.Text = "Corrección deshecha; se restauró el texto original del modelo";
+            var advance = _correctionDraftNavigation.AdvanceSavedText(
+                editorTicket,
+                selected.Segment.Text);
+            if (!editorOperation.CanReplaceEditor || !advance.CanReplaceEditor)
+            {
+                await LoadPendingReviewsAsync();
+                StatusText.Text = advance.HasUnsavedDraft
+                    ? "Corrección deshecha; los cambios escritos después siguen sin guardar."
+                    : "Corrección deshecha; la vista cambió y no se reemplazó el editor.";
+                UpdateSegmentReviewStatus();
+                UpdateHistoryControls();
+                return;
+            }
+            var reloadTicket = _correctionDraftNavigation.CaptureOperation();
+            var published = await LoadHistoryReviewAsync(
+                session,
+                ticket,
+                selected.Segment.Id,
+                editorTicket: reloadTicket);
+            await LoadPendingReviewsAsync();
+            if (!published) return;
+            StatusText.Text = "Corrección deshecha; se restauró el texto original del modelo";
         }
         catch (OperationCanceledException) when (!_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) { }
         catch (Exception ex) { if (_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) ShowError("No se pudo deshacer la corrección", ex.Message); }
+    }
+
+    private async void MarkSegmentReviewed_Click(object sender, RoutedEventArgs e) =>
+        await ApplySegmentReviewDecisionAsync(SegmentReviewDecisionAction.ApproveOriginal);
+
+    private async void ReopenSegmentReview_Click(object sender, RoutedEventArgs e) =>
+        await ApplySegmentReviewDecisionAsync(SegmentReviewDecisionAction.Reopen);
+
+    private async Task ApplySegmentReviewDecisionAsync(SegmentReviewDecisionAction action)
+    {
+        var selected = SelectedHistorySegment();
+        var session = SelectedHistorySession();
+        if (selected is null || session is null || _store is null ||
+            selected.Segment.SessionId != session.Id || HasUnsavedCorrectionDraft())
+            return;
+        var actions = SegmentReviewActionsPresenter.Create(
+            selected.Review,
+            session.State,
+            HistoryRevisionSelector.SelectedItem is HistoryRevisionItem,
+            hasUnsavedDraft: false);
+        if (action == SegmentReviewDecisionAction.ApproveOriginal && !actions.CanMarkReviewed ||
+            action == SegmentReviewDecisionAction.Reopen && !actions.CanReopen)
+            return;
+
+        HistoryLoadTicket ticket;
+        try { ticket = _historyLoads.Capture(session.Id); }
+        catch (OperationCanceledException) { return; }
+        var editorTicket = _correctionDraftNavigation.CaptureOperation();
+        SegmentReviewStatusText.Text = action == SegmentReviewDecisionAction.ApproveOriginal
+            ? "Guardando revisión…"
+            : "Volviendo el segmento a pendiente…";
+        UpdateHistoryControls();
+
+        try
+        {
+            var expectedRevision = selected.Review.LatestDecision?.Revision ?? 0;
+            var reviewer = string.IsNullOrWhiteSpace(_settings.LocalDisplayName)
+                ? Environment.UserName
+                : _settings.LocalDisplayName;
+            if (string.IsNullOrWhiteSpace(reviewer)) reviewer = "Usuario local";
+            var editorOperation = await _correctionDraftNavigation.RunAsync(
+                editorTicket,
+                cancellationToken => action == SegmentReviewDecisionAction.ApproveOriginal
+                    ? _store.ApproveOriginalSegmentAsync(
+                        session.Id,
+                        selected.Segment.Id,
+                        expectedRevision,
+                        reviewer,
+                        cancellationToken)
+                    : _store.ReopenOriginalSegmentAsync(
+                        session.Id,
+                        selected.Segment.Id,
+                        expectedRevision,
+                        reviewer,
+                        cancellationToken),
+                ticket.CancellationToken);
+            var result = editorOperation.Value;
+            if (!_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) return;
+
+            var resultStatus = result.Status switch
+            {
+                SegmentReviewWriteStatus.Applied when action == SegmentReviewDecisionAction.ApproveOriginal =>
+                    "Texto original marcado como revisado; no se creó una corrección.",
+                SegmentReviewWriteStatus.Applied =>
+                    "La aprobación original se volvió a dejar pendiente.",
+                SegmentReviewWriteStatus.AlreadyCurrent =>
+                    "El segmento ya estaba en ese estado; no se agregó otra revisión.",
+                SegmentReviewWriteStatus.StateChanged =>
+                    "El segmento cambió antes de guardar. Se actualizó la vista sin reintentar la acción.",
+                _ => "Estado de revisión actualizado."
+            };
+            var editorIsCurrent = CanPublishCorrectionEditor(editorTicket);
+            if (!editorOperation.CanReplaceEditor || !editorIsCurrent)
+            {
+                await LoadPendingReviewsAsync();
+                StatusText.Text = $"{resultStatus} Los cambios escritos después siguen sin guardar.";
+                return;
+            }
+
+            if (result.Status == SegmentReviewWriteStatus.Missing)
+            {
+                await RefreshHistoryAsync(ticket.CancellationToken, suppressSelectionChanged: true);
+                if (!CanPublishCorrectionEditor(editorTicket)) return;
+                await LoadPendingReviewsAsync();
+                StatusText.Text = "El segmento ya no existe. El historial se actualizó sin reintentar la acción.";
+                return;
+            }
+
+            var published = await LoadHistoryReviewAsync(
+                session,
+                ticket,
+                selected.Segment.Id,
+                editorTicket: editorTicket);
+            if (!published) return;
+            if (!_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) return;
+            await LoadPendingReviewsAsync();
+            StatusText.Text = resultStatus;
+        }
+        catch (OperationCanceledException) when (!_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) { }
+        catch (Exception ex)
+        {
+            if (_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id))
+            {
+                UpdateSegmentReviewStatus();
+                ShowError("No se pudo guardar la revisión", ex.Message);
+            }
+        }
+        finally { UpdateHistoryControls(); }
     }
 
     private async void AddGlossary_Click(object sender, RoutedEventArgs e)
@@ -2369,7 +3020,17 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
     private async void HistoryRevisionSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_settingHistoryRevision || !_initialized || _store is null) return;
+        if (HasUnsavedCorrectionDraft())
+        {
+            _settingHistoryRevision = true;
+            try { HistoryRevisionSelector.SelectedIndex = 0; }
+            finally { _settingHistoryRevision = false; }
+            AnnounceBlockedCorrectionDraftNavigation();
+            return;
+        }
+        var editorTicket = _correctionDraftNavigation.CaptureOperation();
         await SupersedePlaybackAsync();
+        if (!CanPublishCorrectionEditor(editorTicket)) return;
         if (!HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing)) return;
         var session = SelectedHistorySession();
         if (session is null) return;
@@ -2387,7 +3048,8 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
                     session,
                     historyTicket,
                     revisionTicket: revisionTicket,
-                    refreshRevisionSelector: false);
+                    refreshRevisionSelector: false,
+                    editorTicket: editorTicket);
             }
             catch (OperationCanceledException) when (!IsCurrentRevisionSelection(revisionTicket)) { }
             catch (Exception ex)
@@ -2419,10 +3081,12 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
                 revisionTicket.CancellationToken);
             if (!_historyLoads.IsCurrent(historyTicket, SelectedHistorySession()?.Id) ||
                 !IsCurrentRevisionSelection(revisionTicket)) return;
+            if (!CanPublishCorrectionEditor(editorTicket)) return;
             var refreshVisualAfterPublish = visualProjection is not null &&
                 (!visualProjection.IsCurrent ||
                  _anonymousVisualEvidenceProjector?.IsCurrent(visualProjection) != true);
             if (refreshVisualAfterPublish) visualProjection = null;
+            if (!CanPublishCorrectionEditor(editorTicket)) return;
             _suppressHistorySegmentPlayback = true;
             try
             {
@@ -2451,6 +3115,7 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
     }
     private async void Retranscribe_Click(object sender, RoutedEventArgs e)
     {
+        if (BlockCorrectionDraftNavigation()) return;
         var session = SelectedHistorySession();
         if (session is null || _retranscription is null || _store is null) return;
         HistoryLoadTicket ticket;
@@ -2464,13 +3129,30 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
             StatusText.Text = "Ya hay una retranscripción en curso.";
             return;
         }
+        var editorTicket = _correctionDraftNavigation.CaptureOperation();
         UpdateHistoryControls();
         try
         {
             StatusText.Text = "Retranscribiendo el audio cifrado conservado…";
-            var revision = await _retranscription.RunAsync(session, SelectedHistorySource(), modelPath, _settings.Language, operation.CancellationToken);
+            var editorOperation = await _correctionDraftNavigation.RunAsync(
+                editorTicket,
+                cancellationToken => _retranscription.RunAsync(
+                    session,
+                    SelectedHistorySource(),
+                    modelPath,
+                    _settings.Language,
+                    cancellationToken),
+                operation.CancellationToken);
+            var revision = editorOperation.Value;
             if (!_historyRetranscriptionOperation.IsCurrent(operation) || !_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) return;
-            await LoadHistoryReviewAsync(session, ticket);
+            var editorIsCurrent = CanPublishCorrectionEditor(editorTicket);
+            if (!editorOperation.CanReplaceEditor || !editorIsCurrent)
+            {
+                StatusText.Text = "La retranscripción terminó, pero los cambios escritos después siguen sin guardar; no se reemplazó el editor.";
+                return;
+            }
+            var published = await LoadHistoryReviewAsync(session, ticket, editorTicket: editorTicket);
+            if (!published) return;
             if (!_historyRetranscriptionOperation.IsCurrent(operation) || !_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) return;
             HistoryRevisionSelector.SelectedItem = HistoryRevisionSelector.Items.OfType<HistoryRevisionItem>().FirstOrDefault(item => item.Revision.Id == revision.Id);
             StatusText.Text = "La retranscripción se completó como una versión separada del modelo.";
@@ -3074,6 +3756,7 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
     {
         var session = SelectedHistorySession();
         if (session is null || _store is null) { StatusText.Text = HistoryPresenter.SelectSessionMessage; return; }
+        if (BlockCorrectionDraftNavigation()) return;
         if (session.State is SessionState.Recording or SessionState.Paused || string.Equals(_coordinator?.ActiveSessionId, session.Id, StringComparison.Ordinal))
         {
             const string message = "Esta sesión sigue activa. Detenla antes de eliminarla.";
@@ -3086,13 +3769,14 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
             if (MessageBox.Show(this, $"¿Eliminar definitivamente '{session.Title}', su transcripción, todo el audio conservado y las entradas del diccionario originadas en sus correcciones? Esta acción no se puede deshacer.", "Eliminar sesión guardada", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
             _historyDeleteInProgress = true;
             _historySearch.Invalidate();
-            _historySearchNavigation.Invalidate();
+            await CancelHistoryNavigationAsync();
             _historyLoads.Invalidate();
             _historyRevisionLoads.Invalidate();
             HideHistorySearchResults();
             HistorySearchStatusText.Text = HistorySearchPresenter.IdleStatus;
             UpdateHistoryControls();
             await _historySearchActivity.BlockAndDrainAsync();
+            await CancelPendingReviewLoadAsync();
             await SupersedePlaybackAsync(announce: false);
             if (_audioArchive is not null) await _audioArchive.DeleteSessionAsync(session.Id);
             else await _store.DeleteSessionAsync(session.Id);
@@ -3110,6 +3794,7 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
             _historyDeleteInProgress = false;
             if (!_closing) _historySearchActivity.Reopen();
             UpdateHistoryControls();
+            if (!_closing) await LoadPendingReviewsAsync();
         }
     }
 
@@ -3219,15 +3904,18 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
         var hasTrack = _historyTrackChunks.Count > 0 && _historyTrackDuration > TimeSpan.Zero;
         var playbackActive = _activePlaybackOperation is not null || _historyPlaying;
         var playbackBlocked = !HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing);
+        var hasUnsavedDraft = HasUnsavedCorrectionDraft();
         var selectedTrackReady = _historyState.CanPlayAudio && hasTrack;
         var canPauseActive = _historyPlaying && _activePlaybackOperation is not null;
         var canSeek = !playbackBlocked &&
             (!playbackActive ? selectedTrackReady : _historyPlaying && _activePlaybackAllowsSeeking);
-        HistoryList.IsEnabled = !playbackBlocked;
-        HistorySearchResults.IsEnabled = !playbackBlocked;
-        HistorySegments.IsEnabled = !playbackBlocked;
-        HistoryAudioSource.IsEnabled = !playbackBlocked && _historyState.CanChooseSource && !playbackActive && !_historyRetranscriptionOperation.IsRunning;
-        HistoryRevisionSelector.IsEnabled = !playbackBlocked && _historyState.HasSelection && !playbackActive && !_historyRetranscriptionOperation.IsRunning;
+        HistoryWorkspaceTabs.IsEnabled = !playbackBlocked;
+        RefreshHistoryButton.IsEnabled = _initialized && !playbackBlocked && !hasUnsavedDraft;
+        HistoryList.IsEnabled = !playbackBlocked && !hasUnsavedDraft;
+        HistorySearchResults.IsEnabled = !playbackBlocked && !hasUnsavedDraft;
+        HistorySegments.IsEnabled = !playbackBlocked && !hasUnsavedDraft;
+        HistoryAudioSource.IsEnabled = !playbackBlocked && !hasUnsavedDraft && _historyState.CanChooseSource && !playbackActive && !_historyRetranscriptionOperation.IsRunning;
+        HistoryRevisionSelector.IsEnabled = !playbackBlocked && !hasUnsavedDraft && _historyState.HasSelection && !playbackActive && !_historyRetranscriptionOperation.IsRunning;
         PlayPauseButton.IsEnabled = !playbackBlocked && (canPauseActive || !playbackActive && selectedTrackReady);
         PlayPauseButton.Content = _historyPlaying
             ? (_historyPlaybackPaused ? "Continuar" : "Pausar")
@@ -3239,21 +3927,30 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
         PlaybackSpeedSelector.IsEnabled = !playbackBlocked &&
             !_playbackSpeedChanges.IsPlaybackIntentTransitionActive &&
             (_activePlaybackOperation is null || _historyPlaying);
-        PreviousHistorySegmentButton.IsEnabled = !playbackBlocked && navigation.CanPrevious;
-        NextHistorySegmentButton.IsEnabled = !playbackBlocked && navigation.CanNext;
+        PreviousHistorySegmentButton.IsEnabled = !playbackBlocked && !hasUnsavedDraft && navigation.CanPrevious;
+        NextHistorySegmentButton.IsEnabled = !playbackBlocked && !hasUnsavedDraft && navigation.CanNext;
         ExportWavButton.IsEnabled = !playbackBlocked && _historyState.CanExportWav && !playbackActive;
         ExportTxtButton.IsEnabled = !playbackBlocked && _historyState.CanExportTxt;
         ExportObsidianButton.IsEnabled = !playbackBlocked && _historyState.CanExportMarkdown;
-        DeleteSessionButton.IsEnabled = !playbackBlocked && _historyState.CanDelete && !playbackActive && !_historyRetranscriptionOperation.IsRunning;
+        DeleteSessionButton.IsEnabled = !playbackBlocked && !hasUnsavedDraft && _historyState.CanDelete && !playbackActive && !_historyRetranscriptionOperation.IsRunning;
         var viewingModelRevision = HistoryRevisionSelector.SelectedItem is HistoryRevisionItem;
-        SaveCorrectionButton.IsEnabled = !playbackBlocked && selected is not null && !viewingModelRevision;
-        UndoCorrectionButton.IsEnabled = !playbackBlocked && selected?.Review.IsCorrected == true && !viewingModelRevision;
+        CorrectionPanel.IsEnabled = !playbackBlocked && selected is not null && !viewingModelRevision;
+        var reviewActions = SegmentReviewActionsPresenter.Create(
+            selected?.Review,
+            SelectedHistorySession()?.State,
+            viewingModelRevision,
+            hasUnsavedDraft);
+        SaveCorrectionButton.IsEnabled = !playbackBlocked && selected is not null && !viewingModelRevision && hasUnsavedDraft;
+        DiscardCorrectionDraftButton.IsEnabled = !playbackBlocked && hasUnsavedDraft;
+        MarkSegmentReviewedButton.IsEnabled = !playbackBlocked && reviewActions.CanMarkReviewed;
+        ReopenSegmentReviewButton.IsEnabled = !playbackBlocked && reviewActions.CanReopen;
+        UndoCorrectionButton.IsEnabled = !playbackBlocked && !hasUnsavedDraft && selected?.Review.IsCorrected == true && !viewingModelRevision;
         AddGlossaryButton.IsEnabled = !playbackBlocked && _glossarySuggestions.Count > 0 && !viewingModelRevision;
         var retranscription = HistoryRetranscriptionPresenter.Create(
             SelectedHistorySession()?.State,
             _historyState.HasSelectedSourceAudio && _historySelectedSourceAudioComplete,
             _historyRetranscriptionOperation.IsRunning);
-        RetranscribeButton.IsEnabled = !playbackBlocked && retranscription.CanStart && !playbackActive;
+        RetranscribeButton.IsEnabled = !playbackBlocked && !hasUnsavedDraft && retranscription.CanStart && !playbackActive;
         CancelRetranscriptionButton.IsEnabled = !playbackBlocked && retranscription.CanCancel;
         RetranscribeButton.ToolTip = retranscription.Guidance;
         CancelRetranscriptionButton.ToolTip = retranscription.Guidance;
@@ -3279,6 +3976,16 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
         UpdateComparisonControls();
         UpdateStorageControls();
         UpdateHistorySearchControls();
+        UpdatePendingReviewControls();
+    }
+
+    private void UpdatePendingReviewControls()
+    {
+        if (RefreshPendingReviewsButton is null || PendingReviewList is null) return;
+        var canInteract = _initialized && !_closing && !_historyDeleteInProgress &&
+                          !_pendingReviewOperation.IsRunning && !HasUnsavedCorrectionDraft();
+        RefreshPendingReviewsButton.IsEnabled = canInteract;
+        PendingReviewList.IsEnabled = canInteract;
     }
     private async void Window_Closing(object? sender, CancelEventArgs e)
     {
@@ -3286,11 +3993,27 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
         e.Cancel = true;
         if (_closing) return;
         if (_recording && MessageBox.Show(this, "Hay una transcripción activa. ¿Deseas detenerla y salir?", "Sesión activa", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        if (HasUnsavedCorrectionDraft())
+        {
+            var discard = MessageBox.Show(
+                this,
+                "Hay una corrección sin guardar. Selecciona Sí para descartar el borrador y cerrar, o No para volver y guardarlo.",
+                "Cambios sin guardar",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (discard != MessageBoxResult.Yes)
+            {
+                AnnounceBlockedCorrectionDraftNavigation();
+                return;
+            }
+            _correctionDraftNavigation.Clear();
+        }
         _closing = true;
         _historySearch.Invalidate();
-        _historySearchNavigation.Invalidate();
+        await CancelHistoryNavigationAsync();
         _historyLoads.Invalidate();
         _historyRevisionLoads.Invalidate();
+        await CancelPendingReviewLoadAsync();
         await _glossaryWorkspaceOperation.CancelAndWaitAsync();
         _glossaryWorkspaceEntries = [];
         _glossaryWorkspaceRows.Clear();
@@ -3313,6 +4036,11 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
                     await _playback.DisposeAsync();
                     _historySearch.Dispose();
                     _historySearchNavigation.Dispose();
+                    _historyNavigationOperation.Dispose();
+                    _historyNavigationTransition.Dispose();
+                    _pendingReviewLoads.Dispose();
+                    _pendingReviewOperation.Dispose();
+                    _pendingReviewTransition.Dispose();
                     _historyRetranscriptionOperation.Dispose();
                     _glossaryWorkspaceOperation.Dispose();
                     _protector?.Dispose();
@@ -3355,6 +4083,40 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
 
     private int SelectedAudioBudget() => int.TryParse((AudioBudgetBox.SelectedItem as ComboBoxItem)?.Tag?.ToString(), out var value) && value is 1 or 2 or 5 ? value : 1;
     private void SelectAudioBudget(int budget) => AudioBudgetBox.SelectedItem = AudioBudgetBox.Items.Cast<ComboBoxItem>().FirstOrDefault(i => Equals(i.Tag?.ToString(), budget.ToString())) ?? AudioBudgetBox.Items[0];
+    private async Task<(HistorySearchNavigationTicket Ticket, OwnedCancellationOperationCoordinator.Operation Operation)?> BeginHistoryNavigationAsync(
+        HistorySearchNavigationIntent intent)
+    {
+        await _historyNavigationTransition.WaitAsync();
+        try
+        {
+            _historySearchNavigation.Invalidate();
+            await _historyNavigationOperation.CancelAndWaitAsync();
+            if (!_historySearchActivity.IsAccepting ||
+                !HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing))
+                return null;
+
+            var ticket = _historySearchNavigation.Begin(CreateHistorySearchNavigationKey(intent));
+            if (!_historyNavigationOperation.TryBegin(
+                    [_lifetime.Token, ticket.CancellationToken],
+                    out var operation))
+            {
+                _historySearchNavigation.Invalidate();
+                return null;
+            }
+            return (ticket, operation);
+        }
+        finally { _historyNavigationTransition.Release(); }
+    }
+    private async Task CancelHistoryNavigationAsync()
+    {
+        await _historyNavigationTransition.WaitAsync();
+        try
+        {
+            _historySearchNavigation.Invalidate();
+            await _historyNavigationOperation.CancelAndWaitAsync();
+        }
+        finally { _historyNavigationTransition.Release(); }
+    }
     private AudioSourceKind SelectedHistorySource() => (HistoryAudioSource.SelectedItem as ComboBoxItem)?.Tag?.ToString() == nameof(AudioSourceKind.SystemOutput) ? AudioSourceKind.SystemOutput : AudioSourceKind.Microphone;
     private SessionSummary? SelectedHistorySession() => (HistoryList.SelectedItem as HistorySessionItem)?.Session;
     private HistorySegmentItem? SelectedHistorySegment() => HistorySegments.SelectedItem as HistorySegmentItem;
@@ -3365,8 +4127,19 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
         HistorySearchResults.SelectedItem is HistorySearchResultItem selected
             ? CreateHistorySearchNavigationKey(HistorySearchNavigationIntent.From(selected.Hit))
             : null;
+    private HistorySearchNavigationKey? SelectedPendingReviewNavigationKey() =>
+        PendingReviewList.SelectedItem is PendingReviewItem selected
+            ? CreateHistorySearchNavigationKey(new(
+                selected.Pending.SessionId,
+                selected.Pending.SegmentId,
+                selected.Pending.Source,
+                UseOriginalRevision: true,
+                AutoPlay: false))
+            : null;
     private bool IsCurrentHistorySearchNavigation(HistorySearchNavigationTicket ticket) =>
-        _historySearchNavigation.IsCurrent(ticket, SelectedHistorySearchNavigationKey());
+        _historySearchNavigation.IsCurrent(ticket) &&
+        (ticket.Key == SelectedHistorySearchNavigationKey() ||
+         ticket.Key == SelectedPendingReviewNavigationKey());
     private bool IsCurrentRevisionSelection(RevisionSelectionTicket ticket) =>
         _historyRevisionLoads.IsCurrent(ticket, SelectedHistorySession()?.Id, SelectedHistorySource(), SelectedHistoryRevisionId());
 

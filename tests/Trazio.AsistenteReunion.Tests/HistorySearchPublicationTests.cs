@@ -52,7 +52,7 @@ public sealed class HistorySearchPublicationTests
         var deletePath = code[deleteStart..deleteEnd];
         AssertOrdered(deletePath,
             "_historySearch.Invalidate();",
-            "_historySearchNavigation.Invalidate();",
+            "await CancelHistoryNavigationAsync();",
             "HideHistorySearchResults();",
             "await _historySearchActivity.BlockAndDrainAsync();",
             "await _audioArchive.DeleteSessionAsync(session.Id)");
@@ -61,7 +61,7 @@ public sealed class HistorySearchPublicationTests
         var closeEnd = code.IndexOf("private AppSettings ReadSettings", closeStart, StringComparison.Ordinal);
         var closePath = code[closeStart..closeEnd];
         AssertOrdered(closePath,
-            "_historySearchNavigation.Invalidate();",
+            "await CancelHistoryNavigationAsync();",
             "await _historySearchActivity.BlockAndDrainAsync();",
             "_protector?.Dispose();");
 
@@ -79,11 +79,11 @@ public sealed class HistorySearchPublicationTests
 
         var selectionEnd = code.IndexOf("private void UpdateSessionTitleEditor", selectionStart, StringComparison.Ordinal);
         var selectionPath = code[selectionStart..selectionEnd];
-        Assert.Contains("_historySearchNavigation.Begin", selectionPath, StringComparison.Ordinal);
+        Assert.Contains("BeginHistoryNavigationAsync(intent)", selectionPath, StringComparison.Ordinal);
         AssertOrdered(selectionPath,
             "_historySearchActivity.TryBegin",
             "using (lease)",
-            "await OpenHistorySearchResultAsync(intent, ticket)");
+            "await OpenHistorySearchResultAsync(intent, ticket, editorTicket)");
         AssertAwaitImmediatelyRevalidated(
             selectionPath,
             "await _store.ListSessionsAsync(ticket.CancellationToken)",
@@ -94,7 +94,7 @@ public sealed class HistorySearchPublicationTests
             "if (!IsCurrentHistorySearchNavigation(ticket)) return;");
         AssertAwaitImmediatelyRevalidated(
             selectionPath,
-            "await SelectHistorySessionAsync(storedSession, intent, ticket)",
+            "await SelectHistorySessionAsync(storedSession, intent, ticket, editorTicket)",
             "if (!IsCurrentHistorySearchNavigation(ticket)) return;");
     }
 

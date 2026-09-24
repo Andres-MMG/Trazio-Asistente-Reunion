@@ -77,6 +77,10 @@ public sealed class HistorySearchNavigationCoordinator : IDisposable
         !ticket.CancellationToken.IsCancellationRequested &&
         ticket.Key == selectedKey;
 
+    public bool IsCurrent(HistorySearchNavigationTicket ticket) =>
+        _current?.Generation == ticket.Generation &&
+        !ticket.CancellationToken.IsCancellationRequested;
+
     public void Invalidate()
     {
         Interlocked.Increment(ref _generation);

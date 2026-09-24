@@ -124,9 +124,35 @@ public sealed partial class SqliteSessionStore
                 UnprotectReviewValue(reader, 7, $"correction:{id}:editor"),
                 DateTimeOffset.Parse(reader.GetString(10)));
         }
+        var latestDecisions = new Dictionary<string, SegmentReviewDecision>(StringComparer.Ordinal);
+        await using var decisionCommand = connection.CreateCommand();
+        decisionCommand.CommandText = """
+            SELECT id,segment_id,revision,action,reviewer_nonce,reviewer_cipher,reviewer_tag,created_at
+            FROM segment_review_decisions
+            WHERE session_id=$session
+            ORDER BY segment_id,revision
+            """;
+        decisionCommand.Parameters.AddWithValue("$session", sessionId);
+        await using var decisionReader = await decisionCommand.ExecuteReaderAsync(cancellationToken);
+        while (await decisionReader.ReadAsync(cancellationToken))
+        {
+            var id = decisionReader.GetString(0);
+            var segmentId = decisionReader.GetString(1);
+            latestDecisions[segmentId] = new(
+                id,
+                segmentId,
+                sessionId,
+                decisionReader.GetInt32(2),
+                ReadSegmentReviewAction(decisionReader.GetInt32(3)),
+                Encoding.UTF8.GetString(protector.Unprotect(
+                    ReadPayload(decisionReader, 4),
+                    $"segment-review:{id}:reviewer")),
+                DateTimeOffset.Parse(decisionReader.GetString(7)));
+        }
         return segments.Select(segment => new ReviewedTranscriptSegment(
             segment,
-            latest.GetValueOrDefault(segment.Id))).ToArray();
+            latest.GetValueOrDefault(segment.Id),
+            latestDecisions.GetValueOrDefault(segment.Id))).ToArray();
     }
 
     public async Task<GlossaryEntry> AddGlossaryEntryAsync(

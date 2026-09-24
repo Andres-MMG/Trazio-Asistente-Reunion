@@ -139,7 +139,10 @@
             <TabItem x:Name="HistoryTabItem" Header="Historial" GotFocus="HistoryTab_GotFocus">
                 <Grid Margin="14">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="330"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                    <DockPanel>
+                    <TabControl x:Name="HistoryWorkspaceTabs" SelectionChanged="HistoryWorkspaceTabs_SelectionChanged"
+                                automation:AutomationProperties.Name="Vistas del historial">
+                        <TabItem Header="Sesiones">
+                        <DockPanel Margin="6">
                         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                             <DockPanel>
                                 <TextBlock Text="Sesiones guardadas" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"/>
@@ -191,7 +194,61 @@
                                 </ListBox.ItemTemplate>
                             </ListBox>
                         </Grid>
-                    </DockPanel>
+                        </DockPanel>
+                        </TabItem>
+                        <TabItem x:Name="PendingReviewTabItem" Header="Pendientes de revisión">
+                            <DockPanel Margin="6">
+                                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                                    <DockPanel>
+                                        <TextBlock Text="Pendientes de revisión" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        <Button x:Name="RefreshPendingReviewsButton" DockPanel.Dock="Right" Content="Actualizar"
+                                                Click="RefreshPendingReviews_Click" IsEnabled="False"
+                                                ToolTip="Vuelve a cargar hasta cien segmentos pendientes desde el almacenamiento local cifrado."
+                                                automation:AutomationProperties.Name="Actualizar segmentos pendientes de revisión"/>
+                                    </DockPanel>
+                                    <TextBlock Text="Abre un segmento pendiente para revisarlo individualmente. Seleccionarlo no modifica datos ni reproduce audio."
+                                               Foreground="#556070" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                    <TextBlock x:Name="PendingReviewStatusText"
+                                               Text="Abre esta vista para cargar los segmentos pendientes."
+                                               Foreground="#556070" TextWrapping="Wrap" Margin="0,7,0,0" Focusable="True"
+                                               automation:AutomationProperties.Name="Estado de segmentos pendientes de revisión"
+                                               automation:AutomationProperties.LiveSetting="Polite"/>
+                                </StackPanel>
+                                <Grid>
+                                    <TextBlock x:Name="PendingReviewEmptyText"
+                                               Text="Revisión completa: no quedan segmentos pendientes."
+                                               Foreground="#556070" TextWrapping="Wrap" Margin="6" Visibility="Collapsed"/>
+                                    <ListBox x:Name="PendingReviewList"
+                                             SelectionChanged="PendingReviewList_SelectionChanged"
+                                             SelectionMode="Single"
+                                             ScrollViewer.CanContentScroll="True" VirtualizingPanel.IsVirtualizing="True"
+                                             automation:AutomationProperties.Name="Segmentos pendientes de revisión"
+                                             automation:AutomationProperties.HelpText="La selección abre una sesión y un segmento estables, sin reproducir audio ni guardar cambios.">
+                                        <ListBox.ItemContainerStyle>
+                                            <Style TargetType="ListBoxItem">
+                                                <Setter Property="automation:AutomationProperties.Name" Value="{Binding AutomationName}"/>
+                                                <Setter Property="automation:AutomationProperties.HelpText" Value="Abre este pendiente en el editor sin reproducir audio ni guardar cambios."/>
+                                            </Style>
+                                        </ListBox.ItemContainerStyle>
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type local:PendingReviewItem}">
+                                                <Border Margin="2,4" Padding="7" BorderBrush="#DDE2EA" BorderThickness="1" CornerRadius="4"
+                                                        automation:AutomationProperties.Name="{Binding AutomationName}"
+                                                        automation:AutomationProperties.HelpText="Abre este pendiente en el editor sin reproducir audio automáticamente.">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding MeetingTitle}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding Details}" Foreground="#246BCE" FontSize="12"/>
+                                                        <TextBlock Text="{Binding Snippet}" TextWrapping="Wrap" MaxHeight="54" Margin="0,2,0,0"/>
+                                                        <TextBlock Text="{Binding StateLabel}" Foreground="#6B7280" FontSize="11" Margin="0,2,0,0"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </Grid>
+                            </DockPanel>
+                        </TabItem>
+                    </TabControl>
                     <Border Grid.Column="2" Background="White" CornerRadius="6" Padding="14" BorderBrush="#DDE2EA" BorderThickness="1">
                         <DockPanel>
                             <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
@@ -397,11 +454,34 @@
                                         <TextBlock Text="Texto original del modelo" Foreground="#556070" Margin="0,5,0,0"/>
                                         <TextBox x:Name="OriginalSegmentText" IsReadOnly="True" TextWrapping="Wrap" Background="#F5F7FA"/>
                                         <TextBlock Text="Texto corregido" Foreground="#556070" Margin="0,5,0,0"/>
-                                        <TextBox x:Name="CorrectedSegmentText" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="48"/>
+                                         <TextBox x:Name="CorrectedSegmentText" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="48"
+                                                  TextChanged="CorrectedSegmentText_TextChanged"
+                                                  automation:AutomationProperties.Name="Texto corregido del segmento seleccionado"
+                                                  automation:AutomationProperties.HelpText="Mientras haya cambios sin guardar, la navegación a otro segmento, sesión o vista permanece bloqueada. Usa Guardar corrección o Descartar borrador."/>
+                                        <TextBlock x:Name="SegmentReviewStatusText" Text="Selecciona un segmento para revisar su estado."
+                                                   Foreground="#556070" TextWrapping="Wrap" Margin="0,6,0,0" Focusable="True"
+                                                   automation:AutomationProperties.Name="Estado de revisión del segmento"
+                                                   automation:AutomationProperties.LiveSetting="Polite"/>
                                         <WrapPanel Margin="0,6,0,0">
-                                            <Button x:Name="SaveCorrectionButton" Content="Guardar corrección" Click="SaveCorrection_Click"/>
-                                            <Button x:Name="UndoCorrectionButton" Content="Deshacer corrección" Click="UndoCorrection_Click" IsEnabled="False"/>
+                                            <Button x:Name="SaveCorrectionButton" Content="Guardar corrección" Click="SaveCorrection_Click"
+                                                    automation:AutomationProperties.Name="Guardar corrección del segmento"/>
+                                            <Button x:Name="MarkSegmentReviewedButton" Content="Marcar revisado" Click="MarkSegmentReviewed_Click" IsEnabled="False"
+                                                    ToolTip="Confirma que el texto original es correcto sin crear una corrección."
+                                                    automation:AutomationProperties.Name="Marcar texto original como revisado"/>
+                                            <Button x:Name="DiscardCorrectionDraftButton" Content="Descartar borrador" Click="DiscardCorrectionDraft_Click" IsEnabled="False"
+                                                    ToolTip="Restaura el texto guardado del segmento sin modificar el historial."
+                                                    automation:AutomationProperties.Name="Descartar cambios sin guardar del texto corregido"/>
                                         </WrapPanel>
+                                        <Expander Header="Cambiar estado de revisión" Margin="0,5,0,0"
+                                                  automation:AutomationProperties.Name="Cambiar estado de revisión del segmento">
+                                            <WrapPanel Margin="4,4,4,0">
+                                                <Button x:Name="ReopenSegmentReviewButton" Content="Volver a pendiente" Click="ReopenSegmentReview_Click" IsEnabled="False"
+                                                        ToolTip="Revierte solo una aprobación del texto original; no reabre segmentos con correcciones."
+                                                        automation:AutomationProperties.Name="Volver a pendiente una aprobación del texto original"/>
+                                                <Button x:Name="UndoCorrectionButton" Content="Deshacer corrección" Click="UndoCorrection_Click" IsEnabled="False"
+                                                        automation:AutomationProperties.Name="Deshacer la corrección activa"/>
+                                            </WrapPanel>
+                                        </Expander>
                                         <Border x:Name="GlossarySuggestionsPanel" Visibility="Collapsed" Background="#F8FAFC" BorderBrush="#DDE2EA" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,10,0,0">
                                             <StackPanel>
                                                 <TextBlock Text="Reemplazos de palabras detectados" FontWeight="SemiBold"/>

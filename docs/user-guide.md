@@ -2,7 +2,7 @@
 
 **Comienza con una prueba breve y no sensible.** Trazio es una versión preliminar para Windows 11 x64 con interfaz en español. Necesitas una CPU x64 compatible, un micrófono/dispositivo de salida funcional y espacio en disco para el modelo y el audio cifrado. El ZIP publicado incluye el entorno de ejecución de .NET.
 
-> **Estado de esta guía:** la descarga pública actual es beta 10/secuencia 11. Incluye la navegación, el resaltado, la velocidad, la búsqueda local, el diccionario global y el intercambio JSON descritos más abajo; su validación audible con hardware real, de importación/exportación, visual, por teclado y lector de pantalla continúa pendiente.
+> **Estado de esta guía:** la descarga pública actual es beta 10/secuencia 11. Incluye la navegación, el resaltado, la velocidad, la búsqueda local, el diccionario global y el intercambio JSON descritos más abajo; su validación audible con hardware real, de importación/exportación, visual, por teclado y lector de pantalla continúa pendiente. La bandeja 8.4a descrita en una sección separada existe únicamente en compilaciones creadas desde la fuente actual de `main`; todavía no está en beta 10.
 
 ## Primera grabación
 
@@ -62,6 +62,19 @@ En **Historial**, escribe entre 2 y 120 caracteres en **Buscar en reuniones** y 
 - **Limpiar** vuelve a la lista normal de sesiones. Si una sesión o segmento fue eliminado, Trazio muestra el fallo y exige repetir la búsqueda.
 
 La consulta y los resultados no se guardan en SQLite ni en un índice. Se descifran y comparan localmente en memoria; esto no equivale a memoria segura frente a paginación, volcados o software con acceso a la misma cuenta. Esta función está incluida desde beta 8 y continúa en la beta 10 pública.
+
+## Revisar pendientes en una compilación desde `main` — 8.4a no publicada
+
+Esta función todavía no forma parte de la descarga beta 10. En una compilación de la fuente actual, abre **Historial** y luego **Pendientes de revisión**:
+
+1. La bandeja reúne segmentos de sesiones **Completadas** o **Interrumpidas**, con la reunión más reciente primero y el tiempo en orden dentro de cada reunión. Muestra hasta 100 filas y avisa si existen más.
+2. Selecciona una fila para abrir esa sesión, fuente y segmento exactos en **Original · revisión humana**. Esta acción no reproduce audio ni guarda cambios.
+3. Si el texto original es correcto, usa **Marcar revisado**. Esto agrega una decisión de revisión y no crea una corrección.
+4. Si necesitas cambiar el texto, edítalo y usa **Guardar corrección**. Cualquier corrección guardada o deshacer previo cuenta como intervención humana y mantiene el segmento fuera de la bandeja.
+5. **Volver a pendiente** está disponible solo para una aprobación del original sin historial de correcciones. No reabre correcciones en 8.4a.
+6. Si modificaste el editor y no guardaste, cambiar de segmento, sesión, pista o versión queda bloqueado. Usa **Guardar corrección** o **Descartar borrador** antes de continuar; un error de guardado conserva el texto editado. Puedes cambiar de pestaña para detener una grabación activa sin perder el borrador. Al cerrar la aplicación, Trazio solicita confirmar explícitamente su descarte.
+
+La bandeja es individual: no permite selección múltiple ni aprobación masiva. Tampoco agrega términos al diccionario, aplica reemplazos, entrena modelos ni autoriza exportación o inteligencia externa.
 
 ## Corregir texto y recopilar terminología
 

@@ -30,10 +30,12 @@ public sealed class HistorySegmentItem : INotifyPropertyChanged
     public HistorySegmentItem(
         ReviewedTranscriptSegment review,
         string? modelRevisionLabel = null,
-        AnonymousVisualEvidenceViewModel? visualEvidence = null)
+        AnonymousVisualEvidenceViewModel? visualEvidence = null,
+        bool reviewEligible = true)
     {
         Review = review ?? throw new ArgumentNullException(nameof(review));
         ModelRevisionLabel = modelRevisionLabel;
+        ReviewEligible = reviewEligible;
         _visualEvidence = visualEvidence ??
             (review.Segment.Source == AudioSourceKind.Microphone
                 ? AnonymousVisualEvidenceViewModel.Hidden
@@ -42,10 +44,17 @@ public sealed class HistorySegmentItem : INotifyPropertyChanged
 
     public ReviewedTranscriptSegment Review { get; }
     public string? ModelRevisionLabel { get; }
+    public bool ReviewEligible { get; }
     public TranscriptSegment Segment => Review.Segment;
     public string Header => $"{Segment.Start:hh\\:mm\\:ss} · {TranscriptPresentation.SpeakerLabel(Segment)}";
     public string Text => Review.EffectiveText;
-    public string RevisionLabel => ModelRevisionLabel ?? (Review.IsCorrected ? $"Corregida · versión {Review.LatestRevision!.Revision}" : "Transcripción original");
+    public string RevisionLabel => ModelRevisionLabel ?? Review.LatestRevision switch
+    {
+        { Action: CorrectionAction.SetText } correction => $"Corregida · versión {correction.Revision}",
+        { Action: CorrectionAction.Undo } => "Revisada · original restaurado",
+        null when Review.IsOriginalApproved => "Revisada sin cambios",
+        _ => ReviewEligible ? "Pendiente de revisión" : "Transcripción original"
+    };
     public AnonymousVisualEvidenceViewModel VisualEvidence => _visualEvidence;
     public bool IsPlaybackActive => _isPlaybackActive;
     public string PlaybackAnnouncement => _isPlaybackActive
