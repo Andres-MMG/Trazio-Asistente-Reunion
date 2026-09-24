@@ -200,11 +200,11 @@ public sealed record AnonymousVisualCorrelationPolicy(
     double MinimumCoverageRatio,
     double MinimumActivityOverlapRatio);
 
-public sealed class AnonymousVisualActivityCorrelator
+internal sealed class AnonymousVisualCorrelationEngine
 {
     private readonly AnonymousVisualCorrelationPolicy _policy;
 
-    public AnonymousVisualActivityCorrelator(AnonymousVisualCorrelationPolicy policy)
+    internal AnonymousVisualCorrelationEngine(AnonymousVisualCorrelationPolicy policy)
     {
         ArgumentNullException.ThrowIfNull(policy);
         if (!Enum.IsDefined(policy.Provider)) throw new ArgumentOutOfRangeException(nameof(policy));
@@ -217,25 +217,27 @@ public sealed class AnonymousVisualActivityCorrelator
         _policy = policy;
     }
 
-    public AnonymousVisualCorrelation Correlate(
-        TranscriptSegment segment,
-        AnonymousVisualEvidenceReadResult evidence)
+    internal AnonymousVisualCorrelation Correlate(
+        AnonymousVisualCorrelationSegment segment,
+        string evidenceSessionId,
+        AnonymousVisualEvidenceReadStatus evidenceStatus,
+        IReadOnlyList<AnonymousVisualEvidenceInterval> intervals)
     {
-        ArgumentNullException.ThrowIfNull(segment);
-        ArgumentNullException.ThrowIfNull(evidence);
+        ArgumentException.ThrowIfNullOrWhiteSpace(evidenceSessionId);
+        ArgumentNullException.ThrowIfNull(intervals);
 
-        if (segment.Source != AudioSourceKind.SystemOutput)
+        if (segment.AudioSourceKind != AudioSourceKind.SystemOutput)
             return Abstain(AnonymousVisualCorrelationReason.UnsupportedSource);
         if (segment.Start < TimeSpan.Zero || segment.End <= segment.Start)
             return Abstain(AnonymousVisualCorrelationReason.InvalidSegmentRange);
-        if (evidence.Status == AnonymousVisualEvidenceReadStatus.UnsupportedVersion)
+        if (evidenceStatus == AnonymousVisualEvidenceReadStatus.UnsupportedVersion)
             return Abstain(AnonymousVisualCorrelationReason.UnsupportedPayloadVersion);
-        if (evidence.Status == AnonymousVisualEvidenceReadStatus.Corrupted)
+        if (evidenceStatus == AnonymousVisualEvidenceReadStatus.Corrupted)
             return Abstain(AnonymousVisualCorrelationReason.CorruptedEvidence);
-        if (!string.Equals(segment.SessionId, evidence.SessionId, StringComparison.Ordinal))
+        if (!string.Equals(segment.SessionId, evidenceSessionId, StringComparison.Ordinal))
             return Abstain(AnonymousVisualCorrelationReason.SessionMismatch);
 
-        var overlapping = evidence.Intervals
+        var overlapping = intervals
             .Where(interval => interval.End > segment.Start && interval.Start < segment.End)
             .ToArray();
         if (overlapping.Length == 0)

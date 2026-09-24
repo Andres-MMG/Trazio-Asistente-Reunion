@@ -82,6 +82,25 @@ public sealed class AnonymousVisualActivityCorrelatorTests
     }
 
     [Fact]
+    public void Correlate_CoreFacadeAndSharedEngine_ReturnIdenticalResult()
+    {
+        var segment = Segment(AudioSourceKind.SystemOutput);
+        var evidence = Loaded(
+            Coverage(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+            Activity(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(8)));
+        var policy = Policy();
+
+        var facadeResult = new AnonymousVisualActivityCorrelator(policy).Correlate(segment, evidence);
+        var engineResult = new AnonymousVisualCorrelationEngine(policy).Correlate(
+            new AnonymousVisualCorrelationSegment(segment.SessionId, segment.Source, segment.Start, segment.End),
+            evidence.SessionId,
+            evidence.Status,
+            evidence.Intervals);
+
+        Assert.Equal(facadeResult, engineResult);
+    }
+
+    [Fact]
     public void Correlate_MicrophoneWithIdenticalOverlap_AlwaysAbstainsWithoutEvidence()
     {
         var segment = Segment(AudioSourceKind.Microphone) with { SpeakerName = "Local speaker" };
@@ -365,7 +384,9 @@ public sealed class AnonymousVisualActivityCorrelatorTests
         Assert.Equal(markdownBefore, ObsidianMarkdownExport.Create(session, [reviewed], "test"));
     }
 
-    private static AnonymousVisualActivityCorrelator Correlator() => new(new(
+    private static AnonymousVisualActivityCorrelator Correlator() => new(Policy());
+
+    private static AnonymousVisualCorrelationPolicy Policy() => new(
         Provider: MeetingProvider.GoogleMeet,
         ProfileVersion: 1,
         EvidenceVersion: 1,
@@ -373,7 +394,7 @@ public sealed class AnonymousVisualActivityCorrelatorTests
         PolicyVersion: 1,
         MinimumConfidence: 0.75,
         MinimumCoverageRatio: 0.8,
-        MinimumActivityOverlapRatio: 0.25));
+        MinimumActivityOverlapRatio: 0.25);
 
     private static TranscriptSegment Segment(AudioSourceKind source) => new(
         "segment",

@@ -15,7 +15,12 @@ public sealed class VersionMetadataTests
     [Fact]
     public void Assemblies_UseBetaVersionAndProductName()
     {
-        var assemblies = new[] { typeof(MainWindow).Assembly, typeof(MeetingSession).Assembly };
+        var assemblies = new[]
+        {
+            typeof(MainWindow).Assembly,
+            typeof(MeetingSession).Assembly,
+            typeof(AnonymousVisualActivityCorrelator).Assembly
+        };
         foreach (var assembly in assemblies)
         {
             Assert.Equal(new Version(0, 2, 0, 0), assembly.GetName().Version);

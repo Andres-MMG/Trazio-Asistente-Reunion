@@ -24,6 +24,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Trazio.AsistenteReunion.Core\Trazio.AsistenteReunion.Core.csproj" />
     <ProjectReference Include="..\..\src\Trazio.AsistenteReunion.App\Trazio.AsistenteReunion.App.csproj" />
+    <ProjectReference Include="..\..\src\Trazio.AsistenteReunion.VisualAnalysis\Trazio.AsistenteReunion.VisualAnalysis.csproj" />
+    <ProjectReference Include="..\..\tools\Trazio.AsistenteReunion.VisualEvaluation\Trazio.AsistenteReunion.VisualEvaluation.csproj" />
   </ItemGroup>
 
 </Project>

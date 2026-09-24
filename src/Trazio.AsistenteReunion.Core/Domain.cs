@@ -1,14 +1,6 @@
 namespace Trazio.AsistenteReunion.Core;
 
-public enum AudioSourceKind { Microphone, SystemOutput }
 public enum SessionState { Recording, Paused, Completed, Interrupted }
-public enum MeetingProvider
-{
-    NotSelected = 0,
-    GoogleMeet = 1,
-    MicrosoftTeams = 2,
-    Other = 3
-}
 
 public sealed record AudioChunk(
     string Id, string SessionId, AudioSourceKind Source, long Sequence,
