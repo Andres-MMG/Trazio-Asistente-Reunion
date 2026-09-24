@@ -2,11 +2,11 @@
 
 **Comienza con una prueba breve y no sensible.** Trazio es una versión preliminar para Windows 11 x64 con interfaz en español. Necesitas una CPU x64 compatible, un micrófono/dispositivo de salida funcional y espacio en disco para el modelo y el audio cifrado. El ZIP publicado incluye el entorno de ejecución de .NET.
 
-> **Estado de esta guía:** la descarga pública actual es beta 11/secuencia 12. Incluye la bandeja individual 8.4a además de navegación, resaltado, velocidad, búsqueda local, diccionario global e intercambio JSON. La validación audible con hardware real, visual, por teclado y lector de pantalla continúa pendiente.
+> **Estado de esta guía:** la descarga pública actual es beta 12/secuencia 13. Incluye aprobación múltiple segura 8.4b sobre la bandeja individual 8.4a. La validación audible con hardware real, visual, por teclado y lector de pantalla continúa pendiente.
 
 ## Primera grabación
 
-1. Descarga el ZIP completo de Windows desde la [versión publicada v0.2.0-beta.11](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.11). Verifica el archivo lateral `.sha256`: el ZIP debe medir **86,928,062 bytes** y su SHA-256 debe ser `81ded5f88ca7875efce8e0c73df852e7cefc0d9f51cdfbb614ba60ce2c39b934`. Extráelo en una carpeta normal de aplicaciones; no lo ejecutes desde dentro del ZIP.
+1. Descarga el ZIP completo de Windows desde la [versión publicada v0.2.0-beta.12](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.12). Verifica el archivo lateral .sha256: el ZIP debe medir **86,935,470 bytes** y su SHA-256 debe ser 0bb6ebeea882d1d67afc5ceace978578197831ce2ca7fdcd4c5fb5b05464f6d2. Extráelo en una carpeta normal de aplicaciones; no lo ejecutes desde dentro del ZIP.
 2. Abre `Trazio.AsistenteReunion.exe`. No lo separes del proceso auxiliar ni de las DLL. La beta sin firma puede generar advertencias de reputación de Windows; verifica el origen de la versión y su SHA-256 antes de decidir ejecutarla. No desactives el antivirus globalmente.
 3. En **Sesión en vivo**, acepta o edita **Título de la reunión**. Es un título automático de reunión, no tu nombre; se puede renombrar después en Historial.
 4. En **Perfil local**, confirma **Nombre visible**, ingresa opcionalmente una organización, marca **Confirmo este nombre visible** y **Guardar perfil**. **Tu nombre en esta reunión (opcional)** cambia solo la atribución del micrófono para esta grabación.
@@ -63,18 +63,18 @@ En **Historial**, escribe entre 2 y 120 caracteres en **Buscar en reuniones** y 
 
 La consulta y los resultados no se guardan en SQLite ni en un índice. Se descifran y comparan localmente en memoria; esto no equivale a memoria segura frente a paginación, volcados o software con acceso a la misma cuenta. Esta función está incluida desde beta 8 y continúa en la beta 10 pública.
 
-## Revisar pendientes — 8.4a publicada en beta 11
+## Revisar pendientes — 8.4a/8.4b publicadas en beta 12
 
-Esta función forma parte de la descarga beta 11. En **Historial**, abre **Pendientes de revisión**:
+En **Historial**, abre **Pendientes de revisión**:
 
-1. La bandeja reúne segmentos de sesiones **Completadas** o **Interrumpidas**, con la reunión más reciente primero y el tiempo en orden dentro de cada reunión. Muestra hasta 100 filas y avisa si existen más.
-2. Selecciona una fila para abrir esa sesión, fuente y segmento exactos en **Original · revisión humana**. Esta acción no reproduce audio ni guarda cambios.
-3. Si el texto original es correcto, usa **Marcar revisado**. Esto agrega una decisión de revisión y no crea una corrección.
-4. Si necesitas cambiar el texto, edítalo y usa **Guardar corrección**. Cualquier corrección guardada o deshacer previo cuenta como intervención humana y mantiene el segmento fuera de la bandeja.
-5. **Volver a pendiente** está disponible solo para una aprobación del original sin historial de correcciones. No reabre correcciones en 8.4a.
-6. Si modificaste el editor y no guardaste, cambiar de segmento, sesión, pista o versión queda bloqueado. Usa **Guardar corrección** o **Descartar borrador** antes de continuar; un error de guardado conserva el texto editado. Puedes cambiar de pestaña para detener una grabación activa sin perder el borrador. Al cerrar la aplicación, Trazio solicita confirmar explícitamente su descarte.
+1. Haz clic en una fila para abrir el original exacto; esta acción no reproduce audio ni guarda cambios.
+2. Corrige y guarda un segmento individual cuando el texto sea incorrecto. Una corrección o Undo lo excluye de la bandeja.
+3. Para confirmar que varios originales están bien, marca **Incluir en aprobación múltiple** en cada fila.
+4. Pulsa **Marcar N originales como revisados** y revisa el resumen. La escritura ocurre solo después de confirmar.
+5. El lote es atómico: si cualquier segmento cambió, no se aprueba ninguno y la lista se actualiza.
+6. **Volver a pendiente** continúa disponible de forma individual para una aprobación original sin historial de correcciones.
 
-La bandeja es individual: no permite selección múltiple ni aprobación masiva. Tampoco agrega términos al diccionario, aplica reemplazos, entrena modelos ni autoriza exportación o inteligencia externa.
+La aprobación múltiple no corrige texto, no agrega términos al diccionario, no modifica audio, no entrena modelos y no autoriza exportación o inteligencia externa.
 
 ## Corregir texto y recopilar terminología
 
@@ -162,7 +162,7 @@ Esto traslada datos para el mismo usuario de Windows. No hace portátiles los da
 
 ## Instalar, reparar o actualizar con Setup
 
-La [versión pública beta 11](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.11) ofrece tanto el ZIP como `Trazio-Asistente-Reunion-v0.2.0-beta.11-Setup.exe`. El instalador es manual, offline y solo para tu usuario de Windows. El Setup mide **60,073,131 bytes**, su SHA-256 es `b651727474ad50ea0f817bab8f363533d87c34cb5452510ed175e46857111bc0` y Authenticode informa `NotSigned`. El recurso remoto coincide con esos valores, pero el Setup con identidad productiva todavía no fue ejecutado; úsalo primero con datos no sensibles y conserva una copia de seguridad.
+La [versión pública beta 12](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.12) ofrece tanto el ZIP como Trazio-Asistente-Reunion-v0.2.0-beta.12-Setup.exe. El instalador es manual, offline y solo para tu usuario de Windows. El Setup mide **60,094,013 bytes**, su SHA-256 es 54a658f9f92a750840d5621f4120e6bdc601d3a25dfd268b44add421a8a574cb y Authenticode informa NotSigned. Úsalo primero con datos no sensibles y conserva una copia de seguridad.
 
 1. Descarga el `.exe`, su `.sha256` y su `.manifest.json` desde la misma versión oficial. Compara nombre, longitud y SHA-256. Como todavía no hay firma Authenticode, esa comprobación detecta diferencias respecto del sidecar pero no autentica por sí sola al editor.
 2. Finaliza la grabación y cierra Trazio normalmente. No fuerces la aplicación ni su proceso de transcripción, y no vuelvas a abrirlos hasta que Setup termine. La primera actualización desde beta 5 no puede detectar infaliblemente una instancia legacy abierta porque esa versión no creaba el nuevo mutex. Además, una App/Worker nueva podría iniciarse después del chequeo inicial del instalador; mantenerla cerrada evita esa carrera conocida.
@@ -170,7 +170,7 @@ La [versión pública beta 11](https://github.com/Andres-MMG/Trazio-Asistente-Re
 4. Si Trazio o su Worker nuevo ya están activos durante el chequeo inicial, Setup se bloquea y permite reintentar/cancelar; nunca los cierra ni reinicia automáticamente. Ese chequeo no impide que alguien abra Trazio después, por lo que no lo hagas durante la instalación.
 5. Después de completar, abre Trazio y comprueba Historial, modelo y una prueba breve. La definición del desinstalador no incluye la raíz de datos, pero valida primero con datos de prueba antes de confiar una actualización de producción.
 
-Los binarios quedan en una raíz estable con un payload completo por versión. Durante Setup se conserva el payload anterior; si la copia/activación falla o cancelas antes de completar, Inno revierte la transacción. **Ese límite termina al finalizar Setup:** después de abrir una versión nueva no se garantiza compatibilidad de la base al volver atrás. Tampoco hay descarga automática, limpieza automática de payloads antiguos ni firma del editor. Las definiciones publicadas desde beta 6 y vigentes en beta 10/secuencia 11 no leen, copian, migran ni borran la raíz de datos; aun así, no se afirma preservación física de datos arbitrarios sin validación en otra cuenta/equipo. El Setup beta 10 permanece sin firma y no fue ejecutado. La cancelación humana y esa validación física siguen pendientes.
+Los binarios quedan en una raíz estable con un payload completo por versión. Durante Setup se conserva el payload anterior; si la copia/activación falla o cancelas antes de completar, Inno revierte la transacción. **Ese límite termina al finalizar Setup:** después de abrir una versión nueva no se garantiza compatibilidad de la base al volver atrás. Tampoco hay descarga automática, limpieza automática de payloads antiguos ni firma del editor. Las definiciones publicadas desde beta 6 y vigentes en beta 12/secuencia 13 no leen, copian, migran ni borran la raíz de datos; aun así, no se afirma preservación física de datos arbitrarios sin validación en otra cuenta/equipo. El Setup beta 12 permanece sin firma y no fue ejecutado. La cancelación humana y esa validación física siguen pendientes.
 
 ## Actualizar la instalación ZIP
 

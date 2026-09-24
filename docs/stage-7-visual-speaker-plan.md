@@ -4,7 +4,7 @@
 >
 > **Puerta de autorización:** seleccionar la ventana, autorizar la captura WGC 7.2a y autorizar el análisis anónimo 7.2b son acciones distintas. La autorización 7.2b se consume una sola vez y queda ligada a la ventana, proveedor, sesión y alcance exactos. No autoriza identificación de hablantes ni adaptadores 7.2c/7.2d.
 
-> **Estado:** la versión pública actual [`v0.2.0-beta.11`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.11) incluye la infraestructura visual previa y la bandeja individual 8.4a. Los perfiles Meet/Teams permanecen `Unvalidated`, se abstienen y muestran **No disponible**; no existe identificación de hablantes. Siguen pendientes WGC/GPU/interfaz/accesibilidad/Meet/Teams físicos, 2/5 horas y firma.
+> **Estado:** la versión pública actual [v0.2.0-beta.12](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.12) incluye la infraestructura visual previa y la revisión pendiente 8.4a/8.4b. Los perfiles Meet/Teams permanecen Unvalidated, se abstienen y muestran **No disponible**; no existe identificación de hablantes. Siguen pendientes WGC/GPU/interfaz/accesibilidad/Meet/Teams físicos, 2/5 horas y firma.
 
 ## Resultado esperado
 
@@ -108,7 +108,7 @@ Esta rebanada no identifica personas. Solo demuestra una captura visual efímera
 
 ### 7.2b — Actividad visual anónima
 
-**Estado:** infraestructura publicada desde beta 5 y vigente en beta 10. La lógica compartida vive en `VisualAnalysis`; el evaluador/corpus continúan como herramientas offline del código fuente y no se empaquetan. El comportamiento de producción continúa deliberadamente abstencionista. La inferencia visual es determinista y anónima: evalúa cambios coherentes en parches declarados por un perfil validado, sin reconocer rostros ni leer nombres. Los perfiles de Meet/Teams incluidos están `Unvalidated`, con cero parches y sin política; por tanto, no leen superficies para inferencia, producen cobertura no disponible y no generan actividad positiva. El corpus usa únicamente agregados sintéticos y políticas ya empleadas por pruebas; no recomienda ni habilita umbrales.
+**Estado:** infraestructura publicada desde beta 5 y vigente en beta 12. La lógica compartida vive en `VisualAnalysis`; el evaluador/corpus continúan como herramientas offline del código fuente y no se empaquetan. El comportamiento de producción continúa deliberadamente abstencionista. La inferencia visual es determinista y anónima: evalúa cambios coherentes en parches declarados por un perfil validado, sin reconocer rostros ni leer nombres. Los perfiles de Meet/Teams incluidos están `Unvalidated`, con cero parches y sin política; por tanto, no leen superficies para inferencia, producen cobertura no disponible y no generan actividad positiva. El corpus usa únicamente agregados sintéticos y políticas ya empleadas por pruebas; no recomienda ni habilita umbrales.
 
 - [D3D11VisualProbeExtractor](../src/Trazio.AsistenteReunion.App/D3D11VisualProbeExtractor.cs) acepta como máximo parches acotados de 16 × 16, los copia a un atlas de staging limitado y devuelve únicamente agregados numéricos de coincidencia, contenido no negro y luminancia media. Los bytes mapeados se limpian y no se serializan.
 - [VisualProbeSession](../src/Trazio.AsistenteReunion.App/VisualProbeSession.cs) limita la frecuencia, conserva como máximo una observación pendiente y descarta o combina trabajo obsoleto sin bloquear audio. La canalización de evidencia también es acotada.
@@ -188,7 +188,7 @@ No se persisten píxeles, superficies Direct3D, imágenes, video, URL, HWND, PID
 
 - Retención de píxeles: **cero**; los frames existen solo durante su procesamiento.
 - Los eventos derivados siguen el ciclo de vida cifrado de la sesión y se eliminan con ella.
-- La evidencia visual anónima no se exporta en beta 10. TXT, Markdown y Obsidian mantienen la transcripción y `SpeakerName` existentes sin agregar actividad visual.
+- La evidencia visual anónima no se exporta en beta 12. TXT, Markdown y Obsidian mantienen la transcripción y `SpeakerName` existentes sin agregar actividad visual.
 - Una exportación futura de evidencia requeriría diseño y consentimiento explícitos, procedencia/confianza visibles y nunca podría convertir una inferencia en hecho confirmado.
 - Las capturas de depuración están prohibidas. Una futura opción para conservar imágenes requeriría diseño, consentimiento, cifrado, retención y eliminación independientes; no se incluye en 7.2.
 
@@ -327,7 +327,7 @@ La cobertura/recall no será criterio inicial: un adaptador puede abstenerse. Pr
 | Regresión en captura de audio | Módulo y canales independientes; kill switch visual no toca `RecordingCoordinator` de audio |
 | Cambio de UI de Meet/Teams | Mantener/desactivar el perfil afectado como `Unvalidated` y volver a **No disponible** |
 | Sobrecarga o fuga gráfica | Límites duros, métricas locales, prueba de 2 h y apagado idempotente |
-| Problema de privacidad | OFF por defecto, consentimiento consumible, cero retención de frames y ninguna exportación de evidencia en beta 10 |
+| Problema de privacidad | OFF por defecto, consentimiento consumible, cero retención de frames y ninguna exportación de evidencia en beta 12 |
 | Falso positivo | Umbral conservador, versión de política, abstención y corrección humana |
 | Incompatibilidad de Windows/GPU | Detección de soporte previa y fallback sin análisis visual |
 

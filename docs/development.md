@@ -52,7 +52,7 @@ Cierra primero la aplicación; no finalices la grabación activa de otra persona
 1. Reemplaza únicamente `artifacts\publish` después de comprobar que esté dentro de `artifacts`.
 2. Publica App y Worker como `win-x64`, autocontenidos, **no como archivo único**, en la misma carpeta.
 3. Copia el README y los avisos de terceros.
-4. Comprueba ejecutables/dependencias necesarios y la coincidencia de versión de producto declarada por `Directory.Build.props` entre App, Worker y `Trazio.AsistenteReunion.VisualAnalysis.dll`. La versión publicada actual es `0.2.0-beta.10`. También valida el manifiesto `trazio-capabilities.json`, versionado junto al proyecto WPF y copiado al publicar: exige **exactamente las cinco capacidades existentes** de historial, audio cifrado, exportación Obsidian, asociación de proveedor por ventana y captura efímera consentida. La validación rechaza identificadores duplicados o versiones inválidas. La infraestructura 7.2b no agrega una capacidad empaquetada de actividad/correlación anónima ni de identificación de hablantes: sus perfiles de producción permanecen `Unvalidated` y fallan de forma segura.
+4. Comprueba ejecutables/dependencias necesarios y la coincidencia de versión de producto declarada por `Directory.Build.props` entre App, Worker y `Trazio.AsistenteReunion.VisualAnalysis.dll`. La versión publicada actual es `0.2.0-beta.12`. También valida el manifiesto `trazio-capabilities.json`, versionado junto al proyecto WPF y copiado al publicar: exige **exactamente las cinco capacidades existentes** de historial, audio cifrado, exportación Obsidian, asociación de proveedor por ventana y captura efímera consentida. La validación rechaza identificadores duplicados o versiones inválidas. La infraestructura 7.2b no agrega una capacidad empaquetada de actividad/correlación anónima ni de identificación de hablantes: sus perfiles de producción permanecen `Unvalidated` y fallan de forma segura.
 5. Rechaza tipos y metadatos no incluidos en la lista permitida del layout, incluidos datos de usuario, bases SQLite, audio, modelos GGML/GGUF, imágenes, video, volcados, registros y material de claves. Además rechaza explícitamente la CLI `VisualEvaluation` (`.exe`, `.dll`, `.deps.json` y `.runtimeconfig.json`), `synthetic-corpus-v1.json`, `synthetic-corpus-v1.golden.json` y cualquier directorio denominado `tools` o `evaluation`, donde sea que aparezcan. `VisualAnalysis.dll` sí es una dependencia distribuida; el evaluador offline y sus datos sintéticos no lo son. El ZIP final también debe inspeccionarse antes del SHA-256 y la subida.
 6. Ejecuta la comprobación de salud del proceso auxiliar mediante canal con nombre.
 7. Emite `artifacts\publish-manifest.json` con versión, secuencia monotónica y cada ruta relativa normalizada, longitud y SHA-256 en orden ordinal.
@@ -101,7 +101,7 @@ Prueba el mecanismo únicamente con identificadores desechables:
 
 ## Disciplina de versiones y publicación
 
-Autoridad de versión de fuente: [Directory.Build.props](../Directory.Build.props). La fuente actual declara `VersionPrefix` **0.2.0**, `VersionSuffix` **beta.11** (versión producto `0.2.0-beta.11`), `InstallerReleaseSequence` **12** y versión de ensamblado/archivo **0.2.0.0**. Beta 11/secuencia 12 es la versión pública actual; beta 10/secuencia 11 y asignaciones anteriores permanecen como antecedentes históricos inmutables.
+Autoridad de versión de fuente: [Directory.Build.props](../Directory.Build.props). La fuente actual declara VersionPrefix **0.2.0**, VersionSuffix **beta.12** (versión producto 0.2.0-beta.12), InstallerReleaseSequence **13** y versión de ensamblado/archivo **0.2.0.0**. Beta 12/secuencia 13 es la versión pública actual; beta 11/secuencia 12 y asignaciones anteriores permanecen como antecedentes históricos inmutables.
 
 ### Evidencia publicada de beta 10/secuencia 11
 
@@ -148,13 +148,13 @@ Ejemplo de suma de comprobación para un ZIP preparado:
 
 ```powershell
 pwsh -NoProfile -File .\installer\package-portable.ps1
-$version = '0.2.0-beta.10' # Debe coincidir con Directory.Build.props.
+$version = '0.2.0-beta.12' # Debe coincidir con Directory.Build.props.
 $zipPath = ".\artifacts\Trazio-Asistente-Reunion-v$version-win-x64.zip"
 Get-Content -LiteralPath "$zipPath.sha256"
 Get-FileHash -Algorithm SHA256 -LiteralPath $zipPath
 ```
 
-La publicación vigente es `Trazio-Asistente-Reunion-v0.2.0-beta.10-win-x64.zip` junto a su archivo `.sha256`; su tamaño **86,897,741 bytes** y SHA-256 `52d5641af82e327bbfdf510dbd732d1dee7f13a7be5294af4b993fa1dc49a42f` corresponden exclusivamente a ese recurso publicado. El ejemplo reproduce el nombre canónico de beta 10 declarado por la fuente, pero ejecutarlo no etiqueta, firma, sube ni publica por sí solo. Beta 9, beta 8 y beta 7 permanecen como evidencia histórica. Publicar y enviar cambios requieren autorización explícita del mantenedor.
+La publicación vigente es `Trazio-Asistente-Reunion-v0.2.0-beta.12-win-x64.zip` junto a su archivo `.sha256`; su tamaño **86,935,470 bytes** y SHA-256 `0bb6ebeea882d1d67afc5ceace978578197831ce2ca7fdcd4c5fb5b05464f6d2` corresponden exclusivamente a ese recurso publicado. El ejemplo reproduce el nombre canónico de beta 12 declarado por la fuente, pero ejecutarlo no etiqueta, firma, sube ni publica por sí solo. Beta 11 y versiones anteriores permanecen como evidencia histórica. Publicar y enviar cambios requieren autorización explícita del mantenedor.
 
 ## Límites de contribución
 
