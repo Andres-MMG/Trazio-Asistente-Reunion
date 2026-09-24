@@ -209,9 +209,25 @@
                                                 <Button x:Name="StopPlaybackButton" Content="Detener" IsEnabled="False" Click="StopPlayback_Click" automation:AutomationProperties.Name="Detener reproducción" automation:AutomationProperties.HelpText="Detiene el audio y limpia el resaltado de reproducción sin cambiar el segmento seleccionado."/>
                                             </WrapPanel>
                                         </DockPanel>
+                                        <DockPanel Margin="0,7,0,0">
+                                            <ComboBox x:Name="PlaybackSpeedSelector" DockPanel.Dock="Right" Width="96" SelectedIndex="1" IsEnabled="True"
+                                                      SelectionChanged="PlaybackSpeedSelector_SelectionChanged"
+                                                      automation:AutomationProperties.Name="Velocidad de reproducción"
+                                                      automation:AutomationProperties.HelpText="La velocidad cambia el tono del audio. El valor se aplica solo mientras la aplicación está abierta.">
+                                                <ComboBoxItem Content="0,75×" Tag="75"/>
+                                                <ComboBoxItem Content="1×" Tag="100"/>
+                                                <ComboBoxItem Content="1,25×" Tag="125"/>
+                                                <ComboBoxItem Content="1,5×" Tag="150"/>
+                                                <ComboBoxItem Content="2×" Tag="200"/>
+                                            </ComboBox>
+                                            <StackPanel>
+                                                <TextBlock Text="Velocidad de reproducción" FontWeight="SemiBold"/>
+                                                <TextBlock Text="La velocidad cambia el tono; no modifica ni vuelve a guardar el audio." Foreground="#556070" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </DockPanel>
                                         <TextBlock x:Name="PlaybackStatusText" Text="Reproducción detenida." Foreground="#556070" TextWrapping="Wrap" Margin="0,5,0,0"
                                                    automation:AutomationProperties.Name="Estado de reproducción"
-                                                   automation:AutomationProperties.HelpText="Informa si el audio está detenido, reproduciéndose o pausado."
+                                                   automation:AutomationProperties.HelpText="Informa si el audio está detenido, reproduciéndose o pausado, y anuncia la velocidad seleccionada."
                                                    automation:AutomationProperties.LiveSetting="Polite"/>
                                         <TextBlock x:Name="SelectedSegmentAudioText" Text="Selecciona un fragmento de la transcripción para ubicar su audio exacto." Foreground="#556070" TextWrapping="Wrap" Margin="0,6,0,0"/>
                                     </StackPanel>

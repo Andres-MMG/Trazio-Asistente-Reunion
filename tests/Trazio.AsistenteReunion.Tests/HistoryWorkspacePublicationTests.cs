@@ -104,6 +104,56 @@ public sealed class HistoryWorkspacePublicationTests
     }
 
     [Fact]
+    public void PlaybackSpeed_XamlAndHandlerExposeClosedTemporaryControlWithoutInactiveAutoplay()
+    {
+        var root = FindRepositoryRoot();
+        var xaml = File.ReadAllText(Path.Combine(
+            root, "src", "Trazio.AsistenteReunion.App", "MainWindow.xaml"));
+        var code = File.ReadAllText(Path.Combine(
+            root, "src", "Trazio.AsistenteReunion.App", "MainWindow.xaml.cs"));
+        var playbackService = File.ReadAllText(Path.Combine(
+            root, "src", "Trazio.AsistenteReunion.App", "AudioPlaybackService.cs"));
+
+        Assert.Contains("x:Name=\"PlaybackSpeedSelector\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("SelectionChanged=\"PlaybackSpeedSelector_SelectionChanged\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"Velocidad de reproducción\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.HelpText=\"La velocidad cambia el tono", xaml, StringComparison.Ordinal);
+        Assert.Contains("anuncia la velocidad seleccionada", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"0,75×\" Tag=\"75\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"1×\" Tag=\"100\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"1,25×\" Tag=\"125\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"1,5×\" Tag=\"150\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"2×\" Tag=\"200\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("La velocidad cambia el tono", xaml, StringComparison.Ordinal);
+
+        var handlerStart = code.IndexOf("private async void PlaybackSpeedSelector_SelectionChanged", StringComparison.Ordinal);
+        var handlerEnd = code.IndexOf("private async void PlayPause_Click", handlerStart, StringComparison.Ordinal);
+        Assert.True(handlerStart >= 0 && handlerEnd > handlerStart);
+        var handler = code[handlerStart..handlerEnd];
+        Assert.Contains("CurrentPlaybackPosition()", handler, StringComparison.Ordinal);
+        Assert.Contains("_historyPlaybackPaused", handler, StringComparison.Ordinal);
+        Assert.Contains("_activePlaybackRequest", handler, StringComparison.Ordinal);
+        Assert.Contains("_playbackSpeedChanges.TryBeginChange(out var speedChange)", handler, StringComparison.Ordinal);
+        Assert.Contains("Se aplicará a la próxima reproducción", handler, StringComparison.Ordinal);
+        Assert.Contains("await BeginPlaybackOperationAsync(speedChange)", handler, StringComparison.Ordinal);
+        Assert.Contains("_playbackSpeedChanges.IsCurrent(speedChange)", handler, StringComparison.Ordinal);
+        Assert.Contains("IsCurrentPlayback(operation)", handler, StringComparison.Ordinal);
+        Assert.Contains("startPaused: wasPaused", handler, StringComparison.Ordinal);
+        Assert.Contains("request.EndPosition", handler, StringComparison.Ordinal);
+        Assert.DoesNotContain("_settings", handler, StringComparison.Ordinal);
+        Assert.True(
+            handler.IndexOf("if (!_historyPlaying", StringComparison.Ordinal) <
+            handler.IndexOf("_playbackSpeedChanges.TryBeginChange", StringComparison.Ordinal));
+
+        Assert.Contains("PlaybackSpeedSelector.IsEnabled", code, StringComparison.Ordinal);
+        Assert.Contains("_playbackSpeedChanges.IsPlaybackIntentTransitionActive", code, StringComparison.Ordinal);
+        Assert.Contains("_activePlaybackOperation is null || _historyPlaying", code, StringComparison.Ordinal);
+        Assert.True(
+            playbackService.IndexOf("new DurationLimitedWaveProvider", StringComparison.Ordinal) <
+            playbackService.IndexOf("PlaybackSpeedAudioPipeline.Create", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void HistoryPlaybackLifecycle_UsesTransientSegmentSourceAndAwaitsCancellationBeforeDelete()
     {
         var root = FindRepositoryRoot();
@@ -133,13 +183,17 @@ public sealed class HistoryWorkspacePublicationTests
         Assert.Contains("PlaybackStatusText.Text = \"Preparando reproducción de audio.\"", code, StringComparison.Ordinal);
         Assert.Contains("PlaybackStatusText.Text = \"Audio no disponible para el fragmento seleccionado.\"", segmentHandler, StringComparison.Ordinal);
 
-        var beginStart = code.IndexOf("private Task<PlaybackOperationRun?> BeginPlaybackOperationAsync", StringComparison.Ordinal);
+        var beginStart = code.IndexOf("private async Task<PlaybackOperationRun?> BeginPlaybackOperationAsync", StringComparison.Ordinal);
         var beginEnd = code.IndexOf("private bool IsCurrentPlayback", beginStart, StringComparison.Ordinal);
         var beginHandler = code[beginStart..beginEnd];
         Assert.Equal(2, CountOccurrences(beginHandler, "HistoryPlaybackAvailability.CanBeginOperation"));
+        Assert.Equal(2, CountOccurrences(beginHandler, "_playbackSpeedChanges.IsCurrent"));
+        Assert.Contains("PlaybackSpeedChangeTicket? speedChange = null", beginHandler, StringComparison.Ordinal);
+        Assert.Contains("_playbackSpeedChanges.BeginPlaybackIntentTransition()", beginHandler, StringComparison.Ordinal);
+        Assert.Contains("playbackIntentTransition?.Dispose()", beginHandler, StringComparison.Ordinal);
         Assert.Contains("_playbackTransitions.RunAsync", beginHandler, StringComparison.Ordinal);
         Assert.Contains("SupersedePlaybackCoreAsync", beginHandler, StringComparison.Ordinal);
-        Assert.Contains("_playbackTransitions.RunAsync(() => SupersedePlaybackCoreAsync(announce))", code, StringComparison.Ordinal);
+        Assert.Contains("return await _playbackTransitions.RunAsync(() => SupersedePlaybackCoreAsync(announce))", code, StringComparison.Ordinal);
         Assert.Contains("if (!_playbackTransitionEpoch.IsCurrent(stopGeneration)) return", code, StringComparison.Ordinal);
         Assert.Contains("Func<bool> canPublish", code, StringComparison.Ordinal);
         Assert.Contains("if (!canPublish()) return false", code, StringComparison.Ordinal);
@@ -147,6 +201,32 @@ public sealed class HistoryWorkspacePublicationTests
         Assert.Contains("HistorySegments.IsEnabled = !playbackBlocked", code, StringComparison.Ordinal);
         Assert.Contains("var control = _historyPlaybackPaused ? _playback.Resume() : _playback.Pause()", code, StringComparison.Ordinal);
         Assert.Contains("if (!control.Succeeded)", code, StringComparison.Ordinal);
+
+        var supersedeStart = code.IndexOf("private async Task<long> SupersedePlaybackAsync", StringComparison.Ordinal);
+        var supersedeEnd = code.IndexOf("private async Task<long> SupersedePlaybackCoreAsync", supersedeStart, StringComparison.Ordinal);
+        var supersedeHandler = code[supersedeStart..supersedeEnd];
+        Assert.True(
+            supersedeHandler.IndexOf("_playbackSpeedChanges.BeginPlaybackIntentTransition()", StringComparison.Ordinal) <
+            supersedeHandler.IndexOf("_playbackTransitions.RunAsync", StringComparison.Ordinal));
+        Assert.Contains("playbackIntentTransition.Dispose()", supersedeHandler, StringComparison.Ordinal);
+
+        var applyTrackStart = code.IndexOf("private Task<bool> ApplyHistoryTrackAsync", StringComparison.Ordinal);
+        var applyTrackEnd = code.IndexOf("private void SetPlaybackPosition", applyTrackStart, StringComparison.Ordinal);
+        var applyTrackHandler = code[applyTrackStart..applyTrackEnd];
+        Assert.True(
+            applyTrackHandler.IndexOf("if (!canPublish()) return false", StringComparison.Ordinal) <
+            applyTrackHandler.IndexOf("_playbackSpeedChanges.BeginPlaybackIntentTransition()", StringComparison.Ordinal));
+        Assert.True(
+            applyTrackHandler.IndexOf("_playbackSpeedChanges.BeginPlaybackIntentTransition()", StringComparison.Ordinal) <
+            applyTrackHandler.IndexOf("SupersedePlaybackCoreAsync", StringComparison.Ordinal));
+        Assert.Contains("playbackIntentTransition.Dispose()", applyTrackHandler, StringComparison.Ordinal);
+
+        var stopStart = code.IndexOf("private async void StopPlayback_Click", StringComparison.Ordinal);
+        var stopEnd = code.IndexOf("private async Task<long> SupersedePlaybackAsync", stopStart, StringComparison.Ordinal);
+        var stopHandler = code[stopStart..stopEnd];
+        Assert.True(
+            stopHandler.IndexOf("_playbackSpeedChanges.InvalidatePlaybackIntent()", StringComparison.Ordinal) <
+            stopHandler.IndexOf("if (_activePlaybackOperation is null", StringComparison.Ordinal));
 
         var deleteStart = code.IndexOf("private async void Delete_Click", StringComparison.Ordinal);
         var deleteEnd = code.IndexOf("private async void ChangeStorageFolder_Click", deleteStart, StringComparison.Ordinal);

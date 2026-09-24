@@ -42,15 +42,36 @@ public sealed class AudioPlaybackService : IAsyncDisposable
         AudioArchiveStore archive,
         IReadOnlyList<ArchivedAudioChunk> chunks,
         CancellationToken cancellationToken = default) =>
-        PlayFromAsync(archive, chunks, TimeSpan.Zero, null, cancellationToken);
+        PlayFromAsync(
+            archive,
+            chunks,
+            TimeSpan.Zero,
+            null,
+            PlaybackSpeed.Normal,
+            startPaused: false,
+            cancellationToken: cancellationToken);
 
     public Task PlayPlanAsync(
         AudioArchiveStore archive,
         SegmentPlaybackPlan plan,
         CancellationToken cancellationToken = default)
+        => PlayPlanAsync(
+            archive,
+            plan,
+            PlaybackSpeed.Normal,
+            startPaused: false,
+            cancellationToken: cancellationToken);
+
+    public Task PlayPlanAsync(
+        AudioArchiveStore archive,
+        SegmentPlaybackPlan plan,
+        PlaybackSpeed speed,
+        bool startPaused = false,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(archive);
         ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(speed);
         return PlaySlicesAsync(
             archive.ReadChunkAsync,
             plan.Timeline.Spans
@@ -59,6 +80,8 @@ public sealed class AudioPlaybackService : IAsyncDisposable
                     span.OffsetIntoChunk,
                     span.SessionEnd - span.SessionStart))
                 .ToArray(),
+            speed,
+            startPaused,
             cancellationToken);
     }
 
@@ -68,9 +91,27 @@ public sealed class AudioPlaybackService : IAsyncDisposable
         TimeSpan offsetIntoFirstChunk,
         TimeSpan? maximumDuration,
         CancellationToken cancellationToken = default)
+        => PlayFromAsync(
+            archive,
+            chunks,
+            offsetIntoFirstChunk,
+            maximumDuration,
+            PlaybackSpeed.Normal,
+            startPaused: false,
+            cancellationToken: cancellationToken);
+
+    public Task PlayFromAsync(
+        AudioArchiveStore archive,
+        IReadOnlyList<ArchivedAudioChunk> chunks,
+        TimeSpan offsetIntoFirstChunk,
+        TimeSpan? maximumDuration,
+        PlaybackSpeed speed,
+        bool startPaused = false,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(archive);
         ArgumentNullException.ThrowIfNull(chunks);
+        ArgumentNullException.ThrowIfNull(speed);
         var remaining = maximumDuration;
         var slices = new List<AudioPlaybackSlice>(chunks.Count);
         for (var index = 0; index < chunks.Count && remaining != TimeSpan.Zero; index++)
@@ -85,16 +126,30 @@ public sealed class AudioPlaybackService : IAsyncDisposable
             slices.Add(new(chunks[index], offset, duration));
             if (remaining is not null) remaining -= duration;
         }
-        return PlaySlicesAsync(archive.ReadChunkAsync, slices, cancellationToken);
+        return PlaySlicesAsync(archive.ReadChunkAsync, slices, speed, startPaused, cancellationToken);
     }
+
+    internal Task PlaySlicesAsync(
+        Func<ArchivedAudioChunk, CancellationToken, Task<byte[]>> readChunkAsync,
+        IReadOnlyList<AudioPlaybackSlice> slices,
+        CancellationToken cancellationToken = default) =>
+        PlaySlicesAsync(
+            readChunkAsync,
+            slices,
+            PlaybackSpeed.Normal,
+            startPaused: false,
+            cancellationToken: cancellationToken);
 
     internal async Task PlaySlicesAsync(
         Func<ArchivedAudioChunk, CancellationToken, Task<byte[]>> readChunkAsync,
         IReadOnlyList<AudioPlaybackSlice> slices,
+        PlaybackSpeed speed,
+        bool startPaused = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(readChunkAsync);
         ArgumentNullException.ThrowIfNull(slices);
+        ArgumentNullException.ThrowIfNull(speed);
 
         PlaybackRun run;
         Task playbackTask;
@@ -113,10 +168,10 @@ public sealed class AudioPlaybackService : IAsyncDisposable
                 _output = null;
                 _outputClock = null;
                 _completedBeforeOutput = TimeSpan.Zero;
-                _pauseRequested = false;
+                _pauseRequested = startPaused;
                 Interlocked.Exchange(ref _elapsedTicks, 0);
             }
-            playbackTask = ExecutePlaybackAsync(run, readChunkAsync, slices);
+            playbackTask = ExecutePlaybackAsync(run, readChunkAsync, slices, speed);
             lock (_sync)
             {
                 if (ReferenceEquals(_activeRun, run)) _activeTask = playbackTask;
@@ -131,7 +186,8 @@ public sealed class AudioPlaybackService : IAsyncDisposable
     private async Task ExecutePlaybackAsync(
         PlaybackRun run,
         Func<ArchivedAudioChunk, CancellationToken, Task<byte[]>> readChunkAsync,
-        IReadOnlyList<AudioPlaybackSlice> slices)
+        IReadOnlyList<AudioPlaybackSlice> slices,
+        PlaybackSpeed speed)
     {
         using var cancellationRegistration = run.CancellationToken.Register(() => StopOutput(run));
         var completed = TimeSpan.Zero;
@@ -157,12 +213,14 @@ public sealed class AudioPlaybackService : IAsyncDisposable
                 output.PlaybackStopped += OnPlaybackStopped;
                 try
                 {
-                    var playbackSource = new DurationLimitedWaveProvider(reader, maximumDuration);
-                    output.Init(playbackSource);
+                    var boundedSource = new DurationLimitedWaveProvider(reader, maximumDuration);
+                    var playbackSource = PlaybackSpeedAudioPipeline.Create(boundedSource, speed);
+                    output.Init(playbackSource.Output);
                     var clock = new PlaybackOutputClock(
                         output.OutputWaveFormat,
                         SafeGetPosition(output),
-                        playbackSource.MaximumDuration);
+                        boundedSource.MaximumDuration,
+                        playbackSource.SourceTimeScale);
                     AttachOutput(run, output, clock, completed);
                     try
                     {
@@ -436,16 +494,21 @@ internal sealed class PlaybackOutputClock
     private readonly WaveFormat _waveFormat;
     private readonly long _originBytes;
     private readonly TimeSpan _maximumDuration;
+    private readonly double _sourceTimeScale;
     private TimeSpan _elapsed;
 
     public PlaybackOutputClock(
         WaveFormat waveFormat,
         long originBytes,
-        TimeSpan maximumDuration)
+        TimeSpan maximumDuration,
+        double sourceTimeScale = 1d)
     {
         _waveFormat = waveFormat ?? throw new ArgumentNullException(nameof(waveFormat));
+        if (!double.IsFinite(sourceTimeScale) || sourceTimeScale <= 0)
+            throw new ArgumentOutOfRangeException(nameof(sourceTimeScale));
         _originBytes = Math.Max(0, originBytes);
         _maximumDuration = maximumDuration < TimeSpan.Zero ? TimeSpan.Zero : maximumDuration;
+        _sourceTimeScale = sourceTimeScale;
     }
 
     public TimeSpan Elapsed => _elapsed;
@@ -454,7 +517,8 @@ internal sealed class PlaybackOutputClock
     {
         var bytes = Math.Max(0, devicePositionBytes - _originBytes);
         bytes -= bytes % _waveFormat.BlockAlign;
-        var observed = TimeSpan.FromSeconds(bytes / (double)_waveFormat.AverageBytesPerSecond);
+        var observed = TimeSpan.FromSeconds(
+            bytes / (double)_waveFormat.AverageBytesPerSecond * _sourceTimeScale);
         if (observed > _maximumDuration) observed = _maximumDuration;
         if (observed > _elapsed) _elapsed = observed;
         return _elapsed;

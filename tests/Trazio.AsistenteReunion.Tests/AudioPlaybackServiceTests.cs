@@ -37,6 +37,28 @@ public sealed class AudioPlaybackServiceTests
         Assert.Equal(TimeSpan.FromSeconds(1), clock.Observe(90_000));
     }
 
+    [Theory]
+    [InlineData(75, 300)]
+    [InlineData(100, 400)]
+    [InlineData(125, 500)]
+    [InlineData(150, 600)]
+    [InlineData(200, 800)]
+    public void PlaybackOutputClock_MapsOutputBytesToSourceElapsed(
+        int percent,
+        int expectedSourceMilliseconds)
+    {
+        var speed = PlaybackSpeed.FromPercent(percent);
+        var clock = new PlaybackOutputClock(
+            new WaveFormat(16_000, 16, 1),
+            originBytes: 0,
+            maximumDuration: TimeSpan.FromSeconds(1),
+            sourceTimeScale: speed.Multiplier);
+
+        var elapsed = clock.Observe(12_800);
+
+        Assert.Equal(TimeSpan.FromMilliseconds(expectedSourceMilliseconds), elapsed);
+    }
+
     [Fact]
     public async Task Elapsed_WhenProviderReadsAhead_TracksOnlyDevicePosition()
     {
@@ -171,6 +193,178 @@ public sealed class AudioPlaybackServiceTests
         await playback.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(TimeSpan.FromSeconds(2), service.Elapsed);
+    }
+
+    [Fact]
+    public async Task StartPaused_HoldsFirstOutputUntilResumeWithoutAudibleBlip()
+    {
+        var factory = new FakePlaybackOutputFactory();
+        await using var service = new AudioPlaybackService(factory);
+
+        var playback = service.PlaySlicesAsync(
+            (_, _) => Task.FromResult(OneSecondWav()),
+            [Slice("paused-start", TimeSpan.FromSeconds(1))],
+            PlaybackSpeed.FromPercent(150),
+            startPaused: true);
+        var output = await factory.NextAsync();
+        await output.Initialized.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(0, output.PlayCalls);
+        Assert.Equal(TimeSpan.Zero, service.Elapsed);
+
+        Assert.True(service.Resume().Succeeded);
+        await output.Played.WaitAsync(TimeSpan.FromSeconds(5));
+        output.Advance(TimeSpan.FromMilliseconds(200));
+        Assert.InRange(
+            service.Elapsed,
+            TimeSpan.FromMilliseconds(299),
+            TimeSpan.FromMilliseconds(301));
+
+        output.Complete();
+        await playback.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Theory]
+    [InlineData(75, 300)]
+    [InlineData(100, 400)]
+    [InlineData(125, 500)]
+    [InlineData(150, 600)]
+    [InlineData(200, 800)]
+    public async Task Elapsed_AtEveryPlaybackSpeed_RemainsSourceTime(
+        int percent,
+        int expectedSourceMilliseconds)
+    {
+        var factory = new FakePlaybackOutputFactory();
+        await using var service = new AudioPlaybackService(factory);
+        var speed = PlaybackSpeed.FromPercent(percent);
+
+        var playback = service.PlaySlicesAsync(
+            (_, _) => Task.FromResult(OneSecondWav()),
+            [Slice($"speed-{percent}", TimeSpan.FromSeconds(1))],
+            speed,
+            startPaused: false);
+        var output = await factory.NextAsync();
+        await output.Played.WaitAsync(TimeSpan.FromSeconds(5));
+
+        output.Advance(TimeSpan.FromMilliseconds(400));
+
+        Assert.InRange(
+            service.Elapsed,
+            TimeSpan.FromMilliseconds(expectedSourceMilliseconds - 1),
+            TimeSpan.FromMilliseconds(expectedSourceMilliseconds + 1));
+        output.Complete();
+        await playback.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task ReplacementAtNewSpeed_WaitsForOldOutputAndPreservesPauseIntent()
+    {
+        var factory = new FakePlaybackOutputFactory();
+        await using var service = new AudioPlaybackService(factory);
+        var first = service.PlaySlicesAsync(
+            (_, _) => Task.FromResult(OneSecondWav()),
+            [Slice("normal", TimeSpan.FromSeconds(1))],
+            PlaybackSpeed.Normal,
+            startPaused: false);
+        var firstOutput = await factory.NextAsync();
+        await firstOutput.Played.WaitAsync(TimeSpan.FromSeconds(5));
+        firstOutput.Advance(TimeSpan.FromMilliseconds(250));
+
+        var replacement = service.PlaySlicesAsync(
+            (_, _) => Task.FromResult(OneSecondWav()),
+            [Slice("double", TimeSpan.FromSeconds(1))],
+            PlaybackSpeed.FromPercent(200),
+            startPaused: true);
+        var secondOutput = await factory.NextAsync();
+        await secondOutput.Initialized.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.True(firstOutput.IsDisposed);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first);
+        Assert.Equal(0, secondOutput.PlayCalls);
+        Assert.Equal(TimeSpan.Zero, service.Elapsed);
+
+        Assert.True(service.Resume().Succeeded);
+        await secondOutput.Played.WaitAsync(TimeSpan.FromSeconds(5));
+        secondOutput.Advance(TimeSpan.FromMilliseconds(250));
+        Assert.InRange(
+            service.Elapsed,
+            TimeSpan.FromMilliseconds(499),
+            TimeSpan.FromMilliseconds(501));
+        secondOutput.Complete();
+        await replacement.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task RapidSpeedReplacements_LeaveOnlyLatestOutputActive()
+    {
+        var factory = new FakePlaybackOutputFactory();
+        await using var service = new AudioPlaybackService(factory);
+
+        var first = service.PlaySlicesAsync(
+            (_, _) => Task.FromResult(OneSecondWav()),
+            [Slice("first-speed", TimeSpan.FromSeconds(1))],
+            PlaybackSpeed.Normal,
+            startPaused: false);
+        var firstOutput = await factory.NextAsync();
+        await firstOutput.Played.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var second = service.PlaySlicesAsync(
+            (_, _) => Task.FromResult(OneSecondWav()),
+            [Slice("second-speed", TimeSpan.FromSeconds(1))],
+            PlaybackSpeed.FromPercent(125),
+            startPaused: false);
+        var secondOutput = await factory.NextAsync();
+        await secondOutput.Played.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var latest = service.PlaySlicesAsync(
+            (_, _) => Task.FromResult(OneSecondWav()),
+            [Slice("latest-speed", TimeSpan.FromSeconds(1))],
+            PlaybackSpeed.FromPercent(200),
+            startPaused: true);
+        var latestOutput = await factory.NextAsync();
+        await latestOutput.Initialized.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.True(firstOutput.IsDisposed);
+        Assert.True(secondOutput.IsDisposed);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => second);
+        Assert.False(latestOutput.IsDisposed);
+        Assert.Equal(0, latestOutput.PlayCalls);
+
+        Assert.True(service.Resume().Succeeded);
+        await latestOutput.Played.WaitAsync(TimeSpan.FromSeconds(5));
+        latestOutput.Advance(TimeSpan.FromMilliseconds(250));
+        latestOutput.Complete();
+        await latest.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.InRange(
+            service.Elapsed,
+            TimeSpan.FromMilliseconds(499),
+            TimeSpan.FromMilliseconds(501));
+    }
+
+    [Fact]
+    public async Task SpeedPipeline_BoundsSourceBeforeResampling()
+    {
+        var factory = new FakePlaybackOutputFactory();
+        await using var service = new AudioPlaybackService(factory);
+
+        var playback = service.PlaySlicesAsync(
+            (_, _) => Task.FromResult(OneSecondWav()),
+            [Slice("bounded", TimeSpan.FromMilliseconds(250))],
+            PlaybackSpeed.FromPercent(200),
+            startPaused: false);
+        var output = await factory.NextAsync();
+        await output.Played.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.InRange(output.ReadAheadBytes, 3_998, 4_002);
+
+        output.Advance(TimeSpan.FromMilliseconds(125));
+        output.Complete();
+        await playback.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.InRange(
+            service.Elapsed,
+            TimeSpan.FromMilliseconds(249),
+            TimeSpan.FromMilliseconds(251));
     }
 
     [Fact]
