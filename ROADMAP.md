@@ -197,7 +197,7 @@ La diarización de audio separa voces, pero no revela nombres reales. Asociar un
 
 - Búsqueda de texto completo entre reuniones.
 - **8.1a implementada en código; validación física pendiente:** segmento anterior/siguiente sobre las filas cargadas sin reproducción automática, línea de tiempo que conserva los huecos reales del audio y resaltado continuo separado de la selección de edición. Cambiar sesión, fuente o revisión y detener limpia la operación anterior.
-- **8.1b pendiente:** control de velocidad sin alterar las marcas de tiempo lógicas ni los límites del segmento.
+- **8.1b implementada en código; validación audible pendiente:** selector temporal de `0,75×`, `1×`, `1,25×`, `1,5×` y `2×` para pista, fragmento e intervalo comparado. El cambio reinicia desde la posición fuente calculada a partir de los bytes informados por el dispositivo, conserva pausa y límite final, y no altera las marcas lógicas. Usa WDL de NAudio sin dependencia nueva; deliberadamente cambia el tono y no pretende hacer *time-stretch* natural.
 - Navegación avanzada restante: revisión por lotes.
 - Revisión y aprobación avanzadas por lotes de revisiones de transcripción y etiquetas de hablantes.
 - Gestión global del glosario, detección de duplicados, importación y exportación.
@@ -206,7 +206,7 @@ La diarización de audio separa voces, pero no revela nombres reales. Asociar un
 - Ampliar los formatos estructurados más allá de la nota Markdown/Obsidian ya entregada y evaluar integración directa solo si conserva el control explícito del usuario.
 - Evaluar Opus para archivos de audio cifrados más pequeños, preservando navegación y exportación fiables.
 
-La evidencia automatizada de 8.1a cubre límites de navegación, listas reemplazadas y fuentes mezcladas; huecos, fronteras y fin exclusivo de intervalos; reloj de salida resistente a lectura adelantada; cancelación con espera; pausa entre fragmentos; reproducción transitoria sin cambiar fuente/revisión; resaltado por fuente y solapamientos deterministas; contrato XAML, accesibilidad declarada y ausencia de reproducción implícita. No reemplaza una prueba con dispositivo de audio real, teclado completo ni lector de pantalla.
+La evidencia automatizada de 8.1a cubre límites de navegación, listas reemplazadas y fuentes mezcladas; huecos, fronteras y fin exclusivo de intervalos; reloj de salida resistente a lectura adelantada; cancelación con espera; pausa entre fragmentos; reproducción transitoria sin cambiar fuente/revisión; resaltado por fuente y solapamientos deterministas; contrato XAML, accesibilidad declarada y ausencia de reproducción implícita. 8.1b agrega catálogo cerrado, DSP sin dispositivo, posición fuente por velocidad, límites previos al resampling, reinicio pausado y reemplazo generacional. No reemplaza una prueba audible con dispositivo real, teclado completo ni lector de pantalla.
 
 ## Etapa 9 — Inteligencia de reuniones opcional
 

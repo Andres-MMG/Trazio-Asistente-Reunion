@@ -44,6 +44,8 @@ MICRÓFONO + AUDIO DEL EQUIPO
 | Exportación para Obsidian | Crea de forma explícita una nota Markdown en la carpeta elegida, con metadatos, marcas de tiempo, fuente, hablante y correcciones humanas vigentes; no exporta audio ni selecciona silenciosamente una revisión del modelo. |
 | Instalación manual segura | La beta 6 publica un instalador offline por usuario con payloads versionados, reparación de la misma versión, bloqueo de downgrade y rollback durante Setup. El instalador permanece sin firma y no fue ejecutado con identidad productiva; no hay descarga ni actualización automática. |
 
+**Implementado en `main` y previsto para la próxima beta:** control temporal de velocidad `0,75×–2×` para pista, fragmento e intervalo comparado. Todavía no forma parte de la beta 6 pública. El resampling cambia el tono y su validación audible con hardware real continúa pendiente.
+
 **Todavía no implementado:** identificación de hablantes remotos, perfiles de producción validados, OCR, reconocimiento de rostros, lectura de nombres, pestañas/DOM/URL, chat, subtítulos o documentos, adaptadores de proveedores, automatización de calendarios, sincronización en la nube, resúmenes/traducción de reuniones, actualizaciones automáticas o entrenamiento de modelos. La evidencia visual anónima solo se correlaciona con `SystemOutput`; no modifica la transcripción, `SpeakerName` ni las exportaciones TXT, Markdown u Obsidian. Las entradas del glosario se guardan, pero **todavía no se incorporan a Whisper ni se aplican automáticamente a nuevas transcripciones**. Una diferencia textual entre versiones no es una puntuación de precisión.
 
 ## Ejecutar la versión preliminar
