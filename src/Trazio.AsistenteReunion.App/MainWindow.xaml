@@ -324,7 +324,7 @@
                                             <Button x:Name="ExportWavButton" Content="Exportar pista a WAV…" IsEnabled="False" Click="ExportWav_Click" ToolTip="Crea un archivo WAV sin cifrar de la pista seleccionada."/>
                                             <Button x:Name="ExportTxtButton" Content="Exportar transcripción a TXT…" IsEnabled="False" Click="Export_Click" ToolTip="Crea una transcripción TXT sin cifrar en la ubicación que elijas."/>
                                             <Button x:Name="ExportObsidianButton" Content="Exportar a Obsidian…" IsEnabled="False" Click="ExportObsidian_Click" ToolTip="Crea una nota Markdown sin cifrar compatible con Obsidian en la ubicación que elijas." automation:AutomationProperties.Name="Exportar transcripción a Obsidian"/>
-                                            <Button x:Name="DeleteSessionButton" Content="Eliminar sesión…" IsEnabled="False" Foreground="#A12626" Click="Delete_Click" ToolTip="Elimina definitivamente la sesión, su transcripción y el audio conservado." automation:AutomationProperties.HelpText="Elimina definitivamente la sesión, la transcripción y el audio conservado."/>
+                                            <Button x:Name="DeleteSessionButton" Content="Eliminar sesión…" IsEnabled="False" Foreground="#A12626" Click="Delete_Click" ToolTip="Elimina definitivamente la sesión, su transcripción, el audio conservado y las entradas del diccionario originadas en sus correcciones." automation:AutomationProperties.HelpText="Elimina definitivamente la sesión, la transcripción, el audio conservado y las entradas del diccionario originadas en sus correcciones."/>
                                         </WrapPanel>
                                         <TextBlock Text="Almacenamiento local" FontWeight="SemiBold"/>
                                         <TextBox x:Name="StoragePathText" IsReadOnly="True" BorderThickness="0" Background="Transparent" Margin="0,3,0,2" TextWrapping="Wrap" automation:AutomationProperties.Name="Ruta de la carpeta de almacenamiento local"/>
@@ -441,11 +441,11 @@
                                                         <ComboBox x:Name="GlossaryCategory" Width="140" SelectedIndex="5">
                                                             <ComboBoxItem Content="Producto"/><ComboBoxItem Content="Persona"/><ComboBoxItem Content="Organización"/><ComboBoxItem Content="Sigla"/><ComboBoxItem Content="Término médico"/><ComboBoxItem Content="Término técnico"/>
                                                         </ComboBox>
-                                                        <CheckBox x:Name="GlossaryActiveCheck" Content="Usar en futuras transcripciones" IsChecked="True" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                                        <CheckBox x:Name="GlossaryActiveCheck" Content="Guardar como activa" IsChecked="True" VerticalAlignment="Center" Margin="10,0,0,0"/>
                                                     </StackPanel>
                                                     <Button x:Name="AddGlossaryButton" DockPanel.Dock="Right" Content="Agregar términos seleccionados" Click="AddGlossary_Click" IsEnabled="False" Margin="14,0,0,0"/>
                                                 </DockPanel>
-                                                <TextBlock Text="Los términos quedan disponibles para futuras transcripciones; el texto existente nunca se modifica sin aviso." Foreground="#556070" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                                <TextBlock Text="Guardar como activa solo prepara la entrada para una aplicación futura. Esta versión no modifica Whisper ni reemplaza texto automáticamente." Foreground="#556070" TextWrapping="Wrap" Margin="0,6,0,0"/>
                                             </StackPanel>
                                         </Border>
                                         <TextBlock x:Name="GlossaryNoSuggestionsText" Visibility="Collapsed" Foreground="#556070" TextWrapping="Wrap" Margin="0,8,0,0"
@@ -456,6 +456,82 @@
                         </DockPanel>
                     </Border>
                 </Grid>
+            </TabItem>
+            <TabItem x:Name="GlossaryTabItem" Header="Diccionario">
+                <Border Margin="14" Background="White" CornerRadius="6" Padding="16" BorderBrush="#DDE2EA" BorderThickness="1">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                            <DockPanel>
+                                <TextBlock Text="Diccionario global" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <Button x:Name="RefreshGlossaryButton" DockPanel.Dock="Right" Content="Actualizar" Click="RefreshGlossary_Click" IsEnabled="False"
+                                        ToolTip="Vuelve a cargar todas las entradas desde el almacenamiento local cifrado."
+                                        automation:AutomationProperties.Name="Actualizar diccionario global"/>
+                            </DockPanel>
+                            <TextBlock Text="Revisa las palabras guardadas desde las correcciones humanas de todas tus reuniones." Foreground="#556070" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            <Border Background="#FFF4D6" BorderBrush="#E0B543" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,10,0,0">
+                                <TextBlock Text="Las entradas activas quedan preparadas para una aplicación futura. Esta versión no modifica Whisper ni reemplaza texto automáticamente."
+                                           TextWrapping="Wrap"/>
+                            </Border>
+                            <Grid Margin="0,12,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="170"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,10,0">
+                                    <TextBlock Text="Filtrar términos o categoría" FontWeight="SemiBold"/>
+                                    <TextBox x:Name="GlossaryFilterBox" MaxLength="120" TextChanged="GlossaryFilterBox_TextChanged"
+                                             automation:AutomationProperties.Name="Filtrar entradas del diccionario"
+                                             automation:AutomationProperties.HelpText="Filtra en memoria por forma incorrecta, término preferido o categoría; ignora mayúsculas y tildes."/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="0,0,10,0">
+                                    <TextBlock Text="Estado" FontWeight="SemiBold"/>
+                                    <ComboBox x:Name="GlossaryActivityFilter" SelectedIndex="0" SelectionChanged="GlossaryActivityFilter_SelectionChanged"
+                                              automation:AutomationProperties.Name="Filtrar entradas por estado">
+                                        <ComboBoxItem Content="Todos" Tag="All"/>
+                                        <ComboBoxItem Content="Activos" Tag="Active"/>
+                                        <ComboBoxItem Content="Inactivos" Tag="Inactive"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <Button x:Name="ClearGlossaryFilterButton" Grid.Column="2" Content="Limpiar filtro" Click="ClearGlossaryFilter_Click" IsEnabled="False" VerticalAlignment="Bottom"
+                                        automation:AutomationProperties.Name="Limpiar filtro del diccionario"/>
+                            </Grid>
+                            <TextBlock x:Name="GlossaryWorkspaceStatusText" Text="Abre esta pestaña para cargar el diccionario."
+                                       Foreground="#556070" TextWrapping="Wrap" Margin="0,7,0,0" Focusable="True"
+                                       automation:AutomationProperties.Name="Estado del diccionario global"
+                                       automation:AutomationProperties.LiveSetting="Polite"/>
+                        </StackPanel>
+                        <Grid>
+                            <TextBlock x:Name="GlossaryWorkspaceEmptyText" Text="El diccionario todavía no tiene entradas." Foreground="#556070" TextWrapping="Wrap" Margin="6" Visibility="Collapsed"/>
+                            <ListBox x:Name="GlossaryWorkspaceList" BorderThickness="0" HorizontalContentAlignment="Stretch"
+                                     ScrollViewer.CanContentScroll="True" VirtualizingPanel.IsVirtualizing="True"
+                                     automation:AutomationProperties.Name="Entradas del diccionario global">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type local:GlossaryWorkspaceItem}">
+                                        <Border Margin="2,3" Padding="9" BorderBrush="#DDE2EA" BorderThickness="1" CornerRadius="5"
+                                                automation:AutomationProperties.Name="{Binding AutomationName}">
+                                            <DockPanel>
+                                                <CheckBox DockPanel.Dock="Right" Content="Activa" IsChecked="{Binding IsActive, Mode=OneWay}"
+                                                          Click="GlossaryEntryActive_Click" Margin="14,0,0,0" VerticalAlignment="Center"
+                                                          automation:AutomationProperties.Name="{Binding AutomationName}"
+                                                          automation:AutomationProperties.HelpText="Activa o desactiva esta entrada sin modificar Whisper ni las transcripciones existentes."/>
+                                                <TextBlock DockPanel.Dock="Left" Text="{Binding OrdinalLabel}" Width="46" Foreground="#246BCE" FontWeight="SemiBold" VerticalAlignment="Top"/>
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding ReplacementLabel}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                                    <WrapPanel Margin="0,4,0,0">
+                                                        <TextBlock Text="{Binding Category}" Foreground="#246BCE" Margin="0,0,14,0"/>
+                                                        <TextBlock Text="{Binding CreatedAtLabel}" Foreground="#556070" Margin="0,0,14,0"/>
+                                                        <TextBlock Text="{Binding SourceLabel}" Foreground="#556070"/>
+                                                    </WrapPanel>
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </DockPanel>
+                </Border>
             </TabItem>
         </TabControl>
         <StatusBar Grid.Row="2" Margin="0,12,0,0"><StatusBarItem><TextBlock x:Name="StatusText" Text="Listo" automation:AutomationProperties.LiveSetting="Polite"/></StatusBarItem></StatusBar>

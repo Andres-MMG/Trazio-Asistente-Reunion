@@ -70,7 +70,18 @@ La consulta y los resultados no se guardan en SQLite ni en un índice. Se descif
 3. Revisa los reemplazos de términos detectados. Por ejemplo, cambiar dos nombres debería proponer `Need → Meet` y `NTeams → Teams`, no toda la oración.
 4. Después de guardar una corrección, selecciona las sugerencias que convenga conservar y agrégalas al diccionario. El texto sin cambios no es una regla útil de glosario.
 
-**Límite actual:** el glosario registra terminología confirmada y su procedencia. Todavía no cambia las instrucciones de Whisper ni reemplaza palabras automáticamente. Guardar correcciones no entrena el modelo de voz. La aplicación futura del glosario pertenece a la etapa 6; el entrenamiento, a la etapa 12.
+**Límite actual:** el glosario registra terminología confirmada y su procedencia. Todavía no cambia las instrucciones de Whisper ni reemplaza palabras automáticamente. Guardar correcciones no entrena el modelo de voz. La aplicación futura acotada del glosario pertenece a la etapa 8.7; el entrenamiento, a la etapa 12.
+
+### Gestionar el diccionario global en la versión de desarrollo
+
+La rama `main`, posterior a beta 8 y todavía no publicada, agrega la pestaña **Diccionario**:
+
+1. Usa **Filtrar términos o categoría** para buscar por forma incorrecta, término preferido o categoría. El filtro ignora mayúsculas y tildes, se ejecuta solo en memoria y muestra hasta 120 entradas.
+2. Elige **Todos**, **Activos** o **Inactivos**. Cada duplicado histórico aparece como una fila independiente con un ordinal público; no se muestran IDs internos.
+3. Marca o desmarca **Activa**. El cambio solo prepara esa entrada para una aplicación futura: **no modifica Whisper, no reemplaza texto y no cambia transcripciones existentes**.
+4. Usa **Actualizar** para volver a leer el almacén cifrado. Si una entrada está corrupta, la carga completa se rechaza y no se publica una lista parcial.
+
+Al eliminar una sesión también se eliminan las entradas del diccionario originadas en sus correcciones. Deshacer una corrección, en cambio, conserva sus entradas. Detección/fusión de duplicados, importación, exportación y aplicación del diccionario pertenecen a etapas posteriores.
 
 ## Retranscribir y comparar versiones
 

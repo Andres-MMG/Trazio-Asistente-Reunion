@@ -6,6 +6,8 @@ La beta 8 usa la secuencia de instalador **9**, mantiene exactamente cinco capac
 
 La beta 8 pública incluye la revisión de historial 8.1: anterior/siguiente sin reproducción automática, línea de tiempo con huecos reales, resaltado independiente y velocidad temporal `0,75×–2×`. La velocidad cambia el tono, no se persiste y la validación audible/accesible continúa pendiente.
 
+La rama `main`, posterior a beta 8 y todavía no publicada, incorpora 8.3a: una pestaña global de diccionario con filtro local y activación por entrada. Esta rebanada no aplica el diccionario a Whisper ni agrega una capacidad nueva al paquete.
+
 El tag de beta 8 resuelve a `20c94272261f5697a548c56754039029b23f1548`. El ZIP publicado mide **86,866,781 bytes** y su SHA-256 es `240a792ab8388a0511fb8b25ac466feeb104fdf6779b72938302adc9570b2e3f`; el Setup mide **60,034,031 bytes**, su SHA-256 es `61d87a71e2a040f10c70fa05389ca341db79e5cdcd88b2e314dcaf00c88fcaa0` y Authenticode informa `NotSigned`. Tamaños y digest remotos coinciden con los artefactos verificados. El Setup productivo no se ejecutó.
 
 La verificación de beta 8 aprobó Release serial/paralelo **543/543**, el filtro enfocado actual de cinco clases **48/48**, los contratos finales **22/22** y el harness desechable **14/14**. El filtro ampliado **61/61** se conserva como evidencia histórica de 8.2. El layout final **495/495**, con `ProductVersion` `0.2.0-beta.8+20c94272261f5697a548c56754039029b23f1548`, incluye el ensamblado puro `VisualAnalysis` y excluye la CLI offline `VisualEvaluation`, corpus/golden y directorios `tools`/`evaluation`; mantiene exactamente cinco capacidades.

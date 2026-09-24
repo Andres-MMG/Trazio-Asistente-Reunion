@@ -24,6 +24,10 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     private readonly ObservableCollection<HistorySegmentItem> _historyRows = [];
     private readonly ObservableCollection<HistorySearchResultItem> _historySearchRows = [];
     private readonly ObservableCollection<TranscriptComparisonRow> _comparisonRows = [];
+    private readonly ObservableCollection<GlossaryWorkspaceItem> _glossaryWorkspaceRows = [];
+    private IReadOnlyList<GlossaryEntry> _glossaryWorkspaceEntries = [];
+    private bool _settingGlossaryFilters;
+    private bool _glossaryWorkspaceLoadFailed;
     private bool _settingComparisonSelectors;
     private bool _comparisonLoading;
     private readonly ObservableCollection<GlossarySuggestionItem> _glossarySuggestions = [];
@@ -83,6 +87,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     private AudioArchiveStore? _audioArchive;
     private HistoryRetranscriptionService? _retranscription;
     private readonly OwnedCancellationOperationCoordinator _historyRetranscriptionOperation = new();
+    private readonly OwnedCancellationOperationCoordinator _glossaryWorkspaceOperation = new();
     private bool _settingHistoryRevision;
     private readonly AudioPlaybackService _playback = new();
     private RecordingCoordinator? _coordinator;
@@ -113,6 +118,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         HistorySearchResults.ItemsSource = _historySearchRows;
         ComparisonRows.ItemsSource = _comparisonRows;
         GlossarySuggestionsList.ItemsSource = _glossarySuggestions;
+        GlossaryWorkspaceList.ItemsSource = _glossaryWorkspaceRows;
         AudioWaveformItems.ItemsSource = _waveformBars;
         _playbackTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _playbackTimer.Tick += PlaybackTimer_Tick;
@@ -165,8 +171,10 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         _initialized = true;
         RefreshHistoryButton.IsEnabled = true;
         UpdateHistorySearchControls();
+        UpdateGlossaryWorkspaceControls();
         UpdateStorageControls();
         UpdateVisualCaptureUi();
+        if (ReferenceEquals(MainTabs.SelectedItem, GlossaryTabItem)) await LoadGlossaryWorkspaceAsync();
         await OfferPendingRecoveryAsync(recoverableSessions);
     }
 
@@ -1052,11 +1060,230 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
 
     private async void MainTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!IsInitialized || !ReferenceEquals(e.OriginalSource, MainTabs) || ReferenceEquals(MainTabs.SelectedItem, HistoryTabItem)) return;
-        _playbackSpeedChanges.InvalidatePlaybackIntent();
-        if (!_historyPlaying && _activePlaybackOperation is null) return;
-        await SupersedePlaybackAsync();
-        StatusText.Text = "La reproducción se detuvo porque se cerró el Historial";
+        if (!IsInitialized || !ReferenceEquals(e.OriginalSource, MainTabs)) return;
+
+        if (e.RemovedItems.Contains(GlossaryTabItem)) await ClearGlossaryWorkspaceAsync();
+
+        if (!ReferenceEquals(MainTabs.SelectedItem, HistoryTabItem))
+        {
+            _playbackSpeedChanges.InvalidatePlaybackIntent();
+            if (_historyPlaying || _activePlaybackOperation is not null)
+            {
+                await SupersedePlaybackAsync();
+                StatusText.Text = "La reproducción se detuvo porque se cerró el Historial";
+            }
+        }
+
+        if (ReferenceEquals(MainTabs.SelectedItem, GlossaryTabItem) && !_closing)
+            await LoadGlossaryWorkspaceAsync();
+    }
+
+    private async void RefreshGlossary_Click(object sender, RoutedEventArgs e) =>
+        await LoadGlossaryWorkspaceAsync();
+
+    private void GlossaryFilterBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_settingGlossaryFilters || _glossaryWorkspaceLoadFailed || GlossaryWorkspaceList is null || _glossaryWorkspaceOperation.IsRunning) return;
+        ApplyGlossaryWorkspaceFilter();
+        UpdateGlossaryWorkspaceControls();
+    }
+
+    private void GlossaryActivityFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_settingGlossaryFilters || _glossaryWorkspaceLoadFailed || GlossaryWorkspaceList is null || _glossaryWorkspaceOperation.IsRunning) return;
+        ApplyGlossaryWorkspaceFilter();
+        UpdateGlossaryWorkspaceControls();
+    }
+
+    private void ClearGlossaryFilter_Click(object sender, RoutedEventArgs e)
+    {
+        _settingGlossaryFilters = true;
+        try
+        {
+            GlossaryFilterBox.Clear();
+            GlossaryActivityFilter.SelectedIndex = 0;
+        }
+        finally { _settingGlossaryFilters = false; }
+        ApplyGlossaryWorkspaceFilter();
+        UpdateGlossaryWorkspaceControls();
+        GlossaryFilterBox.Focus();
+    }
+
+    private async void GlossaryEntryActive_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not CheckBox checkBox ||
+            checkBox.DataContext is not GlossaryWorkspaceItem item ||
+            _store is null ||
+            !ReferenceEquals(MainTabs.SelectedItem, GlossaryTabItem))
+            return;
+
+        var requestedActivity = checkBox.IsChecked == true;
+        checkBox.IsChecked = item.IsActive;
+        if (!_glossaryWorkspaceOperation.TryBegin([_lifetime.Token], out var operation))
+        {
+            GlossaryWorkspaceStatusText.Text = "Espera a que termine la operación actual del diccionario.";
+            return;
+        }
+
+        var writeConfirmed = false;
+        var updateCompleted = false;
+        UpdateGlossaryWorkspaceControls();
+        try
+        {
+            var updated = await _store.SetGlossaryEntryActiveAsync(
+                item.EntryId,
+                requestedActivity,
+                operation.CancellationToken);
+            writeConfirmed = updated;
+            updateCompleted = true;
+            var refreshed = await _store.ListGlossaryAsync(operation.CancellationToken);
+            if (!CanPublishGlossaryWorkspace(operation)) return;
+
+            _glossaryWorkspaceEntries = refreshed;
+            ApplyGlossaryWorkspaceFilter(updated
+                ? $"La entrada quedó {(requestedActivity ? "activa" : "inactiva")}."
+                : "La entrada ya no existía; se volvió a cargar el diccionario.");
+            StatusText.Text = updated
+                ? $"Entrada del diccionario {(requestedActivity ? "activada" : "desactivada")}"
+                : "La entrada del diccionario ya no existe";
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested) { }
+        catch (Exception)
+        {
+            if (!CanPublishGlossaryWorkspace(operation)) return;
+            if (updateCompleted)
+            {
+                FailGlossaryWorkspace(writeConfirmed
+                    ? "El cambio fue guardado, pero no se pudo volver a cargar el diccionario. Pulsa Actualizar."
+                    : "No se pudo volver a cargar el diccionario después de comprobar la entrada. Pulsa Actualizar.");
+            }
+            else
+            {
+                ApplyGlossaryWorkspaceFilter("No se pudo cambiar el estado; se restauró el valor anterior.");
+            }
+            StatusText.Text = "No se pudo cambiar la entrada del diccionario.";
+        }
+        finally
+        {
+            _glossaryWorkspaceOperation.Complete(operation);
+            if (ReferenceEquals(MainTabs.SelectedItem, GlossaryTabItem)) UpdateGlossaryWorkspaceControls();
+        }
+    }
+
+    private async Task LoadGlossaryWorkspaceAsync()
+    {
+        if (!_initialized || _store is null || _closing || !ReferenceEquals(MainTabs.SelectedItem, GlossaryTabItem)) return;
+        if (!_glossaryWorkspaceOperation.TryBegin([_lifetime.Token], out var operation)) return;
+
+        _glossaryWorkspaceLoadFailed = false;
+        _glossaryWorkspaceEntries = [];
+        _glossaryWorkspaceRows.Clear();
+        GlossaryWorkspaceList.Visibility = Visibility.Collapsed;
+        GlossaryWorkspaceEmptyText.Text = GlossaryWorkspacePresenter.LoadingStatus;
+        GlossaryWorkspaceEmptyText.Visibility = Visibility.Visible;
+        GlossaryWorkspaceStatusText.Text = GlossaryWorkspacePresenter.LoadingStatus;
+        UpdateGlossaryWorkspaceControls();
+        try
+        {
+            var entries = await _store.ListGlossaryAsync(operation.CancellationToken);
+            if (!CanPublishGlossaryWorkspace(operation)) return;
+            _glossaryWorkspaceLoadFailed = false;
+            _glossaryWorkspaceEntries = entries;
+            ApplyGlossaryWorkspaceFilter();
+            StatusText.Text = "Diccionario actualizado";
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested) { }
+        catch (Exception)
+        {
+            if (!CanPublishGlossaryWorkspace(operation)) return;
+            FailGlossaryWorkspace("Comprueba el almacenamiento cifrado e intenta nuevamente.");
+            StatusText.Text = "No se pudo cargar el diccionario.";
+        }
+        finally
+        {
+            _glossaryWorkspaceOperation.Complete(operation);
+            if (ReferenceEquals(MainTabs.SelectedItem, GlossaryTabItem)) UpdateGlossaryWorkspaceControls();
+        }
+    }
+
+    private async Task ClearGlossaryWorkspaceAsync()
+    {
+        await _glossaryWorkspaceOperation.CancelAndWaitAsync();
+        _glossaryWorkspaceLoadFailed = false;
+        _glossaryWorkspaceEntries = [];
+        _glossaryWorkspaceRows.Clear();
+        _settingGlossaryFilters = true;
+        try
+        {
+            GlossaryFilterBox.Clear();
+            GlossaryActivityFilter.SelectedIndex = 0;
+        }
+        finally { _settingGlossaryFilters = false; }
+        GlossaryWorkspaceList.Visibility = Visibility.Collapsed;
+        GlossaryWorkspaceEmptyText.Visibility = Visibility.Collapsed;
+        GlossaryWorkspaceStatusText.Text = "Abre esta pestaña para cargar el diccionario.";
+        UpdateGlossaryWorkspaceControls();
+    }
+
+    private bool CanPublishGlossaryWorkspace(OwnedCancellationOperationCoordinator.Operation operation) =>
+        _glossaryWorkspaceOperation.IsCurrent(operation) &&
+        !operation.CancellationToken.IsCancellationRequested &&
+        !_closing &&
+        ReferenceEquals(MainTabs.SelectedItem, GlossaryTabItem);
+
+    private void ApplyGlossaryWorkspaceFilter(string? announcement = null)
+    {
+        if (GlossaryWorkspaceList is null) return;
+        var state = GlossaryWorkspacePresenter.Create(
+            _glossaryWorkspaceEntries,
+            GlossaryFilterBox.Text,
+            SelectedGlossaryActivityFilter());
+        _glossaryWorkspaceRows.Clear();
+        foreach (var item in state.Items) _glossaryWorkspaceRows.Add(item);
+        GlossaryWorkspaceStatusText.Text = string.IsNullOrWhiteSpace(announcement)
+            ? state.Status
+            : $"{state.Status} {announcement}";
+        GlossaryWorkspaceEmptyText.Text = state.TotalCount == 0
+            ? "El diccionario todavía no tiene entradas."
+            : "No hay coincidencias para el filtro actual.";
+        GlossaryWorkspaceList.Visibility = state.Items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        GlossaryWorkspaceEmptyText.Visibility = state.Items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private GlossaryEntryActivityFilter SelectedGlossaryActivityFilter() =>
+        (GlossaryActivityFilter.SelectedItem as ComboBoxItem)?.Tag?.ToString() switch
+        {
+            "Active" => GlossaryEntryActivityFilter.Active,
+            "Inactive" => GlossaryEntryActivityFilter.Inactive,
+            _ => GlossaryEntryActivityFilter.All
+        };
+
+    private void FailGlossaryWorkspace(string guidance)
+    {
+        _glossaryWorkspaceLoadFailed = true;
+        _glossaryWorkspaceEntries = [];
+        _glossaryWorkspaceRows.Clear();
+        GlossaryWorkspaceList.Visibility = Visibility.Collapsed;
+        GlossaryWorkspaceEmptyText.Text = GlossaryWorkspacePresenter.ErrorStatus;
+        GlossaryWorkspaceEmptyText.Visibility = Visibility.Visible;
+        GlossaryWorkspaceStatusText.Text = $"{GlossaryWorkspacePresenter.ErrorStatus} {guidance}";
+    }
+
+    private void UpdateGlossaryWorkspaceControls()
+    {
+        if (GlossaryWorkspaceList is null) return;
+        var canInteract = _initialized &&
+            _store is not null &&
+            !_closing &&
+            ReferenceEquals(MainTabs.SelectedItem, GlossaryTabItem) &&
+            !_glossaryWorkspaceOperation.IsRunning;
+        RefreshGlossaryButton.IsEnabled = canInteract;
+        var canBrowse = canInteract && !_glossaryWorkspaceLoadFailed;
+        GlossaryFilterBox.IsEnabled = canBrowse;
+        GlossaryActivityFilter.IsEnabled = canBrowse;
+        GlossaryWorkspaceList.IsEnabled = canBrowse;
+        ClearGlossaryFilterButton.IsEnabled = canBrowse &&
+            (!string.IsNullOrWhiteSpace(GlossaryFilterBox.Text) || GlossaryActivityFilter.SelectedIndex > 0);
     }
 
     private async void RefreshHistory_Click(object sender, RoutedEventArgs e)
@@ -2697,7 +2924,7 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
         }
         try
         {
-            if (MessageBox.Show(this, $"¿Eliminar definitivamente '{session.Title}', su transcripción y todo el audio conservado? Esta acción no se puede deshacer.", "Eliminar sesión guardada", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+            if (MessageBox.Show(this, $"¿Eliminar definitivamente '{session.Title}', su transcripción, todo el audio conservado y las entradas del diccionario originadas en sus correcciones? Esta acción no se puede deshacer.", "Eliminar sesión guardada", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
             _historyDeleteInProgress = true;
             _historySearch.Invalidate();
             _historySearchNavigation.Invalidate();
@@ -2905,6 +3132,9 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
         _historySearchNavigation.Invalidate();
         _historyLoads.Invalidate();
         _historyRevisionLoads.Invalidate();
+        await _glossaryWorkspaceOperation.CancelAndWaitAsync();
+        _glossaryWorkspaceEntries = [];
+        _glossaryWorkspaceRows.Clear();
         await _historySearchActivity.BlockAndDrainAsync();
         await SupersedePlaybackAsync(announce: false);
         SetRecordingButtons(_recording, _recordingPaused);
@@ -2925,6 +3155,7 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
                     _historySearch.Dispose();
                     _historySearchNavigation.Dispose();
                     _historyRetranscriptionOperation.Dispose();
+                    _glossaryWorkspaceOperation.Dispose();
                     _protector?.Dispose();
                 });
         }
