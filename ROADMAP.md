@@ -3,8 +3,9 @@
 - Fecha del estado: 2026-09-23
 - Madurez actual: MVP funcional avanzado / versión preliminar pública
 - Versión publicada actual: [`0.2.0-beta.4`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.4)
+- Candidato de código fuente local: `0.2.0-beta.5` (sin activo final, tag ni release pública)
 
-Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funcional implementada; 7.1a, 7.2a y la infraestructura fuente de 7.2b están publicadas en `0.2.0-beta.4`, todavía pendientes de validación física. El código fuente posterior a beta 4 incorpora además un evaluador no empaquetado y un corpus sintético agregado con golden reproducible; no forman parte de una nueva versión publicada ni validan superficies reales. 7.2b falla de forma segura en producción porque los perfiles Meet/Teams permanecen `Unvalidated`: se abstiene y presenta la evidencia como No disponible. Las rebanadas 7.2c–7.2e y el fortalecimiento de la distribución de la etapa 5 siguen pendientes.** No existe identificación de hablantes y la etapa 7 no está completa. La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md), el [corpus sintético](evaluation/stage-7b/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
+Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funcional implementada; 7.1a, 7.2a y la infraestructura fuente de 7.2b están publicadas en `0.2.0-beta.4`, todavía pendientes de validación física. El candidato local beta 5 incorpora un ensamblado compartido puro y sin paquetes (`VisualAnalysis`) y mantiene el evaluador offline, el corpus sintético agregado y el golden reproducible fuera del paquete. No es una nueva versión publicada ni valida superficies reales. 7.2b falla de forma segura en producción porque los perfiles Meet/Teams permanecen `Unvalidated`: se abstiene y presenta la evidencia como No disponible. Las rebanadas 7.2c–7.2e y el fortalecimiento de la distribución de la etapa 5 siguen pendientes.** No existe identificación de hablantes, no se agrega una capacidad empaquetada y la etapa 7 no está completa. La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md), el [corpus sintético](evaluation/stage-7b/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
 
 ## Principios del producto
 
@@ -44,6 +45,8 @@ Permitir instalar, actualizar, diagnosticar y recuperar la aplicación existente
 
 - Código público en GitHub y ZIP completo para Windows con suma de comprobación; `0.2.0-beta.4` está publicado como prerelease, con tag en `f871f20c3bf9e77b0cf9ad51134febb83c673de7`, recurso remoto y digest verificados, e infraestructura de actividad visual anónima 7.2b incluida.
 - Script de publicación combinada de aplicación/proceso auxiliar con comprobaciones de paquete y prueba básica de salud por canal con nombre.
+- El contrato del candidato beta 5 exige `VisualAnalysis.dll` con la misma versión de producto que App/Worker y excluye la CLI `VisualEvaluation`, sus archivos de ejecución, el corpus/golden y cualquier directorio `tools` o `evaluation`; el manifiesto conserva exactamente las cinco capacidades existentes.
+- La verificación independiente del candidato aprobó metadatos **4/4**, evaluación visual **74/74**, captura visual **206/206**, Release serial/paralelo **446/446**, compilación sin advertencias/errores, CLI `VE000`, `publish` local y smoke IPC integrado/explícito. El layout preliminar coincidió **495/495** archivos byte a byte, con cinco capacidades y cero hallazgos prohibidos, rutas locales o referencias CodeView.
 - Existe la definición de Inno Setup por usuario; la validación de instalación/actualización/reversión sigue pendiente.
 
 ### Alcance pendiente
@@ -53,6 +56,7 @@ Permitir instalar, actualizar, diagnosticar y recuperar la aplicación existente
 - Implementar actualizaciones de la aplicación completa con manifiesto firmado, verificación SHA-256, cierre controlado, reemplazo atómico y reversión.
 - Actualizar la aplicación y el modelo Whisper de forma independiente cuando el modelo no haya cambiado.
 - Firmar el ejecutable y el instalador.
+- Después del commit de preparación, reconstruir el ZIP y registrar su tamaño/SHA-256 finales, el SHA de preparación, el tag y la release beta 5. El layout preliminar de 495 archivos no sustituye esa reconstrucción ni convierte el candidato en publicación.
 - Exportar diagnósticos que protejan la privacidad, sin transcripciones, audio conservado, capturas, secretos ni claves de cifrado.
 - Eliminar los bloqueos intermitentes de SQLite en las pruebas antes de considerar que el conjunto de pruebas es completamente determinista.
 

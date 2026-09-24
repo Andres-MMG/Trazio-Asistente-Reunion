@@ -14,6 +14,8 @@ Un asistente de escritorio para Windows que captura el micrófono y el audio del
 
 > **Beta funcional publicada — todavía no validada para producción.** `v0.2.0-beta.4` es la descarga pública actual e incorpora la implementación fuente de 7.2b: una autorización adicional de un solo uso activa una infraestructura acotada de sondeo WGC/D3D11 que solo produce agregados anónimos y conserva cifrados intervalos derivados de cobertura/actividad. Los perfiles de producción para Meet y Teams permanecen `Unvalidated`; el procesamiento se abstiene y la evidencia se muestra como **No disponible** tanto en vivo como en Historial. No existe identificación de hablantes. La validación física de WGC/GPU, interfaz, accesibilidad, Meet/Teams reales y las pruebas de 2/5 horas siguen pendientes. El paquete publicado no está firmado.
 
+> **Candidato local `0.2.0-beta.5`.** La verificación independiente del candidato aprobó `VersionMetadataTests` **4/4**, `VisualEvaluation` **74/74**, `Area=VisualCapture` **206/206**, los conjuntos Release serial y paralelo **446/446**, compilación con **0 advertencias y 0 errores**, CLI `VE000 verified`, `publish` local y comprobaciones IPC integrada/explícita. El layout preliminar coincidió **495/495** archivos byte a byte: exige `Trazio.AsistenteReunion.VisualAnalysis.dll`, conserva cinco capacidades y excluye evaluador, corpus/golden y directorios `tools`/`evaluation`, con **0** hallazgos prohibidos, rutas locales o referencias CodeView. Continúa siendo solo un candidato: beta 4 es la descarga pública actual y todavía deben reconstruirse los activos desde el commit de preparación para registrar tamaño/SHA-256 finales, SHA de preparación, tag y release beta 5.
+
 ## De la conversación en vivo a un registro revisable
 
 ```text
@@ -66,7 +68,7 @@ flowchart LR
 | Capa | Tecnología |
 |---|---|
 | Escritorio | WPF, .NET 10, C# 14; interfaz en español |
-| Captura / reproducción | NAudio 2.2.1, Windows WASAPI; Windows Graphics Capture efímero y sondeo agregado D3D11 acotado, con consentimientos separados |
+| Captura / reproducción | NAudio 2.2.1, Windows WASAPI; Windows Graphics Capture efímero y sondeo agregado D3D11 acotado, con consentimientos separados. La lógica determinista compartida vive en `VisualAnalysis`; el evaluador offline no se distribuye. |
 | Reconocimiento | Whisper.net + entorno de ejecución CPU 1.9.1; catálogo Whisper Base multilingüe |
 | Persistencia | Microsoft.Data.Sqlite 10.0.4; contenido cifrado |
 | Protección | AES-256-GCM; Windows DPAPI `CurrentUser` para la clave maestra y la configuración |
@@ -85,6 +87,8 @@ La [guía de arquitectura](docs/architecture.md) vincula estas afirmaciones con 
 | Etapa 7 y posteriores | 7.1a, 7.2a y la infraestructura fuente de 7.2b están implementadas; 7.2b permanece inactiva en producción porque Meet/Teams siguen `Unvalidated`, y toda validación física continúa pendiente. La etapa 7 no está completa y no identifica hablantes → adaptadores 7.2c–7.2e → productividad/glosario avanzado (8) → inteligencia/integración opcionales → calendarios (11) → entrenamiento (12) |
 
 La evidencia histórica de `v0.1.1-mvp` registró **164/164 pruebas**, `v0.2.0-beta.2` registró **197/197** en `a8481ef` y la base funcional de `v0.2.0-beta.3`, validada en `b075958`, registró **54/54 pruebas enfocadas de captura visual** y **250/250 pruebas seriales**. La versión publicada `v0.2.0-beta.4` completó **4/4 `VersionMetadataTests`**, **132/132 pruebas `Area=VisualCapture`**, **371/371 pruebas Release seriales** y **371/371 en paralelo predeterminado**, con compilación de **0 advertencias y 0 errores**; también aprobaron el contrato de publicación, la prueba básica por canal con nombre y la comparación del layout (**494/494 archivos byte a byte**, **0** hallazgos prohibidos, **0** rutas fuente locales y **0** referencias CodeView). El tag corresponde al commit `f871f20c3bf9e77b0cf9ad51134febb83c673de7`; el ZIP remoto de **86,823,005 bytes**, su digest SHA-256 y el archivo lateral publicado coinciden con el paquete verificado. Ninguna de estas comprobaciones demuestra WGC/GPU real, interfaz renderizada, lector de pantalla, Meet/Teams reales ni estabilidad de 2/5 horas. Consulta [evidencia de validación y lista de aceptación](docs/validation.md).
+
+La evidencia automatizada y del layout preliminar de beta 5 ya fue verificada de forma independiente con los resultados indicados arriba. No convierte el candidato en una versión publicada: falta reconstruir el ZIP después del commit de preparación y confirmar su tamaño/SHA-256 finales, el SHA de preparación, el tag y la release `v0.2.0-beta.5`.
 
 ## Privacidad, sin promesas mágicas
 

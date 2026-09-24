@@ -1,7 +1,7 @@
 param([string]$Configuration = "Release")
 
 $ErrorActionPreference = "Stop"
-$expectedVersion = "0.2.0-beta.4"
+$expectedVersion = "0.2.0-beta.5"
 $expectedArchiveName = "Trazio-Asistente-Reunion-v$expectedVersion-win-x64.zip"
 $expectedChecksumName = "$expectedArchiveName.sha256"
 $root = Split-Path -Parent $PSScriptRoot
@@ -43,10 +43,22 @@ $prohibitedExtensions = [System.Collections.Generic.HashSet[string]]::new([Syste
     ".key", ".pem", ".pfx", ".p12", ".env"
 ) | ForEach-Object { $null = $prohibitedExtensions.Add($_) }
 $prohibitedDirectoryNames = [System.Collections.Generic.HashSet[string]]::new(
-    [string[]]@("audio", "models", "logs", "dumps"),
+    [string[]]@("audio", "models", "logs", "dumps", "tools", "evaluation"),
     [System.StringComparer]::OrdinalIgnoreCase)
 $prohibitedExactNames = [System.Collections.Generic.HashSet[string]]::new(
     [string[]]@("master.key", "settings.dat", ".env"),
+    [System.StringComparer]::OrdinalIgnoreCase)
+$prohibitedEvaluatorFiles = [System.Collections.Generic.HashSet[string]]::new(
+    [string[]]@(
+        "Trazio.AsistenteReunion.VisualEvaluation.exe",
+        "Trazio.AsistenteReunion.VisualEvaluation.dll",
+        "Trazio.AsistenteReunion.VisualEvaluation.deps.json",
+        "Trazio.AsistenteReunion.VisualEvaluation.runtimeconfig.json"),
+    [System.StringComparer]::OrdinalIgnoreCase)
+$prohibitedEvaluationDataFiles = [System.Collections.Generic.HashSet[string]]::new(
+    [string[]]@(
+        "synthetic-corpus-v1.json",
+        "synthetic-corpus-v1.golden.json"),
     [System.StringComparer]::OrdinalIgnoreCase)
 $allowedPublishExtensions = [System.Collections.Generic.HashSet[string]]::new(
     [string[]]@(".dll", ".exe", ".json", ".md"),
@@ -82,6 +94,8 @@ $prohibitedEntries = @(
                 -not $allowedExecutableFiles.Contains($_.Name)) -or
             $prohibitedExtensions.Contains($extension) -or
             $prohibitedExactNames.Contains($_.Name) -or
+            $prohibitedEvaluatorFiles.Contains($_.Name) -or
+            $prohibitedEvaluationDataFiles.Contains($_.Name) -or
             $_.Name.StartsWith(".env.", [System.StringComparison]::OrdinalIgnoreCase) -or
             $_.Name.StartsWith("trazio-transcripts.db", [System.StringComparison]::OrdinalIgnoreCase) -or
             ($_.Name.StartsWith("ggml-", [System.StringComparison]::OrdinalIgnoreCase) -and
@@ -95,7 +109,13 @@ if ($prohibitedEntries.Count -gt 0) {
     throw "Published layout contains private or unsupported retained artifacts: $($relativeEntries -join ', ')"
 }
 
-$requiredFiles = @("Trazio.AsistenteReunion.exe", "Trazio.AsistenteReunion.Worker.exe", "Whisper.net.dll", "README.md", "trazio-capabilities.json")
+$requiredFiles = @(
+    "Trazio.AsistenteReunion.exe",
+    "Trazio.AsistenteReunion.Worker.exe",
+    "Trazio.AsistenteReunion.VisualAnalysis.dll",
+    "Whisper.net.dll",
+    "README.md",
+    "trazio-capabilities.json")
 foreach ($requiredFile in $requiredFiles) {
     $requiredPath = Join-Path $publishOutput $requiredFile
     if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) { throw "Published layout is missing $requiredFile" }
@@ -155,8 +175,11 @@ if ($missingCapabilities.Count -gt 0) {
 }
 $appVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $publishOutput "Trazio.AsistenteReunion.exe")).ProductVersion
 $workerVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $publishOutput "Trazio.AsistenteReunion.Worker.exe")).ProductVersion
-if (-not $appVersion.StartsWith($expectedVersion) -or -not $workerVersion.StartsWith($expectedVersion)) {
-    throw "Published version mismatch. App=$appVersion Worker=$workerVersion"
+$visualAnalysisVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $publishOutput "Trazio.AsistenteReunion.VisualAnalysis.dll")).ProductVersion
+if (-not $appVersion.StartsWith($expectedVersion) -or
+    -not $workerVersion.StartsWith($expectedVersion) -or
+    -not $visualAnalysisVersion.StartsWith($expectedVersion)) {
+    throw "Published version mismatch. App=$appVersion Worker=$workerVersion VisualAnalysis=$visualAnalysisVersion"
 }
 & (Join-Path $PSScriptRoot "smoke-worker.ps1") -WorkerPath (Join-Path $publishOutput "Trazio.AsistenteReunion.Worker.exe")
 

@@ -261,7 +261,20 @@ public sealed class VisualEvaluationGoldenTests
         Assert.Equal("No disponible", AnonymousVisualEvidenceViewModel.Unavailable.StatusText);
 
         var publishContract = File.ReadAllText(Path.Combine(RepositoryRoot(), "installer", "publish.ps1"));
-        Assert.DoesNotContain("VisualEvaluation", publishContract, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"Trazio.AsistenteReunion.VisualAnalysis.dll\"", publishContract, StringComparison.Ordinal);
+        Assert.Contains("$visualAnalysisVersion", publishContract, StringComparison.Ordinal);
+        Assert.Contains("\"Trazio.AsistenteReunion.VisualEvaluation.exe\"", publishContract, StringComparison.Ordinal);
+        Assert.Contains("\"Trazio.AsistenteReunion.VisualEvaluation.dll\"", publishContract, StringComparison.Ordinal);
+        Assert.Contains("\"Trazio.AsistenteReunion.VisualEvaluation.deps.json\"", publishContract, StringComparison.Ordinal);
+        Assert.Contains("\"Trazio.AsistenteReunion.VisualEvaluation.runtimeconfig.json\"", publishContract, StringComparison.Ordinal);
+        Assert.Contains("\"synthetic-corpus-v1.json\"", publishContract, StringComparison.Ordinal);
+        Assert.Contains("\"synthetic-corpus-v1.golden.json\"", publishContract, StringComparison.Ordinal);
+        Assert.Contains("\"tools\"", publishContract, StringComparison.Ordinal);
+        Assert.Contains("\"evaluation\"", publishContract, StringComparison.Ordinal);
+        Assert.Contains("$prohibitedEvaluatorFiles.Contains($_.Name)", publishContract, StringComparison.Ordinal);
+        Assert.Contains("$prohibitedEvaluationDataFiles.Contains($_.Name)", publishContract, StringComparison.Ordinal);
+        Assert.Contains("$prohibitedDirectoryNames.Contains($_.Name)", publishContract, StringComparison.Ordinal);
+        Assert.Contains("Get-ChildItem -LiteralPath $publishOutput -Recurse -Force", publishContract, StringComparison.Ordinal);
         var appProject = File.ReadAllText(Path.Combine(
             RepositoryRoot(),
             "src",

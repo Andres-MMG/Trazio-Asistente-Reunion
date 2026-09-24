@@ -9,20 +9,22 @@ namespace Trazio.AsistenteReunion.Tests;
 
 public sealed class VersionMetadataTests
 {
-    private const string ExpectedVersion = "0.2.0-beta.4";
-    private const string ExpectedReleaseArchive = "Trazio-Asistente-Reunion-v0.2.0-beta.4-win-x64.zip";
+    private const string ExpectedVersion = "0.2.0-beta.5";
+    private const string ExpectedReleaseArchive = "Trazio-Asistente-Reunion-v0.2.0-beta.5-win-x64.zip";
 
     [Fact]
     public void Assemblies_UseBetaVersionAndProductName()
     {
         var assemblies = new[]
         {
-            typeof(MainWindow).Assembly,
-            typeof(MeetingSession).Assembly,
-            typeof(AnonymousVisualActivityCorrelator).Assembly
+            (ExpectedName: "Trazio.AsistenteReunion", Assembly: typeof(MainWindow).Assembly),
+            (ExpectedName: "Trazio.AsistenteReunion.Core", Assembly: typeof(MeetingSession).Assembly),
+            (ExpectedName: "Trazio.AsistenteReunion.VisualAnalysis", Assembly: typeof(DeterministicVisualActivityDetector).Assembly)
         };
-        foreach (var assembly in assemblies)
+        Assert.Equal(assemblies.Length, assemblies.Select(item => item.Assembly).Distinct().Count());
+        foreach (var (expectedName, assembly) in assemblies)
         {
+            Assert.Equal(expectedName, assembly.GetName().Name);
             Assert.Equal(new Version(0, 2, 0, 0), assembly.GetName().Version);
             Assert.Equal("Trazio Asistente Reunión", assembly.GetCustomAttribute<AssemblyProductAttribute>()?.Product);
             Assert.Equal("0.2.0.0", assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version);
@@ -117,6 +119,23 @@ public sealed class VersionMetadataTests
         Assert.Contains("$allowedPublishExtensions", script, StringComparison.Ordinal);
         Assert.Contains("$allowedMetadataFiles", script, StringComparison.Ordinal);
         Assert.Contains("$allowedExecutableFiles", script, StringComparison.Ordinal);
+        Assert.Contains("\"Trazio.AsistenteReunion.VisualAnalysis.dll\"", script, StringComparison.Ordinal);
+        Assert.Contains("$visualAnalysisVersion", script, StringComparison.Ordinal);
+        Assert.Contains("VisualAnalysis=$visualAnalysisVersion", script, StringComparison.Ordinal);
+        Assert.Contains("$prohibitedEvaluatorFiles", script, StringComparison.Ordinal);
+        Assert.Contains("$prohibitedEvaluatorFiles.Contains($_.Name)", script, StringComparison.Ordinal);
+        Assert.Contains("\"Trazio.AsistenteReunion.VisualEvaluation.exe\"", script, StringComparison.Ordinal);
+        Assert.Contains("\"Trazio.AsistenteReunion.VisualEvaluation.dll\"", script, StringComparison.Ordinal);
+        Assert.Contains("\"Trazio.AsistenteReunion.VisualEvaluation.deps.json\"", script, StringComparison.Ordinal);
+        Assert.Contains("\"Trazio.AsistenteReunion.VisualEvaluation.runtimeconfig.json\"", script, StringComparison.Ordinal);
+        Assert.Contains("$prohibitedEvaluationDataFiles", script, StringComparison.Ordinal);
+        Assert.Contains("$prohibitedEvaluationDataFiles.Contains($_.Name)", script, StringComparison.Ordinal);
+        Assert.Contains("\"synthetic-corpus-v1.json\"", script, StringComparison.Ordinal);
+        Assert.Contains("\"synthetic-corpus-v1.golden.json\"", script, StringComparison.Ordinal);
+        Assert.Contains("\"tools\"", script, StringComparison.Ordinal);
+        Assert.Contains("\"evaluation\"", script, StringComparison.Ordinal);
+        Assert.Contains("$prohibitedDirectoryNames.Contains($_.Name)", script, StringComparison.Ordinal);
+        Assert.Contains("Get-ChildItem -LiteralPath $publishOutput -Recurse -Force", script, StringComparison.Ordinal);
         Assert.Contains("\"createdump.exe\"", script, StringComparison.Ordinal);
         Assert.Contains("\".png\"", script, StringComparison.Ordinal);
         Assert.Contains("\".mp4\"", script, StringComparison.Ordinal);
