@@ -41,6 +41,8 @@ public sealed class HistoryWorkspacePublicationTests
         Assert.Contains("Escuchar fragmento", compiledApplication);
         Assert.Contains("Retroceder 10 s", compiledApplication);
         Assert.Contains("Avanzar 10 s", compiledApplication);
+        Assert.Contains("Segmento anterior", compiledApplication);
+        Assert.Contains("Segmento siguiente", compiledApplication);
         Assert.Contains("Exportar a Obsidian…", compiledApplication);
         Assert.Contains("Aplicación de reunión (opcional)", compiledApplication);
         Assert.Contains("Asociar una ventana solo identifica la aplicación: no inicia la captura visual ni el análisis anónimo", compiledApplication);
@@ -57,6 +59,131 @@ public sealed class HistoryWorkspacePublicationTests
         Assert.NotNull(typeof(MainWindow).GetMethod("ClearMeetingWindow_Click", BindingFlags.Instance | BindingFlags.NonPublic));
         Assert.NotNull(typeof(MainWindow).GetField("ExportObsidianButton", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
         Assert.NotNull(typeof(MainWindow).GetMethod("ExportObsidian_Click", BindingFlags.Instance | BindingFlags.NonPublic));
+    }
+
+    [Fact]
+    public void HistoryPlaybackNavigation_XamlAndHandlersAreAccessibleAndNeverAutoplayOnSelection()
+    {
+        var root = FindRepositoryRoot();
+        var xaml = File.ReadAllText(Path.Combine(
+            root, "src", "Trazio.AsistenteReunion.App", "MainWindow.xaml"));
+        var code = File.ReadAllText(Path.Combine(
+            root, "src", "Trazio.AsistenteReunion.App", "MainWindow.xaml.cs"));
+
+        Assert.Contains("x:Name=\"PreviousHistorySegmentButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"NextHistorySegmentButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Click=\"PreviousHistorySegment_Click\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Click=\"NextHistorySegment_Click\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"Ir al segmento anterior\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"Ir al segmento siguiente\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("sin reproducir audio automáticamente", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"PlaybackStatusText\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"Estado de reproducción\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.LiveSetting=\"Polite\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Binding IsPlaybackActive", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding PlaybackAnnouncement}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"{Binding PlaybackAnnouncement}\"", xaml, StringComparison.Ordinal);
+
+        var navigationStart = code.IndexOf("private void NavigateHistorySegment", StringComparison.Ordinal);
+        var navigationEnd = code.IndexOf("private HistoryPlaybackNavigationState CurrentHistoryNavigation", navigationStart, StringComparison.Ordinal);
+        var navigationHandler = code[navigationStart..navigationEnd];
+        Assert.DoesNotContain("PlaySelectedSegmentAsync", navigationHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("PlayFromPositionAsync", navigationHandler, StringComparison.Ordinal);
+
+        var selectionStart = code.IndexOf("private void HistorySegments_SelectionChanged", StringComparison.Ordinal);
+        var selectionEnd = code.IndexOf("private void PreviousHistorySegment_Click", selectionStart, StringComparison.Ordinal);
+        var selectionHandler = code[selectionStart..selectionEnd];
+        Assert.DoesNotContain("PlaySelectedSegmentAsync", selectionHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("PlayFromPositionAsync", selectionHandler, StringComparison.Ordinal);
+
+        var seekStart = code.IndexOf("private async Task SeekToAsync", StringComparison.Ordinal);
+        var seekEnd = code.IndexOf("private async Task PlayFromPositionAsync", seekStart, StringComparison.Ordinal);
+        var seekHandler = code[seekStart..seekEnd];
+        Assert.Contains("ResolvePlayablePosition(session, requested)", seekHandler, StringComparison.Ordinal);
+        Assert.Contains("se avanzó a", seekHandler, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void HistoryPlaybackLifecycle_UsesTransientSegmentSourceAndAwaitsCancellationBeforeDelete()
+    {
+        var root = FindRepositoryRoot();
+        var code = File.ReadAllText(Path.Combine(
+            root, "src", "Trazio.AsistenteReunion.App", "MainWindow.xaml.cs"));
+        var playbackService = File.ReadAllText(Path.Combine(
+            root, "src", "Trazio.AsistenteReunion.App", "AudioPlaybackService.cs"));
+
+        var segmentStart = code.IndexOf("private async Task PlaySelectedSegmentAsync", StringComparison.Ordinal);
+        var segmentEnd = code.IndexOf("private async void SaveCorrection_Click", segmentStart, StringComparison.Ordinal);
+        var segmentHandler = code[segmentStart..segmentEnd];
+        Assert.Contains("CreatePlaybackTrack(session, source, chunks)", segmentHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("SelectHistorySource", segmentHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("ApplyHistoryTrack", segmentHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("HistoryRevisionSelector.SelectedItem", segmentHandler, StringComparison.Ordinal);
+
+        Assert.Contains("_activePlaybackSource ?? _historyTrackSource", code, StringComparison.Ordinal);
+        Assert.Contains("await Task.WhenAll(_playback.StopAsync(), operationCompletion)", code, StringComparison.Ordinal);
+        Assert.Contains("_activePlaybackOperation is not null || _historyPlaying", code, StringComparison.Ordinal);
+
+        Assert.Contains("allowSeeking: false", segmentHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("HistoryAudioSource.SelectedItem", segmentHandler, StringComparison.Ordinal);
+        Assert.Contains("_historyPlaying && !_activePlaybackAllowsSeeking", code, StringComparison.Ordinal);
+        Assert.Contains("_historyPlaying && _activePlaybackOperation is not null", code, StringComparison.Ordinal);
+        Assert.Contains("PlaybackStatusText.Text = next is null", code, StringComparison.Ordinal);
+        Assert.Contains("$\"Reproduciendo {next.Header}.\"", code, StringComparison.Ordinal);
+        Assert.Contains("PlaybackStatusText.Text = \"Preparando reproducción de audio.\"", code, StringComparison.Ordinal);
+        Assert.Contains("PlaybackStatusText.Text = \"Audio no disponible para el fragmento seleccionado.\"", segmentHandler, StringComparison.Ordinal);
+
+        var beginStart = code.IndexOf("private Task<PlaybackOperationRun?> BeginPlaybackOperationAsync", StringComparison.Ordinal);
+        var beginEnd = code.IndexOf("private bool IsCurrentPlayback", beginStart, StringComparison.Ordinal);
+        var beginHandler = code[beginStart..beginEnd];
+        Assert.Equal(2, CountOccurrences(beginHandler, "HistoryPlaybackAvailability.CanBeginOperation"));
+        Assert.Contains("_playbackTransitions.RunAsync", beginHandler, StringComparison.Ordinal);
+        Assert.Contains("SupersedePlaybackCoreAsync", beginHandler, StringComparison.Ordinal);
+        Assert.Contains("_playbackTransitions.RunAsync(() => SupersedePlaybackCoreAsync(announce))", code, StringComparison.Ordinal);
+        Assert.Contains("if (!_playbackTransitionEpoch.IsCurrent(stopGeneration)) return", code, StringComparison.Ordinal);
+        Assert.Contains("Func<bool> canPublish", code, StringComparison.Ordinal);
+        Assert.Contains("if (!canPublish()) return false", code, StringComparison.Ordinal);
+        Assert.Contains("var trackPublished = await ApplyHistoryTrackAsync", code, StringComparison.Ordinal);
+        Assert.Contains("HistorySegments.IsEnabled = !playbackBlocked", code, StringComparison.Ordinal);
+        Assert.Contains("var control = _historyPlaybackPaused ? _playback.Resume() : _playback.Pause()", code, StringComparison.Ordinal);
+        Assert.Contains("if (!control.Succeeded)", code, StringComparison.Ordinal);
+
+        var deleteStart = code.IndexOf("private async void Delete_Click", StringComparison.Ordinal);
+        var deleteEnd = code.IndexOf("private async void ChangeStorageFolder_Click", deleteStart, StringComparison.Ordinal);
+        var deleteHandler = code[deleteStart..deleteEnd];
+        Assert.Contains("await SupersedePlaybackAsync(announce: false)", deleteHandler, StringComparison.Ordinal);
+        Assert.Contains("_historyLoads.Invalidate()", deleteHandler, StringComparison.Ordinal);
+        Assert.Contains("_historyRevisionLoads.Invalidate()", deleteHandler, StringComparison.Ordinal);
+        Assert.True(
+            deleteHandler.IndexOf("await SupersedePlaybackAsync", StringComparison.Ordinal) <
+            deleteHandler.IndexOf("DeleteSessionAsync", StringComparison.Ordinal));
+
+        var closingStart = code.IndexOf("private async void Window_Closing", StringComparison.Ordinal);
+        var closingEnd = code.IndexOf("private AppSettings ReadSettings", closingStart, StringComparison.Ordinal);
+        var closingHandler = code[closingStart..closingEnd];
+        Assert.Contains("_historyLoads.Invalidate()", closingHandler, StringComparison.Ordinal);
+        Assert.Contains("_historyRevisionLoads.Invalidate()", closingHandler, StringComparison.Ordinal);
+        Assert.True(
+            closingHandler.IndexOf("_historyLoads.Invalidate()", StringComparison.Ordinal) <
+            closingHandler.IndexOf("await SupersedePlaybackAsync", StringComparison.Ordinal));
+
+        Assert.Contains("private Task _activeTask = Task.CompletedTask", playbackService, StringComparison.Ordinal);
+        Assert.Contains("output.GetPosition()", playbackService, StringComparison.Ordinal);
+        Assert.DoesNotContain("reader.CurrentTime -", playbackService, StringComparison.Ordinal);
+        Assert.Contains("public PlaybackControlResult Pause()", playbackService, StringComparison.Ordinal);
+        Assert.Contains("public PlaybackControlResult Resume()", playbackService, StringComparison.Ordinal);
+    }
+
+    private static int CountOccurrences(string value, string needle)
+    {
+        var count = 0;
+        var offset = 0;
+        while ((offset = value.IndexOf(needle, offset, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            offset += needle.Length;
+        }
+        return count;
     }
 
     [Fact]

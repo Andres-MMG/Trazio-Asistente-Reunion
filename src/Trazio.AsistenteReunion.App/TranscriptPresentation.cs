@@ -25,6 +25,7 @@ public static class TranscriptPresentation
 public sealed class HistorySegmentItem : INotifyPropertyChanged
 {
     private AnonymousVisualEvidenceViewModel _visualEvidence;
+    private bool _isPlaybackActive;
 
     public HistorySegmentItem(
         ReviewedTranscriptSegment review,
@@ -46,6 +47,10 @@ public sealed class HistorySegmentItem : INotifyPropertyChanged
     public string Text => Review.EffectiveText;
     public string RevisionLabel => ModelRevisionLabel ?? (Review.IsCorrected ? $"Corregida · versión {Review.LatestRevision!.Revision}" : "Transcripción original");
     public AnonymousVisualEvidenceViewModel VisualEvidence => _visualEvidence;
+    public bool IsPlaybackActive => _isPlaybackActive;
+    public string PlaybackAnnouncement => _isPlaybackActive
+        ? $"Reproduciendo este fragmento: {Header}"
+        : string.Empty;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -55,6 +60,14 @@ public sealed class HistorySegmentItem : INotifyPropertyChanged
         if (ReferenceEquals(_visualEvidence, visualEvidence) || _visualEvidence == visualEvidence) return;
         _visualEvidence = visualEvidence;
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(VisualEvidence)));
+    }
+
+    public void SetPlaybackActive(bool active)
+    {
+        if (_isPlaybackActive == active) return;
+        _isPlaybackActive = active;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsPlaybackActive)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PlaybackAnnouncement)));
     }
 }
 public static class TranscriptExport

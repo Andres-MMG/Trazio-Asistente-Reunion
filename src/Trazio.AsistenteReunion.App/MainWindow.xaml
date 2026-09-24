@@ -196,20 +196,37 @@
                                                 <ItemsControl.ItemTemplate><DataTemplate><Border Height="{Binding}" MinHeight="3" Margin="1,0" Background="#7CA7E8" VerticalAlignment="Center" CornerRadius="1"/></DataTemplate></ItemsControl.ItemTemplate>
                                             </ItemsControl>
                                         </Border>
-                                        <Slider x:Name="PlaybackTimeline" Minimum="0" Maximum="1" Value="0" IsEnabled="False" IsMoveToPointEnabled="True" PreviewMouseLeftButtonUp="PlaybackTimeline_PreviewMouseLeftButtonUp" KeyUp="PlaybackTimeline_KeyUp" automation:AutomationProperties.Name="Posición de reproducción"/>
+                                        <Slider x:Name="PlaybackTimeline" Minimum="0" Maximum="1" Value="0" IsEnabled="False" IsMoveToPointEnabled="True" PreviewMouseLeftButtonUp="PlaybackTimeline_PreviewMouseLeftButtonUp" KeyUp="PlaybackTimeline_KeyUp"
+                                                automation:AutomationProperties.Name="Posición de reproducción de la reunión"
+                                                automation:AutomationProperties.HelpText="Mueve la reproducción por el tiempo real de la sesión; los huecos sin audio saltan al siguiente fragmento conservado."/>
                                         <DockPanel Margin="0,4,0,0">
-                                            <TextBlock x:Name="PlaybackPositionText" DockPanel.Dock="Right" Text="00:00 / 00:00" Foreground="#556070" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="PlaybackPositionText" DockPanel.Dock="Right" Text="00:00 / 00:00" Foreground="#556070" VerticalAlignment="Center"
+                                                       automation:AutomationProperties.Name="Tiempo actual y duración de la pista"/>
                                             <WrapPanel>
-                                                <Button x:Name="PlayPauseButton" Content="Reproducir" IsEnabled="False" Click="PlayPause_Click" MinWidth="92"/>
-                                                <Button x:Name="SeekBackButton" Content="Retroceder 10 s" IsEnabled="False" Click="SeekBack_Click"/>
-                                                <Button x:Name="SeekForwardButton" Content="Avanzar 10 s" IsEnabled="False" Click="SeekForward_Click"/>
-                                                <Button x:Name="StopPlaybackButton" Content="Detener" IsEnabled="False" Click="StopPlayback_Click"/>
+                                                <Button x:Name="PlayPauseButton" Content="Reproducir" IsEnabled="False" Click="PlayPause_Click" MinWidth="92" automation:AutomationProperties.Name="Reproducir o pausar audio" automation:AutomationProperties.HelpText="Inicia, pausa o reanuda la pista de audio seleccionada."/>
+                                                <Button x:Name="SeekBackButton" Content="Retroceder 10 s" IsEnabled="False" Click="SeekBack_Click" automation:AutomationProperties.Name="Retroceder diez segundos" automation:AutomationProperties.HelpText="Retrocede diez segundos en el tiempo real de la reunión."/>
+                                                <Button x:Name="SeekForwardButton" Content="Avanzar 10 s" IsEnabled="False" Click="SeekForward_Click" automation:AutomationProperties.Name="Avanzar diez segundos" automation:AutomationProperties.HelpText="Avanza diez segundos; si cae en un hueco, salta al siguiente audio conservado."/>
+                                                <Button x:Name="StopPlaybackButton" Content="Detener" IsEnabled="False" Click="StopPlayback_Click" automation:AutomationProperties.Name="Detener reproducción" automation:AutomationProperties.HelpText="Detiene el audio y limpia el resaltado de reproducción sin cambiar el segmento seleccionado."/>
                                             </WrapPanel>
                                         </DockPanel>
+                                        <TextBlock x:Name="PlaybackStatusText" Text="Reproducción detenida." Foreground="#556070" TextWrapping="Wrap" Margin="0,5,0,0"
+                                                   automation:AutomationProperties.Name="Estado de reproducción"
+                                                   automation:AutomationProperties.HelpText="Informa si el audio está detenido, reproduciéndose o pausado."
+                                                   automation:AutomationProperties.LiveSetting="Polite"/>
                                         <TextBlock x:Name="SelectedSegmentAudioText" Text="Selecciona un fragmento de la transcripción para ubicar su audio exacto." Foreground="#556070" TextWrapping="Wrap" Margin="0,6,0,0"/>
                                     </StackPanel>
                                 </Border>
-                                <TextBlock Text="Transcripción" FontWeight="SemiBold" Margin="0,2,0,3"/>
+                                <DockPanel Margin="0,2,0,3">
+                                    <WrapPanel DockPanel.Dock="Right">
+                                        <Button x:Name="PreviousHistorySegmentButton" Content="Segmento anterior" IsEnabled="False" Click="PreviousHistorySegment_Click"
+                                                automation:AutomationProperties.Name="Ir al segmento anterior"
+                                                automation:AutomationProperties.HelpText="Selecciona y muestra el segmento anterior sin reproducir audio automáticamente."/>
+                                        <Button x:Name="NextHistorySegmentButton" Content="Segmento siguiente" IsEnabled="False" Click="NextHistorySegment_Click"
+                                                automation:AutomationProperties.Name="Ir al segmento siguiente"
+                                                automation:AutomationProperties.HelpText="Selecciona y muestra el segmento siguiente sin reproducir audio automáticamente."/>
+                                    </WrapPanel>
+                                    <TextBlock Text="Transcripción" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                </DockPanel>
                                 <WrapPanel>
                                     <ComboBox x:Name="HistoryRevisionSelector" Width="210" SelectedIndex="0" SelectionChanged="HistoryRevisionSelector_SelectionChanged" automation:AutomationProperties.Name="Versión de la transcripción"><ComboBoxItem Content="Original · revisión humana" Tag="Original"/></ComboBox>
                                     <Button x:Name="RetranscribeButton" Content="Retranscribir audio" IsEnabled="False" Click="Retranscribe_Click"/>
@@ -284,11 +301,35 @@
                                              automation:AutomationProperties.Name="Segmentos guardados de la transcripción">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate DataType="{x:Type local:HistorySegmentItem}">
-                                                <DockPanel Margin="2,6">
-                                                    <Button DockPanel.Dock="Right" Content="Escuchar fragmento" Click="HistorySegmentPlay_Click" Margin="10,0,0,0" VerticalAlignment="Top" ToolTip="Reproduce el audio exacto asociado a este fragmento."/>
-                                                    <StackPanel>
+                                                <Border Margin="2,2" Padding="6" BorderThickness="1" CornerRadius="4">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                            <Setter Property="BorderBrush" Value="Transparent"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsPlaybackActive}" Value="True">
+                                                                    <Setter Property="Background" Value="#E8F1FF"/>
+                                                                    <Setter Property="BorderBrush" Value="#246BCE"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <DockPanel>
+                                                    <Button DockPanel.Dock="Right" Content="Escuchar fragmento" Click="HistorySegmentPlay_Click" Margin="10,0,0,0" VerticalAlignment="Top" ToolTip="Reproduce el audio exacto asociado a este fragmento." automation:AutomationProperties.Name="Escuchar audio de este fragmento"/>
+                                                    <StackPanel automation:AutomationProperties.HelpText="El borde azul indica el fragmento cuyo intervalo contiene la posición de reproducción; no cambia la selección de edición.">
                                                         <TextBlock Text="{Binding Header}" FontWeight="SemiBold" Foreground="#246BCE"/>
                                                         <TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="14"/>
+                                                        <TextBlock Text="{Binding PlaybackAnnouncement}" Foreground="#1D4ED8" FontSize="12" FontWeight="SemiBold" Focusable="False" IsHitTestVisible="False"
+                                                                   automation:AutomationProperties.Name="{Binding PlaybackAnnouncement}">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsPlaybackActive}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
                                                         <TextBlock Text="{Binding VisualEvidence.DisplayText}"
                                                                    Visibility="{Binding VisualEvidence.Visibility}"
                                                                    Foreground="#374151" FontSize="12" FontWeight="SemiBold" Margin="0,3,0,0"
@@ -297,7 +338,8 @@
                                                                    automation:AutomationProperties.HelpText="{Binding VisualEvidence.HelpText}"/>
                                                         <TextBlock Text="{Binding RevisionLabel}" Foreground="#6B7280" FontSize="11"/>
                                                     </StackPanel>
-                                                </DockPanel>
+                                                    </DockPanel>
+                                                </Border>
                                             </DataTemplate>
                                         </ListBox.ItemTemplate>
                                     </ListBox>

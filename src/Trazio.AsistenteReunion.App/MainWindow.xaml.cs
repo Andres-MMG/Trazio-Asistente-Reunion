@@ -30,7 +30,13 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     private IReadOnlyList<AudioArchiveSummary> _historyAudio = [];
     private IReadOnlyList<ArchivedAudioChunk> _historyTrackChunks = [];
     private TimeSpan _historyTrackDuration;
+    private PlaybackTimelineMap? _historyTrackTimeline;
     private TimeSpan _playbackBasePosition;
+    private PlaybackTimelineMap? _activePlaybackTimeline;
+    private AudioSourceKind? _activePlaybackSource;
+    private string? _activePlaybackSessionId;
+    private PlaybackOperationRun? _activePlaybackOperation;
+    private HistorySegmentItem? _highlightedHistoryRow;
     private AudioSourceKind _historyTrackSource = AudioSourceKind.Microphone;
     private string? _historyTrackSessionId;
     private readonly DispatcherTimer _playbackTimer;
@@ -53,9 +59,13 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     private bool _historySelectedSourceAudioComplete;
     private bool _suppressHistorySegmentPlayback;
     private bool _historyPlaybackPaused;
+    private bool _activePlaybackAllowsSeeking;
+    private bool _historyDeleteInProgress;
     private readonly HistorySelectionCoordinator _historyLoads = new();
     private readonly RevisionSelectionCoordinator _historyRevisionLoads = new();
     private readonly PlaybackOperationCoordinator _playbackOperations = new();
+    private readonly PlaybackTransitionGate _playbackTransitions = new();
+    private readonly PlaybackTransitionEpoch _playbackTransitionEpoch = new();
     private AesContentProtector? _protector;
     private SqliteSessionStore? _store;
     private AnonymousVisualEvidenceProjector? _anonymousVisualEvidenceProjector;
@@ -1030,11 +1040,11 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         catch (Exception ex) { ShowError("No se pudieron actualizar las sesiones", ex.Message); }
     }
 
-    private void MainTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void MainTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!IsInitialized || !ReferenceEquals(e.OriginalSource, MainTabs) || ReferenceEquals(MainTabs.SelectedItem, HistoryTabItem)) return;
-        if (!_historyPlaying) return;
-        SupersedePlayback();
+        if (!_historyPlaying && _activePlaybackOperation is null) return;
+        await SupersedePlaybackAsync();
         StatusText.Text = "La reproducción se detuvo porque se cerró el Historial";
     }
 
@@ -1126,7 +1136,8 @@ private async void HistoryList_SelectionChanged(object sender, SelectionChangedE
     {
         CancelHistoryRetranscription();
         _historyRevisionLoads.Invalidate();
-        SupersedePlayback();
+        await SupersedePlaybackAsync();
+        if (!HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing)) return;
         PopulateComparisonSelectors([]);
         var session = SelectedHistorySession();
         UpdateSessionTitleEditor(session);
@@ -1220,13 +1231,26 @@ private async void HistoryList_SelectionChanged(object sender, SelectionChangedE
                 cancellationToken: ticket.CancellationToken);
         if (!_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) return;
         if (revisionTicket is not null && !IsCurrentRevisionSelection(revisionTicket)) return;
+        if (!HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing)) return;
         if (visualProjection is not null &&
             _anonymousVisualEvidenceProjector?.IsCurrent(visualProjection) != true)
         {
             refreshVisualAfterPublish = true;
             visualProjection = null;
         }
-        ApplyHistoryTrack(session, selectedSource, selectedSourceChunks, waveform);
+        var trackPublished = await ApplyHistoryTrackAsync(
+            session,
+            selectedSource,
+            selectedSourceChunks,
+            waveform,
+            () =>
+                _historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id) &&
+                (revisionTicket is null || IsCurrentRevisionSelection(revisionTicket)) &&
+                HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing));
+        if (!trackPublished) return;
+        if (!_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) return;
+        if (revisionTicket is not null && !IsCurrentRevisionSelection(revisionTicket)) return;
+        if (!HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing)) return;
         _historyAudio = audio;
         _historySelectedSourceAudioComplete = IsCompleteRetainedSource(selectedSourceChunks, session.StartedAt);
         if (refreshRevisionSelector) PopulateHistoryRevisionSelector(revisions);
@@ -1243,6 +1267,7 @@ private async void HistoryList_SelectionChanged(object sender, SelectionChangedE
             HistorySegments.SelectedItem = _historyRows.FirstOrDefault(item => item.Segment.Id == selectedSegmentId);
         }
         finally { _suppressHistorySegmentPlayback = false; }
+        if (_historyPlaying) UpdatePlaybackHighlight(CurrentPlaybackPosition());
         HistoryEmptyText.Visibility = reviewed.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         ApplyHistoryState(HistoryPresenter.Create(true, session.State, reviewed.Select(item => item.Segment).ToArray(), audio,
             selectedSource, _ => TranscriptPresentation.FormatReviewed(reviewed)));
@@ -1274,7 +1299,8 @@ private async void HistoryList_SelectionChanged(object sender, SelectionChangedE
         if (_settingHistorySource || !_initialized) return;
         CancelHistoryRetranscription();
         _historyRevisionLoads.Invalidate();
-        SupersedePlayback();
+        await SupersedePlaybackAsync();
+        if (!HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing)) return;
         PopulateComparisonSelectors([]);
         var session = SelectedHistorySession();
         if (session is null || _store is null)
@@ -1298,6 +1324,29 @@ private async void HistoryList_SelectionChanged(object sender, SelectionChangedE
         if (_historyTrackSessionId == selected.Segment.SessionId && _historyTrackSource == selected.Segment.Source)
             SetPlaybackPosition(selected.Segment.Start);
     }
+
+    private void PreviousHistorySegment_Click(object sender, RoutedEventArgs e) =>
+        NavigateHistorySegment(previous: true);
+
+    private void NextHistorySegment_Click(object sender, RoutedEventArgs e) =>
+        NavigateHistorySegment(previous: false);
+
+    private void NavigateHistorySegment(bool previous)
+    {
+        var navigation = CurrentHistoryNavigation();
+        var targetId = previous ? navigation.PreviousId : navigation.NextId;
+        if (targetId is null) return;
+        var target = _historyRows.FirstOrDefault(item =>
+            string.Equals(item.Segment.Id, targetId, StringComparison.Ordinal));
+        if (target is null) return;
+        HistorySegments.SelectedItem = target;
+        HistorySegments.ScrollIntoView(target);
+    }
+
+    private HistoryPlaybackNavigationState CurrentHistoryNavigation() =>
+        HistoryPlaybackNavigation.Create(
+            _historyRows.Select(item => item.Segment.Id).ToArray(),
+            SelectedHistorySegment()?.Segment.Id);
 
     private async void HistorySegmentPlay_Click(object sender, RoutedEventArgs e)
     {
@@ -1349,42 +1398,46 @@ private async void HistoryList_SelectionChanged(object sender, SelectionChangedE
             return;
         }
 
-        var operation = BeginPlaybackOperation();
+        var operation = await BeginPlaybackOperationAsync();
+        if (operation is null) return;
         try
         {
             var source = selected.Segment.Source;
-            var chunks = await _store.GetArchivedAudioAsync(session.Id, source, _lifetime.Token);
-            if (!_playbackOperations.IsCurrent(operation) || SelectedHistorySession()?.Id != session.Id || SelectedHistorySegment()?.Segment.Id != selected.Segment.Id) return;
+            var chunks = await _store.GetArchivedAudioAsync(session.Id, source, operation.CancellationToken);
+            if (!IsCurrentPlayback(operation) || SelectedHistorySession()?.Id != session.Id || SelectedHistorySegment()?.Segment.Id != selected.Segment.Id) return;
             if (chunks.Count == 0)
             {
                 StatusText.Text = $"No hay audio conservado de {TrackSourceName(source).ToLowerInvariant()} para este fragmento.";
+                PlaybackStatusText.Text = "Audio no disponible para el fragmento seleccionado.";
                 return;
             }
 
-            var waveform = await AudioWaveformBuilder.BuildAsync(_audioArchive, session.StartedAt, chunks, cancellationToken: _lifetime.Token);
-            if (!_playbackOperations.IsCurrent(operation) || SelectedHistorySession()?.Id != session.Id || SelectedHistorySegment()?.Segment.Id != selected.Segment.Id) return;
-
-            SelectHistorySource(source);
-            ApplyHistoryTrack(session, source, chunks, waveform);
-            ApplyHistoryState(HistoryPresenter.Create(
-                true,
-                session.State,
-                _historyRows.Select(item => item.Segment).ToArray(),
-                _historyAudio,
-                source,
-                FormatTranscript));
-
-            var duration = TimeSpan.FromSeconds(Math.Max(1, (selected.Segment.End - selected.Segment.Start).TotalSeconds));
+            var duration = selected.Segment.End - selected.Segment.Start;
+            if (duration <= TimeSpan.Zero)
+            {
+                StatusText.Text = "Este fragmento no tiene un intervalo de audio válido.";
+                PlaybackStatusText.Text = "El fragmento seleccionado no tiene un intervalo de audio válido.";
+                return;
+            }
             await PlayFromPositionAsync(
-                session,
+                CreatePlaybackTrack(session, source, chunks),
                 selected.Segment.Start,
                 duration,
                 $"Fragmento · {TrackSourceName(source)}",
-                operation);
+                allowSeeking: false,
+                operation: operation);
         }
-        catch (OperationCanceledException) when (!_playbackOperations.IsCurrent(operation)) { }
-        catch (OperationCanceledException) { if (_playbackOperations.IsCurrent(operation)) StatusText.Text = "Reproducción detenida"; }
-        catch (Exception ex) { if (_playbackOperations.IsCurrent(operation)) ShowError("No se pudo reproducir el audio", ex.Message); }
+        catch (OperationCanceledException) when (!IsCurrentPlayback(operation)) { }
+        catch (OperationCanceledException) { if (IsCurrentPlayback(operation)) StatusText.Text = "Reproducción detenida"; }
+        catch (Exception ex)
+        {
+            if (IsCurrentPlayback(operation))
+            {
+                PlaybackStatusText.Text = "No se pudo preparar la reproducción.";
+                ShowError("No se pudo reproducir el audio", ex.Message);
+            }
+        }
+        finally { CompletePlaybackOperation(operation); }
     }
 private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
     {
@@ -1655,19 +1708,29 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
             StatusText.Text = "No hay audio conservado para este intervalo.";
             return;
         }
-        var operation = BeginPlaybackOperation();
-        await PlayFromPositionAsync(
-            session,
-            playablePosition.Value,
-            row.End - playablePosition.Value,
-            $"Intervalo comparado · {TrackSourceName(_historyTrackSource)}",
-            operation);
+        var track = SelectedPlaybackTrack(session);
+        if (track is null) return;
+        var operation = await BeginPlaybackOperationAsync();
+        if (operation is null) return;
+        try
+        {
+            await PlayFromPositionAsync(
+                track,
+                playablePosition.Value,
+                row.End - playablePosition.Value,
+                $"Intervalo comparado · {TrackSourceName(_historyTrackSource)}",
+                allowSeeking: false,
+                operation: operation);
+        }
+        finally { CompletePlaybackOperation(operation); }
         e.Handled = true;
     }
 
     private async void HistoryRevisionSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_settingHistoryRevision || !_initialized || _store is null) return;
+        await SupersedePlaybackAsync();
+        if (!HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing)) return;
         var session = SelectedHistorySession();
         if (session is null) return;
         var selectedRevision = HistoryRevisionSelector.SelectedItem as HistoryRevisionItem;
@@ -1787,17 +1850,26 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
     {
         if (_historyPlaying)
         {
+            var control = _historyPlaybackPaused ? _playback.Resume() : _playback.Pause();
+            if (!control.Succeeded)
+            {
+                var stopGeneration = await SupersedePlaybackAsync(announce: false);
+                if (!_playbackTransitionEpoch.IsCurrent(stopGeneration)) return;
+                PlaybackStatusText.Text = "No se pudo controlar la reproducción; el audio se detuvo.";
+                ShowError("No se pudo controlar la reproducción", control.ErrorMessage!);
+                return;
+            }
             if (_historyPlaybackPaused)
             {
-                _playback.Resume();
                 _historyPlaybackPaused = false;
                 StatusText.Text = "Reproducción reanudada";
+                PlaybackStatusText.Text = "Reproducción reanudada.";
             }
             else
             {
-                _playback.Pause();
                 _historyPlaybackPaused = true;
                 StatusText.Text = "Reproducción pausada";
+                PlaybackStatusText.Text = "Reproducción pausada.";
             }
             UpdateHistoryControls();
             return;
@@ -1813,8 +1885,12 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
         var requested = TimeSpan.FromSeconds(PlaybackTimeline.Value);
         if (requested >= _historyTrackDuration - TimeSpan.FromMilliseconds(100))
             requested = TimeSpan.Zero;
-        var operation = BeginPlaybackOperation();
-        await PlayFromPositionAsync(session, requested, null, TrackSourceName(_historyTrackSource), operation);
+        var track = SelectedPlaybackTrack(session);
+        if (track is null) return;
+        var operation = await BeginPlaybackOperationAsync();
+        if (operation is null) return;
+        try { await PlayFromPositionAsync(track, requested, null, TrackSourceName(_historyTrackSource), allowSeeking: true, operation: operation); }
+        finally { CompletePlaybackOperation(operation); }
     }
 
     private async void SeekBack_Click(object sender, RoutedEventArgs e) =>
@@ -1834,85 +1910,128 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
 
     private async Task SeekToAsync(TimeSpan requested)
     {
+        if (_historyPlaying && !_activePlaybackAllowsSeeking)
+        {
+            StatusText.Text = "La reproducción de este fragmento está acotada; deténla para moverte por la pista seleccionada.";
+            return;
+        }
         requested = requested < TimeSpan.Zero ? TimeSpan.Zero : requested > _historyTrackDuration ? _historyTrackDuration : requested;
         if (!_historyPlaying)
         {
-            SetPlaybackPosition(requested);
-            return;
-        }
-
-        var session = SelectedHistorySession();
-        if (session is null) return;
-        var operation = BeginPlaybackOperation();
-        SetPlaybackPosition(requested);
-        await PlayFromPositionAsync(session, requested, null, TrackSourceName(_historyTrackSource), operation);
-    }
-
-    private async Task PlayFromPositionAsync(
-        SessionSummary session,
-        TimeSpan requestedPosition,
-        TimeSpan? requestedDuration,
-        string contextLabel,
-        long operation)
-    {
-        if (_audioArchive is null || _historyTrackSessionId != session.Id || _historyTrackChunks.Count == 0) return;
-        try
-        {
-            var playablePosition = ResolvePlayablePosition(session, requestedPosition);
+            var session = SelectedHistorySession();
+            var playablePosition = session is null ? null : ResolvePlayablePosition(session, requested);
             if (playablePosition is null)
             {
+                SetPlaybackPosition(requested);
                 StatusText.Text = "No hay audio conservado en esa posición.";
                 return;
             }
+            SetPlaybackPosition(playablePosition.Value);
+            StatusText.Text = playablePosition.Value == requested
+                ? $"Posición ajustada a {FormatPlaybackTime(playablePosition.Value)}"
+                : $"No había audio en esa posición; se avanzó a {FormatPlaybackTime(playablePosition.Value)}";
+            return;
+        }
 
+        var activeSession = SelectedHistorySession();
+        if (activeSession is null) return;
+        var track = SelectedPlaybackTrack(activeSession);
+        if (track is null) return;
+        var operation = await BeginPlaybackOperationAsync();
+        if (operation is null) return;
+        try
+        {
+            SetPlaybackPosition(requested);
+            await PlayFromPositionAsync(track, requested, null, TrackSourceName(_historyTrackSource), allowSeeking: true, operation: operation);
+        }
+        finally { CompletePlaybackOperation(operation); }
+    }
+
+    private async Task PlayFromPositionAsync(
+        PlaybackTrackContext track,
+        TimeSpan requestedPosition,
+        TimeSpan? requestedDuration,
+        string contextLabel,
+        bool allowSeeking,
+        PlaybackOperationRun operation)
+    {
+        if (_audioArchive is null || track.Chunks.Count == 0) return;
+        try
+        {
             var maximumDuration = requestedDuration
-                ?? (_historyTrackDuration > playablePosition.Value ? _historyTrackDuration - playablePosition.Value : TimeSpan.Zero);
-            if (maximumDuration <= TimeSpan.Zero) return;
+                ?? (track.Duration > requestedPosition ? track.Duration - requestedPosition : TimeSpan.Zero);
+            if (maximumDuration <= TimeSpan.Zero)
+            {
+                StatusText.Text = "No queda audio reproducible en esa posición.";
+                PlaybackStatusText.Text = "No queda audio reproducible en esa posición.";
+                return;
+            }
             var plan = SegmentAudioNavigator.CreatePlan(
-                session.StartedAt,
-                playablePosition.Value,
-                _historyTrackChunks,
+                track.Session.StartedAt,
+                requestedPosition,
+                track.Chunks,
                 maximumDuration);
             if (plan is null)
             {
                 StatusText.Text = "No hay audio conservado en esa posición.";
+                PlaybackStatusText.Text = "No hay audio conservado en esa posición.";
                 return;
             }
 
-            _playbackBasePosition = playablePosition.Value;
-            SetPlaybackPosition(playablePosition.Value);
+            _playbackBasePosition = plan.StartPosition;
+            _activePlaybackTimeline = plan.Timeline;
+            _activePlaybackSource = track.Source;
+            _activePlaybackSessionId = track.Session.Id;
+            _activePlaybackAllowsSeeking = allowSeeking;
+            PublishPlaybackPosition(plan.StartPosition);
             _historyPlaying = true;
             _historyPlaybackPaused = false;
             _playbackTimer.Start();
-            StatusText.Text = $"Reproduciendo {contextLabel.ToLowerInvariant()} desde {FormatPlaybackTime(playablePosition.Value)}";
+            StatusText.Text = $"Reproduciendo {contextLabel.ToLowerInvariant()} desde {FormatPlaybackTime(plan.StartPosition)}";
+            PlaybackStatusText.Text = $"Reproduciendo {contextLabel.ToLowerInvariant()}.";
+            UpdatePlaybackHighlight(plan.StartPosition);
             UpdateHistoryControls();
 
-            await _playback.PlayFromAsync(
+            await _playback.PlayPlanAsync(
                 _audioArchive,
-                plan.Chunks,
-                plan.OffsetIntoFirstChunk,
-                plan.MaximumDuration,
-                _lifetime.Token);
-            if (_playbackOperations.IsCurrent(operation))
+                plan,
+                operation.CancellationToken);
+            if (IsCurrentPlayback(operation))
+            {
                 StatusText.Text = $"Finalizó la reproducción de {contextLabel.ToLowerInvariant()}";
+                PlaybackStatusText.Text = "Reproducción finalizada.";
+            }
         }
-        catch (OperationCanceledException) when (!_playbackOperations.IsCurrent(operation)) { }
+        catch (OperationCanceledException) when (!IsCurrentPlayback(operation)) { }
         catch (OperationCanceledException)
         {
-            if (_playbackOperations.IsCurrent(operation)) StatusText.Text = "Reproducción detenida";
+            if (IsCurrentPlayback(operation))
+            {
+                StatusText.Text = "Reproducción detenida";
+                PlaybackStatusText.Text = "Reproducción detenida.";
+            }
         }
         catch (Exception ex)
         {
-            if (_playbackOperations.IsCurrent(operation)) ShowError("No se pudo reproducir el audio", ex.Message);
+            if (IsCurrentPlayback(operation))
+            {
+                PlaybackStatusText.Text = "La reproducción falló y se detuvo.";
+                ShowError("No se pudo reproducir el audio", ex.Message);
+            }
         }
         finally
         {
-            if (_playbackOperations.IsCurrent(operation))
+            if (IsCurrentPlayback(operation))
             {
-                SetPlaybackPosition(_playbackBasePosition + _playback.Elapsed);
+                PublishPlaybackPosition(CurrentPlaybackPosition());
                 _historyPlaying = false;
                 _historyPlaybackPaused = false;
                 _playbackTimer.Stop();
+                _activePlaybackTimeline = null;
+                _activePlaybackSource = null;
+                _activePlaybackSessionId = null;
+                _activePlaybackAllowsSeeking = false;
+                ClearPlaybackHighlight();
                 UpdateHistoryControls();
             }
         }
@@ -1920,81 +2039,186 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
 
     private TimeSpan? ResolvePlayablePosition(SessionSummary session, TimeSpan requested)
     {
-        var ordered = _historyTrackChunks.OrderBy(chunk => chunk.StartedAt).ThenBy(chunk => chunk.Sequence).ToArray();
-        if (ordered.Length == 0) return null;
-        var target = session.StartedAt + requested;
-        var containing = ordered.FirstOrDefault(chunk => target >= chunk.StartedAt && target < chunk.StartedAt + chunk.Duration);
-        if (containing is not null) return requested;
-        var next = ordered.FirstOrDefault(chunk => chunk.StartedAt >= target);
-        return next is null ? null : next.StartedAt - session.StartedAt;
+        if (_historyTrackSessionId != session.Id) return null;
+        return _historyTrackTimeline?.ResolvePlayablePosition(requested);
     }
 
-    private long BeginPlaybackOperation()
+    private Task<PlaybackOperationRun?> BeginPlaybackOperationAsync() =>
+        _playbackTransitions.RunAsync(async () =>
+        {
+            if (!HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing))
+            {
+                StatusText.Text = "La reproducción no está disponible mientras se elimina la sesión o se cierra la aplicación.";
+                PlaybackStatusText.Text = "La reproducción no está disponible.";
+                return null;
+            }
+            await SupersedePlaybackCoreAsync(announce: false);
+            if (!HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing))
+            {
+                StatusText.Text = "La reproducción no está disponible mientras se elimina la sesión o se cierra la aplicación.";
+                PlaybackStatusText.Text = "La reproducción no está disponible.";
+                return null;
+            }
+            var operation = new PlaybackOperationRun(
+                _playbackOperations.Begin(),
+                CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token));
+            _playbackTransitionEpoch.Advance();
+            _activePlaybackOperation = operation;
+            StatusText.Text = "Preparando reproducción de audio…";
+            PlaybackStatusText.Text = "Preparando reproducción de audio.";
+            UpdateHistoryControls();
+            return operation;
+        });
+
+    private bool IsCurrentPlayback(PlaybackOperationRun operation) =>
+        ReferenceEquals(_activePlaybackOperation, operation) &&
+        !operation.CancellationToken.IsCancellationRequested &&
+        _playbackOperations.IsCurrent(operation.Generation);
+
+    private void CompletePlaybackOperation(PlaybackOperationRun operation)
     {
-        var operation = _playbackOperations.Begin();
-        if (_historyPlaying) SetPlaybackPosition(_playbackBasePosition + _playback.Elapsed);
-        _playback.Stop();
-        _playbackTimer.Stop();
-        _historyPlaying = false;
-        _historyPlaybackPaused = false;
+        if (ReferenceEquals(_activePlaybackOperation, operation))
+            _activePlaybackOperation = null;
+        operation.Complete();
         UpdateHistoryControls();
-        return operation;
     }
 
     private void PlaybackTimer_Tick(object? sender, EventArgs e)
     {
         if (!_historyPlaying) return;
-        SetPlaybackPosition(_playbackBasePosition + _playback.Elapsed);
+        var position = CurrentPlaybackPosition();
+        PublishPlaybackPosition(position);
+        UpdatePlaybackHighlight(position);
     }
 
-    private void StopPlayback_Click(object sender, RoutedEventArgs e)
+    private async void StopPlayback_Click(object sender, RoutedEventArgs e)
     {
-        if (!_historyPlaying) { StatusText.Text = "No hay audio en reproducción"; return; }
-        SupersedePlayback();
+        if (_activePlaybackOperation is null && !_historyPlaying)
+        {
+            ClearPlaybackHighlight();
+            PlaybackStatusText.Text = "Reproducción detenida.";
+            StatusText.Text = "No hay audio en reproducción";
+            UpdateHistoryControls();
+            return;
+        }
+        var stopGeneration = await SupersedePlaybackAsync();
+        if (!_playbackTransitionEpoch.IsCurrent(stopGeneration)) return;
         StatusText.Text = "Reproducción detenida";
     }
 
-    private void SupersedePlayback()
+    private Task<long> SupersedePlaybackAsync(bool announce = true) =>
+        _playbackTransitions.RunAsync(() => SupersedePlaybackCoreAsync(announce));
+
+    private async Task<long> SupersedePlaybackCoreAsync(bool announce)
     {
-        if (_historyPlaying) SetPlaybackPosition(_playbackBasePosition + _playback.Elapsed);
+        if (_historyPlaying) PublishPlaybackPosition(CurrentPlaybackPosition());
         _playbackOperations.Supersede();
-        _playback.Stop();
+        var stopGeneration = _playbackTransitionEpoch.Advance();
+        var operation = _activePlaybackOperation;
+        operation?.Cancel();
+        var operationCompletion = operation?.Completion ?? Task.CompletedTask;
+        await Task.WhenAll(_playback.StopAsync(), operationCompletion);
+        if (ReferenceEquals(_activePlaybackOperation, operation))
+            _activePlaybackOperation = null;
         _playbackTimer.Stop();
         _historyPlaying = false;
         _historyPlaybackPaused = false;
+        _activePlaybackTimeline = null;
+        _activePlaybackSource = null;
+        _activePlaybackSessionId = null;
+        _activePlaybackAllowsSeeking = false;
+        ClearPlaybackHighlight();
+        if (announce) PlaybackStatusText.Text = "Reproducción detenida.";
         UpdateHistoryControls();
+        return stopGeneration;
     }
 
-    private void ApplyHistoryTrack(
+    private TimeSpan CurrentPlaybackPosition() =>
+        _activePlaybackTimeline?.PositionAtElapsed(_playback.Elapsed)
+        ?? _playbackBasePosition + _playback.Elapsed;
+
+    private void PublishPlaybackPosition(TimeSpan position)
+    {
+        if (_activePlaybackSessionId == _historyTrackSessionId && _activePlaybackSource == _historyTrackSource)
+            SetPlaybackPosition(position);
+    }
+
+    private void UpdatePlaybackHighlight(TimeSpan position)
+    {
+        var next = HistoryPlaybackHighlight.ResolveItem(
+            _historyRows,
+            static item => item.Segment,
+            _activePlaybackSource ?? _historyTrackSource,
+            position);
+        if (ReferenceEquals(_highlightedHistoryRow, next)) return;
+        _highlightedHistoryRow?.SetPlaybackActive(false);
+        _highlightedHistoryRow = next;
+        _highlightedHistoryRow?.SetPlaybackActive(true);
+        if (_highlightedHistoryRow is not null) HistorySegments.ScrollIntoView(_highlightedHistoryRow);
+        if (_historyPlaying)
+        {
+            PlaybackStatusText.Text = next is null
+                ? "Reproducción en un intervalo sin transcripción."
+                : $"Reproduciendo {next.Header}.";
+        }
+    }
+
+    private void ClearPlaybackHighlight()
+    {
+        _highlightedHistoryRow?.SetPlaybackActive(false);
+        _highlightedHistoryRow = null;
+    }
+
+    private PlaybackTrackContext? SelectedPlaybackTrack(SessionSummary session) =>
+        _historyTrackSessionId == session.Id && _historyTrackChunks.Count > 0
+            ? CreatePlaybackTrack(session, _historyTrackSource, _historyTrackChunks)
+            : null;
+
+    private static PlaybackTrackContext CreatePlaybackTrack(
+        SessionSummary session,
+        AudioSourceKind source,
+        IReadOnlyList<ArchivedAudioChunk> chunks) =>
+        new(
+            session,
+            source,
+            chunks,
+            AudioWaveformBuilder.GetTimelineDuration(session.StartedAt, chunks));
+
+    private Task<bool> ApplyHistoryTrackAsync(
         SessionSummary session,
         AudioSourceKind source,
         IReadOnlyList<ArchivedAudioChunk> chunks,
-        IReadOnlyList<double> waveform)
+        IReadOnlyList<double> waveform,
+        Func<bool> canPublish)
     {
-        var trackChanged = _historyTrackSessionId != session.Id || _historyTrackSource != source;
-        _historyTrackSessionId = session.Id;
-        _historyTrackSource = source;
-        _historyTrackChunks = chunks;
-        _historyTrackDuration = AudioWaveformBuilder.GetTimelineDuration(session.StartedAt, chunks);
-        _waveformBars.Clear();
-        foreach (var height in waveform) _waveformBars.Add(height);
-        PlaybackTimeline.Maximum = Math.Max(1, _historyTrackDuration.TotalSeconds);
-        PlaybackTrackText.Text = chunks.Count == 0
-            ? $"{TrackSourceName(source)} · sin audio conservado"
-            : $"{TrackSourceName(source)} · {FormatPlaybackTime(_historyTrackDuration)} conservados";
-        if (trackChanged) SetPlaybackPosition(TimeSpan.Zero);
-        else SetPlaybackPosition(TimeSpan.FromSeconds(Math.Min(PlaybackTimeline.Value, _historyTrackDuration.TotalSeconds)));
-    }
-
-    private void SelectHistorySource(AudioSourceKind source)
-    {
-        _settingHistorySource = true;
-        try
+        ArgumentNullException.ThrowIfNull(canPublish);
+        return _playbackTransitions.RunAsync(async () =>
         {
-            HistoryAudioSource.SelectedItem = HistoryAudioSource.Items.Cast<ComboBoxItem>()
-                .First(item => string.Equals(item.Tag?.ToString(), source.ToString(), StringComparison.Ordinal));
-        }
-        finally { _settingHistorySource = false; }
+            if (!canPublish()) return false;
+            if (_historyPlaying || _activePlaybackOperation is not null)
+                await SupersedePlaybackCoreAsync(announce: true);
+            if (!canPublish()) return false;
+
+            var trackChanged = _historyTrackSessionId != session.Id || _historyTrackSource != source;
+            _historyTrackSessionId = session.Id;
+            _historyTrackSource = source;
+            _historyTrackChunks = chunks;
+            _historyTrackTimeline = PlaybackTimelineMap.Create(session.StartedAt, chunks);
+            _historyTrackDuration = AudioWaveformBuilder.GetTimelineDuration(session.StartedAt, chunks);
+            _waveformBars.Clear();
+            foreach (var height in waveform) _waveformBars.Add(height);
+            PlaybackTimeline.Maximum = Math.Max(1, _historyTrackDuration.TotalSeconds);
+            PlaybackTrackText.Text = chunks.Count == 0
+                ? $"{TrackSourceName(source)} · sin audio conservado"
+                : $"{TrackSourceName(source)} · {FormatPlaybackTime(_historyTrackDuration)} conservados";
+            if (trackChanged || chunks.Count == 0)
+            {
+                ClearPlaybackHighlight();
+                SetPlaybackPosition(TimeSpan.Zero);
+            }
+            else SetPlaybackPosition(TimeSpan.FromSeconds(Math.Min(PlaybackTimeline.Value, _historyTrackDuration.TotalSeconds)));
+            return true;
+        });
     }
 
     private void SetPlaybackPosition(TimeSpan position)
@@ -2096,7 +2320,11 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
         try
         {
             if (MessageBox.Show(this, $"¿Eliminar definitivamente '{session.Title}', su transcripción y todo el audio conservado? Esta acción no se puede deshacer.", "Eliminar sesión guardada", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
-            _playback.Stop();
+            _historyDeleteInProgress = true;
+            _historyLoads.Invalidate();
+            _historyRevisionLoads.Invalidate();
+            UpdateHistoryControls();
+            await SupersedePlaybackAsync(announce: false);
             if (_audioArchive is not null) await _audioArchive.DeleteSessionAsync(session.Id);
             else await _store.DeleteSessionAsync(session.Id);
             _anonymousVisualEvidenceProjector?.Clear(
@@ -2108,6 +2336,11 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
             await RefreshHistoryAsync();
         }
         catch (Exception ex) { ShowError("No se pudo eliminar la sesión", ex.Message); }
+        finally
+        {
+            _historyDeleteInProgress = false;
+            UpdateHistoryControls();
+        }
     }
 
     private async void ChangeStorageFolder_Click(object sender, RoutedEventArgs e) => await RunExclusiveAsync(async () =>
@@ -2212,36 +2445,48 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
     private void UpdateHistoryControls()
     {
         var selected = SelectedHistorySegment();
+        var navigation = CurrentHistoryNavigation();
         var hasTrack = _historyTrackChunks.Count > 0 && _historyTrackDuration > TimeSpan.Zero;
-        HistoryAudioSource.IsEnabled = _historyState.CanChooseSource && !_historyPlaying && !_historyRetranscriptionOperation.IsRunning;
-        HistoryRevisionSelector.IsEnabled = _historyState.HasSelection && !_historyPlaying && !_historyRetranscriptionOperation.IsRunning;
-        PlayPauseButton.IsEnabled = _historyState.CanPlayAudio && hasTrack;
+        var playbackActive = _activePlaybackOperation is not null || _historyPlaying;
+        var playbackBlocked = !HistoryPlaybackAvailability.CanBeginOperation(_historyDeleteInProgress, _closing);
+        var selectedTrackReady = _historyState.CanPlayAudio && hasTrack;
+        var canPauseActive = _historyPlaying && _activePlaybackOperation is not null;
+        var canSeek = !playbackBlocked &&
+            (!playbackActive ? selectedTrackReady : _historyPlaying && _activePlaybackAllowsSeeking);
+        HistoryList.IsEnabled = !playbackBlocked;
+        HistorySegments.IsEnabled = !playbackBlocked;
+        HistoryAudioSource.IsEnabled = !playbackBlocked && _historyState.CanChooseSource && !playbackActive && !_historyRetranscriptionOperation.IsRunning;
+        HistoryRevisionSelector.IsEnabled = !playbackBlocked && _historyState.HasSelection && !playbackActive && !_historyRetranscriptionOperation.IsRunning;
+        PlayPauseButton.IsEnabled = !playbackBlocked && (canPauseActive || !playbackActive && selectedTrackReady);
         PlayPauseButton.Content = _historyPlaying
             ? (_historyPlaybackPaused ? "Continuar" : "Pausar")
             : "Reproducir";
-        SeekBackButton.IsEnabled = _historyState.CanPlayAudio && hasTrack;
-        SeekForwardButton.IsEnabled = _historyState.CanPlayAudio && hasTrack;
-        StopPlaybackButton.IsEnabled = _historyPlaying;
-        PlaybackTimeline.IsEnabled = _historyState.CanPlayAudio && hasTrack;
-        ExportWavButton.IsEnabled = _historyState.CanExportWav && !_historyPlaying;
-        ExportTxtButton.IsEnabled = _historyState.CanExportTxt;
-        ExportObsidianButton.IsEnabled = _historyState.CanExportMarkdown;
-        DeleteSessionButton.IsEnabled = _historyState.CanDelete && !_historyPlaying && !_historyRetranscriptionOperation.IsRunning;
+        SeekBackButton.IsEnabled = canSeek;
+        SeekForwardButton.IsEnabled = canSeek;
+        StopPlaybackButton.IsEnabled = !playbackBlocked && playbackActive;
+        PlaybackTimeline.IsEnabled = canSeek;
+        PreviousHistorySegmentButton.IsEnabled = !playbackBlocked && navigation.CanPrevious;
+        NextHistorySegmentButton.IsEnabled = !playbackBlocked && navigation.CanNext;
+        ExportWavButton.IsEnabled = !playbackBlocked && _historyState.CanExportWav && !playbackActive;
+        ExportTxtButton.IsEnabled = !playbackBlocked && _historyState.CanExportTxt;
+        ExportObsidianButton.IsEnabled = !playbackBlocked && _historyState.CanExportMarkdown;
+        DeleteSessionButton.IsEnabled = !playbackBlocked && _historyState.CanDelete && !playbackActive && !_historyRetranscriptionOperation.IsRunning;
         var viewingModelRevision = HistoryRevisionSelector.SelectedItem is HistoryRevisionItem;
-        SaveCorrectionButton.IsEnabled = selected is not null && !viewingModelRevision;
-        UndoCorrectionButton.IsEnabled = selected?.Review.IsCorrected == true && !viewingModelRevision;
-        AddGlossaryButton.IsEnabled = _glossarySuggestions.Count > 0 && !viewingModelRevision;
+        SaveCorrectionButton.IsEnabled = !playbackBlocked && selected is not null && !viewingModelRevision;
+        UndoCorrectionButton.IsEnabled = !playbackBlocked && selected?.Review.IsCorrected == true && !viewingModelRevision;
+        AddGlossaryButton.IsEnabled = !playbackBlocked && _glossarySuggestions.Count > 0 && !viewingModelRevision;
         var retranscription = HistoryRetranscriptionPresenter.Create(
             SelectedHistorySession()?.State,
             _historyState.HasSelectedSourceAudio && _historySelectedSourceAudioComplete,
             _historyRetranscriptionOperation.IsRunning);
-        RetranscribeButton.IsEnabled = retranscription.CanStart && !_historyPlaying;
-        CancelRetranscriptionButton.IsEnabled = retranscription.CanCancel;
+        RetranscribeButton.IsEnabled = !playbackBlocked && retranscription.CanStart && !playbackActive;
+        CancelRetranscriptionButton.IsEnabled = !playbackBlocked && retranscription.CanCancel;
         RetranscribeButton.ToolTip = retranscription.Guidance;
         CancelRetranscriptionButton.ToolTip = retranscription.Guidance;
 
-        PlayPauseButton.ToolTip = _historyState.CanPlayAudio
-            ? $"Reproduce o pausa la pista {TrackSourceName(_historyTrackSource).ToLowerInvariant()}."
+        var playbackSource = _activePlaybackSource ?? _historyTrackSource;
+        PlayPauseButton.ToolTip = _historyState.CanPlayAudio || canPauseActive
+            ? $"Reproduce o pausa la pista {TrackSourceName(playbackSource).ToLowerInvariant()}."
             : _historyState.AudioGuidance;
         SeekBackButton.ToolTip = "Retrocede 10 segundos en la pista seleccionada.";
         SeekForwardButton.ToolTip = "Avanza 10 segundos en la pista seleccionada.";
@@ -2265,6 +2510,9 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
         if (_closing) return;
         if (_recording && MessageBox.Show(this, "Hay una transcripción activa. ¿Deseas detenerla y salir?", "Sesión activa", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
         _closing = true;
+        _historyLoads.Invalidate();
+        _historyRevisionLoads.Invalidate();
+        await SupersedePlaybackAsync(announce: false);
         SetRecordingButtons(_recording, _recordingPaused);
         _downloadCancellation?.Cancel();
         try
@@ -2342,11 +2590,14 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
         ComparisonStatusText.Text = "Selecciona una sesión y retranscribe una pista para comparar versiones.";
         _historyAudio = [];
         _historyTrackChunks = [];
+        _historyTrackTimeline = null;
         _historyTrackDuration = TimeSpan.Zero;
         _historyTrackSessionId = null;
         _waveformBars.Clear();
         _historySelectedSourceAudioComplete = false;
         PlaybackTrackText.Text = "Selecciona una sesión y una pista de audio.";
+        PlaybackStatusText.Text = "Reproducción detenida.";
+        ClearPlaybackHighlight();
         SetPlaybackPosition(TimeSpan.Zero);
         HistoryEmptyText.Visibility = Visibility.Visible;
         UpdateSelectedSegmentEditor();
@@ -2362,6 +2613,32 @@ private async void SaveCorrection_Click(object sender, RoutedEventArgs e)
     private static string FormatTranscript(IEnumerable<TranscriptSegment> segments) => TranscriptPresentation.Format(segments);
     private static string SafeFileName(string name) => string.Concat(name.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
     private void ShowError(string title, string message) { StatusText.Text = message; MessageBox.Show(this, message, title, MessageBoxButton.OK, MessageBoxImage.Error); }
+
+    private sealed record PlaybackTrackContext(
+        SessionSummary Session,
+        AudioSourceKind Source,
+        IReadOnlyList<ArchivedAudioChunk> Chunks,
+        TimeSpan Duration);
+
+    private sealed class PlaybackOperationRun(long generation, CancellationTokenSource cancellation)
+    {
+        private readonly TaskCompletionSource _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _completed;
+        public long Generation { get; } = generation;
+        public CancellationToken CancellationToken => cancellation.Token;
+        public Task Completion => _completion.Task;
+        public void Cancel()
+        {
+            try { cancellation.Cancel(); }
+            catch (ObjectDisposedException) { }
+        }
+        public void Complete()
+        {
+            if (Interlocked.Exchange(ref _completed, 1) != 0) return;
+            cancellation.Dispose();
+            _completion.TrySetResult();
+        }
+    }
 
 }
 

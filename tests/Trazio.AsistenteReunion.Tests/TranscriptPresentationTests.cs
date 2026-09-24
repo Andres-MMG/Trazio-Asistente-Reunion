@@ -58,5 +58,36 @@ public sealed class TranscriptPresentationTests
         Assert.Equal("Model-generated revision · human corrections not applied", item.RevisionLabel);
         Assert.Equal("generated", item.Text);
     }
+
+    [Fact]
+    public void HistorySegmentItem_PlaybackHighlightChangesWithoutChangingReviewOrText()
+    {
+        var review = new ReviewedTranscriptSegment(
+            new TranscriptSegment("segment", "session", AudioSourceKind.SystemOutput, 0,
+                TimeSpan.Zero, TimeSpan.FromSeconds(2), "texto", DateTimeOffset.UtcNow),
+            null);
+        var item = new HistorySegmentItem(review);
+        var changed = new List<string?>();
+        item.PropertyChanged += (_, args) => changed.Add(args.PropertyName);
+
+        item.SetPlaybackActive(true);
+        Assert.Contains("Reproduciendo este fragmento", item.PlaybackAnnouncement, StringComparison.Ordinal);
+        item.SetPlaybackActive(true);
+        item.SetPlaybackActive(false);
+
+        Assert.False(item.IsPlaybackActive);
+        Assert.Same(review, item.Review);
+        Assert.Equal("texto", item.Text);
+        Assert.Empty(item.PlaybackAnnouncement);
+        Assert.Equal(
+            new[]
+            {
+                nameof(HistorySegmentItem.IsPlaybackActive),
+                nameof(HistorySegmentItem.PlaybackAnnouncement),
+                nameof(HistorySegmentItem.IsPlaybackActive),
+                nameof(HistorySegmentItem.PlaybackAnnouncement)
+            },
+            changed);
+    }
 }
 
