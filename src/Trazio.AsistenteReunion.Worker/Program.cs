@@ -9,6 +9,7 @@ if (args.Length != 2 || args[0] != "--pipe")
     return 2;
 }
 
+using var runningMarker = ApplicationRunningMarker.Create();
 await new WorkerServer(args[1]).RunAsync();
 return 0;
 

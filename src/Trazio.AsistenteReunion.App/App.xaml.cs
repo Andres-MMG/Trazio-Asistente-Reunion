@@ -5,6 +5,7 @@ namespace Trazio.AsistenteReunion.App;
 
 public partial class App : Application
 {
+    private ApplicationRunningMarker? _runningMarker;
     private SingleInstanceGuard? _instanceGuard;
     private readonly IDataRootLocator _dataRootLocator = new RegistryDataRootLocator();
     private StorageMigrationService? _storageMigration;
@@ -12,6 +13,7 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        _runningMarker = ApplicationRunningMarker.Create();
         _instanceGuard = SingleInstanceGuard.TryAcquire();
         if (_instanceGuard is null)
         {
@@ -68,6 +70,8 @@ public partial class App : Application
     {
         _instanceGuard?.Dispose();
         _instanceGuard = null;
+        _runningMarker?.Dispose();
+        _runningMarker = null;
         base.OnExit(e);
     }
 }
