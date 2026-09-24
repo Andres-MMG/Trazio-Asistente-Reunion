@@ -16,7 +16,11 @@ public sealed class SqliteCommandLifetimeTests
                 "trazio-command-lifetime-" + Guid.NewGuid().ToString("N")))
             .ToArray();
 
-        await Task.WhenAll(roots.Select((root, index) => ExerciseStoreAndDeleteRootAsync(root, index)));
+        var operations = roots
+            .Select((root, index) => Task.Run(() => ExerciseStoreAndDeleteRootAsync(root, index)))
+            .ToArray();
+
+        await Task.WhenAll(operations);
 
         Assert.All(roots, root => Assert.False(
             Directory.Exists(root),
