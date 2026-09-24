@@ -13,13 +13,23 @@ public sealed class HistoryRetranscriptionService(
 {
     private readonly ConcurrentDictionary<string, byte> _running = new(StringComparer.Ordinal);
 
+    public Task<TranscriptModelRevision> RunAsync(
+        SessionSummary session,
+        AudioSourceKind source,
+        string modelPath,
+        string language,
+        CancellationToken cancellationToken = default) =>
+        RunAsync(session, source, modelPath, language, GlossaryPromptPlan.None, cancellationToken);
+
     public async Task<TranscriptModelRevision> RunAsync(
         SessionSummary session,
         AudioSourceKind source,
         string modelPath,
         string language,
+        GlossaryPromptPlan glossaryPromptPlan,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(glossaryPromptPlan);
         if (session.State is not (SessionState.Completed or SessionState.Interrupted))
             throw new InvalidOperationException("Detén la sesión activa antes de retranscribirla.");
         var chunks = (await store.GetArchivedAudioAsync(session.Id, source, cancellationToken))
@@ -44,9 +54,10 @@ public sealed class HistoryRetranscriptionService(
                 Path.GetFileName(modelPath),
                 modelHash: null,
                 language,
+                glossaryPromptPlan.Version,
                 CancellationToken.None);
             cancellationToken.ThrowIfCancellationRequested();
-            transport = await transportFactory.StartAsync(modelPath, language, cancellationToken);
+            transport = await transportFactory.StartAsync(modelPath, language, glossaryPromptPlan.Prompt, cancellationToken);
             if (string.IsNullOrWhiteSpace(transport.VerifiedModelHash))
                 throw new InvalidOperationException("El proceso de transcripción no pudo verificar la identidad del modelo.");
             await store.SetModelRevisionVerifiedModelHashAsync(

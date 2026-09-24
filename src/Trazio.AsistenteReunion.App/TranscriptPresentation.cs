@@ -86,7 +86,8 @@ public static class TranscriptExport
 }
 public sealed record HistoryRevisionItem(TranscriptModelRevision Revision)
 {
-    public string Label => $"Versión del modelo · {Revision.StartedAt:yyyy-MM-dd HH:mm} · {Revision.ModelIdentity}";
+    public string Label => $"Versión del modelo · {Revision.StartedAt:yyyy-MM-dd HH:mm} · {Revision.ModelIdentity}" +
+        (Revision.GlossaryPromptVersion == GlossaryPromptPlan.NoGlossaryVersion ? string.Empty : " · diccionario confirmado");
     public override string ToString() => Label;
 }
 

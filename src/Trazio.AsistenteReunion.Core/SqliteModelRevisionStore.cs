@@ -35,9 +35,13 @@ public sealed partial class SqliteSessionStore
         await RecoverStaleModelRevisionsAsync(connection, cancellationToken);
     }
 
-    public async Task<TranscriptModelRevision> StartModelRevisionAsync(string sessionId, AudioSourceKind source, string modelIdentity, string? modelHash, string language, CancellationToken cancellationToken = default)
+    public Task<TranscriptModelRevision> StartModelRevisionAsync(string sessionId, AudioSourceKind source, string modelIdentity, string? modelHash, string language, CancellationToken cancellationToken = default) =>
+        StartModelRevisionAsync(sessionId, source, modelIdentity, modelHash, language, GlossaryPromptPlan.NoGlossaryVersion, cancellationToken);
+
+    public async Task<TranscriptModelRevision> StartModelRevisionAsync(string sessionId, AudioSourceKind source, string modelIdentity, string? modelHash, string language, string glossaryPromptVersion, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(modelIdentity) || string.IsNullOrWhiteSpace(language)) throw new ArgumentException("Se requieren la identidad del modelo y el idioma.");
+        if (string.IsNullOrWhiteSpace(glossaryPromptVersion) || glossaryPromptVersion.Length > 160) throw new ArgumentException("La versión del prompt del diccionario no es válida.", nameof(glossaryPromptVersion));
         await using var connection = await OpenAsync(cancellationToken);
         await using var session = connection.CreateCommand();
         session.CommandText = "SELECT state FROM sessions WHERE id=$id";
@@ -49,7 +53,7 @@ public sealed partial class SqliteSessionStore
         running.CommandText = "SELECT COUNT(*) FROM transcript_model_revisions WHERE session_id=$session AND source=$source AND status=$running";
         running.Parameters.AddWithValue("$session", sessionId); running.Parameters.AddWithValue("$source", (int)source); running.Parameters.AddWithValue("$running", (int)ModelRevisionStatus.Running);
         if (Convert.ToInt32(await running.ExecuteScalarAsync(cancellationToken)) > 0) throw new InvalidOperationException("Ya hay una retranscripción en curso para esta sesión y fuente.");
-        var revision = new TranscriptModelRevision(Guid.NewGuid().ToString("N"), sessionId, source, ModelRevisionStatus.Running, modelIdentity.Trim(), modelHash, language, DateTimeOffset.UtcNow, null, null, null, "none");
+        var revision = new TranscriptModelRevision(Guid.NewGuid().ToString("N"), sessionId, source, ModelRevisionStatus.Running, modelIdentity.Trim(), modelHash, language, DateTimeOffset.UtcNow, null, null, null, glossaryPromptVersion.Trim());
         var model = protector.Protect(Encoding.UTF8.GetBytes(revision.ModelIdentity), $"model-revision:{revision.Id}:model");
         var hash = ProtectRevisionOptional(revision.ModelHash, $"model-revision:{revision.Id}:hash");
         var glossary = protector.Protect(Encoding.UTF8.GetBytes(revision.GlossaryPromptVersion), $"model-revision:{revision.Id}:glossary");

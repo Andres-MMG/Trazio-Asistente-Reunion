@@ -3214,7 +3214,10 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
             }
             finally { _suppressHistorySegmentPlayback = false; }
             HistoryEmptyText.Visibility = segments.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-            StatusText.Text = $"Viendo la versión generada por el modelo el {selectedRevision.Revision.StartedAt:yyyy-MM-dd HH:mm}; no se aplican correcciones humanas.";
+            var glossaryStatus = selectedRevision.Revision.GlossaryPromptVersion == GlossaryPromptPlan.NoGlossaryVersion
+                ? "sin diccionario"
+                : "con diccionario confirmado";
+            StatusText.Text = $"Viendo la versión generada por el modelo el {selectedRevision.Revision.StartedAt:yyyy-MM-dd HH:mm}, {glossaryStatus}; no se aplican correcciones humanas.";
             UpdateSelectedSegmentEditor();
             if (refreshVisualAfterPublish)
                 QueueHistoryVisualEvidenceRefresh(session.Id);
@@ -3232,49 +3235,132 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         if (session is null || _retranscription is null || _store is null) return;
         HistoryLoadTicket ticket;
         try { ticket = _historyLoads.Capture(session.Id); } catch (OperationCanceledException) { return; }
-        var eligibility = HistoryRetranscriptionPresenter.Create(session.State, _historyState.HasSelectedSourceAudio && _historySelectedSourceAudioComplete, _historyRetranscriptionOperation.IsRunning);
+        var eligibility = HistoryRetranscriptionPresenter.Create(
+            session.State,
+            _historyState.HasSelectedSourceAudio && _historySelectedSourceAudioComplete,
+            _historyRetranscriptionOperation.IsRunning);
         if (!eligibility.CanStart) { StatusText.Text = eligibility.Guidance; return; }
+
         var modelPath = ModelPathBox.Text.Trim();
-        if (!File.Exists(modelPath)) { ShowError("No se pudo retranscribir", "Selecciona primero un archivo de modelo Whisper GGML existente."); return; }
+        if (!File.Exists(modelPath))
+        {
+            ShowError("No se pudo retranscribir", "Selecciona primero un archivo de modelo Whisper GGML existente.");
+            return;
+        }
+
         if (!_historyRetranscriptionOperation.TryBegin([_lifetime.Token, ticket.CancellationToken], out var operation))
         {
             StatusText.Text = "Ya hay una retranscripción en curso.";
             return;
         }
+
+        var source = SelectedHistorySource();
         var editorTicket = _correctionDraftNavigation.CaptureOperation();
         UpdateHistoryControls();
         try
         {
-            StatusText.Text = "Retranscribiendo el audio cifrado conservado…";
+            StatusText.Text = "Preparando el diccionario activo para esta retranscripción…";
+            var glossaryPlan = GlossaryPromptPlanner.Create(
+                await _store.ListGlossaryAsync(operation.CancellationToken));
+            if (!_historyRetranscriptionOperation.IsCurrent(operation) ||
+                !_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id))
+                return;
+
+            var confirmedPlan = ConfirmGlossaryPrompt(glossaryPlan);
+            if (confirmedPlan is null)
+            {
+                StatusText.Text = "No se inició la retranscripción; el audio y las transcripciones no cambiaron.";
+                return;
+            }
+
+            StatusText.Text = confirmedPlan.HasPrompt
+                ? $"Retranscribiendo con {confirmedPlan.Included.Count} términos confirmados del diccionario…"
+                : "Retranscribiendo el audio cifrado conservado sin aplicar el diccionario…";
             var editorOperation = await _correctionDraftNavigation.RunAsync(
                 editorTicket,
                 cancellationToken => _retranscription.RunAsync(
                     session,
-                    SelectedHistorySource(),
+                    source,
                     modelPath,
                     _settings.Language,
+                    confirmedPlan,
                     cancellationToken),
                 operation.CancellationToken);
             var revision = editorOperation.Value;
-            if (!_historyRetranscriptionOperation.IsCurrent(operation) || !_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) return;
+            if (!_historyRetranscriptionOperation.IsCurrent(operation) ||
+                !_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id))
+                return;
             var editorIsCurrent = CanPublishCorrectionEditor(editorTicket);
             if (!editorOperation.CanReplaceEditor || !editorIsCurrent)
             {
                 StatusText.Text = "La retranscripción terminó, pero los cambios escritos después siguen sin guardar; no se reemplazó el editor.";
                 return;
             }
+
             var published = await LoadHistoryReviewAsync(session, ticket, editorTicket: editorTicket);
             if (!published) return;
-            if (!_historyRetranscriptionOperation.IsCurrent(operation) || !_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) return;
-            HistoryRevisionSelector.SelectedItem = HistoryRevisionSelector.Items.OfType<HistoryRevisionItem>().FirstOrDefault(item => item.Revision.Id == revision.Id);
-            StatusText.Text = "La retranscripción se completó como una versión separada del modelo.";
+            if (!_historyRetranscriptionOperation.IsCurrent(operation) ||
+                !_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id))
+                return;
+            HistoryRevisionSelector.SelectedItem = HistoryRevisionSelector.Items
+                .OfType<HistoryRevisionItem>()
+                .FirstOrDefault(item => item.Revision.Id == revision.Id);
+            StatusText.Text = confirmedPlan.HasPrompt
+                ? "La retranscripción se completó como una versión separada con diccionario confirmado."
+                : "La retranscripción se completó como una versión separada del modelo, sin diccionario.";
         }
-        catch (OperationCanceledException) { if (_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) StatusText.Text = "Retranscripción cancelada; la transcripción original no fue modificada."; }
-        catch (Exception ex) { if (_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id)) ShowError("No se pudo retranscribir", ex.Message); }
+        catch (OperationCanceledException)
+        {
+            if (_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id))
+                StatusText.Text = "Retranscripción cancelada; la transcripción original no fue modificada.";
+        }
+        catch (Exception ex)
+        {
+            if (_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id))
+                ShowError("No se pudo retranscribir", ex.Message);
+        }
         finally
         {
             if (_historyRetranscriptionOperation.Complete(operation)) UpdateHistoryControls();
         }
+    }
+
+    private GlossaryPromptPlan? ConfirmGlossaryPrompt(GlossaryPromptPlan plan)
+    {
+        if (!plan.HasPrompt) return GlossaryPromptPlan.None;
+
+        const int maximumPreviewItems = 8;
+        var preview = string.Join(
+            Environment.NewLine,
+            plan.Included.Take(maximumPreviewItems)
+                .Select(item => $"• {item.MistakenForm} → {item.PreferredTerm}"));
+        var remaining = plan.Included.Count - maximumPreviewItems;
+        if (remaining > 0) preview += $"{Environment.NewLine}• … y {remaining} términos más";
+        var exclusions = new List<string>();
+        if (plan.ExcludedAmbiguousCount > 0)
+            exclusions.Add($"{plan.ExcludedAmbiguousCount} entradas ambiguas se excluirán");
+        if (plan.ExcludedByLimitCount > 0)
+            exclusions.Add($"{plan.ExcludedByLimitCount} entradas exceden el límite del prompt");
+        var exclusionText = exclusions.Count == 0
+            ? string.Empty
+            : $"{Environment.NewLine}{Environment.NewLine}{string.Join(". ", exclusions)}.";
+
+        var result = MessageBox.Show(
+            this,
+            $"Whisper recibirá {plan.Included.Count} términos preferidos para orientar esta retranscripción:{Environment.NewLine}{Environment.NewLine}" +
+            $"{preview}{exclusionText}{Environment.NewLine}{Environment.NewLine}" +
+            "Esto no reemplaza palabras automáticamente ni cambia el original. Sí: usar este diccionario. No: retranscribir sin diccionario. Cancelar: no iniciar.",
+            "Usar diccionario en esta retranscripción",
+            MessageBoxButton.YesNoCancel,
+            MessageBoxImage.Question,
+            MessageBoxResult.Cancel);
+
+        return result switch
+        {
+            MessageBoxResult.Yes => plan,
+            MessageBoxResult.No => GlossaryPromptPlan.None,
+            _ => null
+        };
     }
 
     private void CancelRetranscription_Click(object sender, RoutedEventArgs e) => CancelHistoryRetranscription();

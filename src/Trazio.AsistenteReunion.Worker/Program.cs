@@ -62,9 +62,13 @@ internal sealed class WorkerServer(string pipeName)
     {
         if (string.IsNullOrWhiteSpace(request.ModelPath) || !File.Exists(request.ModelPath))
             return new(false, "No se encontró el modelo Whisper configurado.");
+        if (request.InitialPrompt is { Length: > GlossaryPromptPlanner.MaximumPromptCharacters })
+            return new(false, "El prompt del diccionario supera el límite permitido.");
+        if (request.InitialPrompt?.Any(char.IsControl) == true)
+            return new(false, "El prompt del diccionario contiene caracteres de control no permitidos.");
         DisposeModel();
         _factory = WhisperFactory.FromPath(request.ModelPath);
-        _processor = _factory.CreateBuilder().WithLanguage(request.Language).Build();
+        _processor = CreateProcessor(_factory, request);
         await using var model = new FileStream(request.ModelPath, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         var buffer = new byte[64 * 1024];
@@ -75,7 +79,7 @@ internal sealed class WorkerServer(string pipeName)
             var verifiedHash = Convert.ToHexString(hash.GetHashAndReset());
             DisposeModel();
             _factory = WhisperFactory.FromPath(request.ModelPath);
-            _processor = _factory.CreateBuilder().WithLanguage(request.Language).Build();
+            _processor = CreateProcessor(_factory, request);
             return new(true, ModelHash: verifiedHash);
         }
         finally { CryptographicOperations.ZeroMemory(buffer); }
@@ -98,6 +102,13 @@ internal sealed class WorkerServer(string pipeName)
         {
             if (wav.TryGetBuffer(out var serializedWav)) CryptographicOperations.ZeroMemory(serializedWav.AsSpan());
         }
+    }
+
+    private static WhisperProcessor CreateProcessor(WhisperFactory factory, WorkerRequest request)
+    {
+        var builder = factory.CreateBuilder().WithLanguage(request.Language);
+        if (!string.IsNullOrWhiteSpace(request.InitialPrompt)) builder.WithPrompt(request.InitialPrompt);
+        return builder.Build();
     }
 
     private WorkerResponse Stop() { DisposeModel(); return new(true); }

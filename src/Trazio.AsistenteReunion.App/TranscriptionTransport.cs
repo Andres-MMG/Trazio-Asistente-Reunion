@@ -14,11 +14,20 @@ public interface ITranscriptionTransport : IAsyncDisposable
 public interface ITranscriptionTransportFactory
 {
     Task<ITranscriptionTransport> StartAsync(string modelPath, string language, CancellationToken cancellationToken);
+    Task<ITranscriptionTransport> StartAsync(string modelPath, string language, string? initialPrompt, CancellationToken cancellationToken) =>
+        StartAsync(modelPath, language, cancellationToken);
 }
 
 public sealed class ProcessTranscriptionTransportFactory : ITranscriptionTransportFactory
 {
-    public async Task<ITranscriptionTransport> StartAsync(string modelPath, string language, CancellationToken cancellationToken)
+    public Task<ITranscriptionTransport> StartAsync(string modelPath, string language, CancellationToken cancellationToken) =>
+        StartAsync(modelPath, language, initialPrompt: null, cancellationToken);
+
+    public async Task<ITranscriptionTransport> StartAsync(
+        string modelPath,
+        string language,
+        string? initialPrompt,
+        CancellationToken cancellationToken)
     {
         var pipeName = $"trazio-asistente-reunion-{Environment.ProcessId}-{Guid.NewGuid():N}";
         var executable = Path.Combine(AppContext.BaseDirectory, "Trazio.AsistenteReunion.Worker.exe");
@@ -29,7 +38,7 @@ public sealed class ProcessTranscriptionTransportFactory : ITranscriptionTranspo
         try
         {
             await client.ConnectAsync(TimeSpan.FromSeconds(10), cancellationToken);
-            var response = await client.SendAsync(new("start", modelPath, language), cancellationToken);
+            var response = await client.SendAsync(new("start", modelPath, language, InitialPrompt: initialPrompt), cancellationToken);
             if (!response.Success) throw new InvalidOperationException(response.Error);
             return new ProcessTranscriptionTransport(process, client, response.ModelHash);
         }

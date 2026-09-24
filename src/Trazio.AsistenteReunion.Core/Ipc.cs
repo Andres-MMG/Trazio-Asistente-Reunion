@@ -5,7 +5,7 @@ using System.Text.Json;
 
 namespace Trazio.AsistenteReunion.Core;
 
-public sealed record WorkerRequest(string Command, string? ModelPath = null, string Language = "es", string? WorkId = null, byte[]? Pcm16 = null, int SampleRate = 16_000);
+public sealed record WorkerRequest(string Command, string? ModelPath = null, string Language = "es", string? WorkId = null, byte[]? Pcm16 = null, int SampleRate = 16_000, string? InitialPrompt = null);
 public sealed record WorkerResponse(bool Success, string? Error = null, string? WorkId = null, IReadOnlyList<WorkerSegmentDto>? Segments = null, string? ModelHash = null);
 public sealed record WorkerSegmentDto(long StartMilliseconds, long EndMilliseconds, string Text);
 
