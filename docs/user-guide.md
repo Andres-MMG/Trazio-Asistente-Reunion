@@ -2,7 +2,7 @@
 
 **Comienza con una prueba breve y no sensible.** Trazio es una versión preliminar para Windows 11 x64 con interfaz en español. Necesitas una CPU x64 compatible, un micrófono/dispositivo de salida funcional y espacio en disco para el modelo y el audio cifrado. El ZIP publicado incluye el entorno de ejecución de .NET.
 
-> **Estado de esta guía:** la descarga pública actual es beta 10/secuencia 11. Incluye la navegación, el resaltado, la velocidad, la búsqueda local, el diccionario global y el intercambio JSON descritos más abajo; su validación audible con hardware real, de importación/exportación, visual, por teclado y lector de pantalla continúa pendiente. La bandeja 8.4a descrita en una sección separada existe únicamente en compilaciones creadas desde la fuente actual de `main`; todavía no está en beta 10.
+> **Estado de esta guía:** la descarga pública actual es beta 10/secuencia 11. Incluye la navegación, el resaltado, la velocidad, la búsqueda local, el diccionario global y el intercambio JSON descritos más abajo; su validación audible con hardware real, de importación/exportación, visual, por teclado y lector de pantalla continúa pendiente. La bandeja 8.4a descrita en una sección separada forma el candidato beta 11 de `main`; todavía no está en beta 10.
 
 ## Primera grabación
 
@@ -63,7 +63,7 @@ En **Historial**, escribe entre 2 y 120 caracteres en **Buscar en reuniones** y 
 
 La consulta y los resultados no se guardan en SQLite ni en un índice. Se descifran y comparan localmente en memoria; esto no equivale a memoria segura frente a paginación, volcados o software con acceso a la misma cuenta. Esta función está incluida desde beta 8 y continúa en la beta 10 pública.
 
-## Revisar pendientes en una compilación desde `main` — 8.4a no publicada
+## Revisar pendientes en el candidato beta 11 — 8.4a no publicada
 
 Esta función todavía no forma parte de la descarga beta 10. En una compilación de la fuente actual, abre **Historial** y luego **Pendientes de revisión**:
 

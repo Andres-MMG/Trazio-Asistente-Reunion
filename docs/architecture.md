@@ -12,7 +12,7 @@ La etapa 8.3a publicada incorpora el espacio global de diccionario sobre el esqu
 
 La etapa 8.3b publicada en beta 10 mantiene `glossary_entries` y su FK/cascada sin reconstrucción. Las entradas de archivo usan la tabla aditiva `imported_glossary_entries`, con campos semánticos AES-GCM, estado, lote opaco y fecha; no guarda ruta, nombre o hash. El dominio exige exactamente una procedencia: corrección de transcripción o archivo importado. La aplicación combina ambas fuentes al listar, despacha el cambio de estado dentro de una transacción y aborta la carga completa ante corrupción.
 
-La etapa 8.4a está implementada solo en la fuente de `main`, no en la beta 10 pública. Añade una bandeja local e individual de pendientes entre sesiones, sin ampliar el manifiesto de capacidades ni introducir red, Whisper, LLM, calendario, diarización o identificación de hablantes.
+La etapa 8.4a forma el candidato beta 11/secuencia 12 de `main`, todavía no publicado; no está en la beta 10 pública. Añade una bandeja local e individual de pendientes entre sesiones, sin ampliar el manifiesto de capacidades ni introducir red, Whisper, LLM, calendario, diarización o identificación de hablantes.
 
 ## Mapa de componentes
 
