@@ -2,16 +2,16 @@
 
 **Comienza con una prueba breve y no sensible.** Trazio es una versión preliminar para Windows 11 x64 con interfaz en español. Necesitas una CPU x64 compatible, un micrófono/dispositivo de salida funcional y espacio en disco para el modelo y el audio cifrado. El ZIP publicado incluye el entorno de ejecución de .NET.
 
-> **Estado de esta guía:** la descarga pública actual es beta 9/secuencia 10. Incluye la navegación, el resaltado, la velocidad, la búsqueda local y el diccionario global descritos más abajo; su validación audible con hardware real, visual, por teclado y lector de pantalla continúa pendiente.
+> **Estado de esta guía:** la descarga pública actual es beta 10/secuencia 11. Incluye la navegación, el resaltado, la velocidad, la búsqueda local, el diccionario global y el intercambio JSON descritos más abajo; su validación audible con hardware real, de importación/exportación, visual, por teclado y lector de pantalla continúa pendiente.
 
 ## Primera grabación
 
-1. Descarga el ZIP completo de Windows desde la [versión publicada v0.2.0-beta.9](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.9). Verifica el archivo lateral `.sha256`: el ZIP debe medir **86,876,029 bytes** y su SHA-256 debe ser `64861c690b4f89dd9bf347fc970761c1c95be2bcc67a075ce24f6a0f63dca7bd`. Extráelo en una carpeta normal de aplicaciones; no lo ejecutes desde dentro del ZIP.
+1. Descarga el ZIP completo de Windows desde la [versión publicada v0.2.0-beta.10](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.10). Verifica el archivo lateral `.sha256`: el ZIP debe medir **86,897,741 bytes** y su SHA-256 debe ser `52d5641af82e327bbfdf510dbd732d1dee7f13a7be5294af4b993fa1dc49a42f`. Extráelo en una carpeta normal de aplicaciones; no lo ejecutes desde dentro del ZIP.
 2. Abre `Trazio.AsistenteReunion.exe`. No lo separes del proceso auxiliar ni de las DLL. La beta sin firma puede generar advertencias de reputación de Windows; verifica el origen de la versión y su SHA-256 antes de decidir ejecutarla. No desactives el antivirus globalmente.
 3. En **Sesión en vivo**, acepta o edita **Título de la reunión**. Es un título automático de reunión, no tu nombre; se puede renombrar después en Historial.
 4. En **Perfil local**, confirma **Nombre visible**, ingresa opcionalmente una organización, marca **Confirmo este nombre visible** y **Guardar perfil**. **Tu nombre en esta reunión (opcional)** cambia solo la atribución del micrófono para esta grabación.
 5. Opcionalmente, en **Aplicación de reunión**, pulsa **Seleccionar…**, luego **Actualizar lista**, elige una ventana superior y **Asociar**. Trazio mostrará Google Meet, Microsoft Teams u Otra aplicación.
-6. Si deseas probar la captura visual efímera, pulsa **Autorizar captura visual** y revisa el diálogo. **Cancelar** es la opción predeterminada; la autorización sirve solo para esa ventana y esa sesión. Después de iniciar con **Audio del equipo**, beta 9 ofrece un segundo diálogo, **Autorizar análisis anónimo**. Es una autorización distinta, de un solo uso, ligada a la misma ventana y sesión; no se hereda ni se reactiva silenciosamente. La función todavía requiere validación física, por lo que debe evaluarse primero con contenido no sensible.
+6. Si deseas probar la captura visual efímera, pulsa **Autorizar captura visual** y revisa el diálogo. **Cancelar** es la opción predeterminada; la autorización sirve solo para esa ventana y esa sesión. Después de iniciar con **Audio del equipo**, beta 10 ofrece un segundo diálogo, **Autorizar análisis anónimo**. Es una autorización distinta, de un solo uso, ligada a la misma ventana y sesión; no se hereda ni se reactiva silenciosamente. La función todavía requiere validación física, por lo que debe evaluarse primero con contenido no sensible.
 7. Selecciona el micrófono real y el dispositivo de salida utilizado por tu reunión. Usa auriculares para reducir la recaptura por el micrófono del sonido de los parlantes.
 8. Haz clic en **Descargar modelo recomendado**, o inicia la transcripción para comenzar la configuración. La captura no comienza durante la configuración. Selecciona el idioma de transcripción.
 9. Elige el presupuesto de retención de audio (1, 2 o 5 GB) y luego **Iniciar transcripción**. Las sesiones nuevas siempre conservan audio cifrado; ya no es una casilla opcional.
@@ -21,13 +21,13 @@
 
 ### Qué hace la asociación de ventana
 
-La lista de ventanas se consulta solo después de pulsar **Actualizar lista**. Esta versión elige una ventana superior de Windows, no una pestaña individual. El título y la aplicación ayudan a elegir únicamente dentro del selector y se descartan al asociar o cerrar; fuera del modal solo quedan temporalmente el identificador técnico de la ventana, su PID y el proveedor. El historial guarda únicamente el proveedor normalizado. Asociar una ventana no inicia captura visual. `v0.2.0-beta.9` mantiene la captura y el análisis anónimo como autorizaciones separadas. El sondeo WGC/D3D11 trabaja con parches acotados y solo produce agregados; se conservan cifrados intervalos derivados de cobertura/actividad, nunca píxeles, imágenes o video. No hay OCR, reconocimiento de rostros, lectura de nombres, chat, subtítulos ni documentos.
+La lista de ventanas se consulta solo después de pulsar **Actualizar lista**. Esta versión elige una ventana superior de Windows, no una pestaña individual. El título y la aplicación ayudan a elegir únicamente dentro del selector y se descartan al asociar o cerrar; fuera del modal solo quedan temporalmente el identificador técnico de la ventana, su PID y el proveedor. El historial guarda únicamente el proveedor normalizado. Asociar una ventana no inicia captura visual. `v0.2.0-beta.10` mantiene la captura y el análisis anónimo como autorizaciones separadas. El sondeo WGC/D3D11 trabaja con parches acotados y solo produce agregados; se conservan cifrados intervalos derivados de cobertura/actividad, nunca píxeles, imágenes o video. No hay OCR, reconocimiento de rostros, lectura de nombres, chat, subtítulos ni documentos.
 
 Puedes iniciar sin seleccionar. Asociar una ventana tampoco cambia el origen de audio: Trazio sigue capturando el micrófono y/o el dispositivo de salida completos. Si la ventana desaparece antes de iniciar, la sesión continúa como **Sin seleccionar**; si desaparece durante la grabación, aparece un aviso y el audio continúa sin reasignación automática. Seleccionar, cambiar y quitar quedan bloqueados mientras se graba. Al detener, interrumpir o fallar la sesión, la asociación se consume y no se hereda en la siguiente reunión.
 
-Durante una sesión autorizada, **Pausar visual**, **Reanudar visual** y **Detener visual** controlan únicamente WGC. La aplicación muestra un estado textual independiente y el indicador **Análisis visual activo · no se guardan imágenes**. Detenerlo consume las autorizaciones de esa sesión; no se reactiva silenciosamente. En beta 9, el análisis anónimo solo puede asociarse a segmentos de **Audio del equipo** (`SystemOutput`); nunca al micrófono.
+Durante una sesión autorizada, **Pausar visual**, **Reanudar visual** y **Detener visual** controlan únicamente WGC. La aplicación muestra un estado textual independiente y el indicador **Análisis visual activo · no se guardan imágenes**. Detenerlo consume las autorizaciones de esa sesión; no se reactiva silenciosamente. En beta 10, el análisis anónimo solo puede asociarse a segmentos de **Audio del equipo** (`SystemOutput`); nunca al micrófono.
 
-En beta 9, los perfiles de producción de Google Meet y Microsoft Teams todavía están `Unvalidated`. Aunque autorices la función, el procesamiento se abstiene y la evidencia de actividad se muestra como **No disponible** tanto en la sesión en vivo como en Historial. Esto es intencional: no hay identificación de hablantes y no cambia el texto transcrito, `SpeakerName`, TXT, Markdown ni la exportación a Obsidian. La validación física de WGC/GPU, interfaz, teclado/lector de pantalla, accesibilidad, Meet/Teams reales y sesiones de 2/5 horas sigue pendiente.
+En beta 10, los perfiles de producción de Google Meet y Microsoft Teams todavía están `Unvalidated`. Aunque autorices la función, el procesamiento se abstiene y la evidencia de actividad se muestra como **No disponible** tanto en la sesión en vivo como en Historial. Esto es intencional: no hay identificación de hablantes y no cambia el texto transcrito, `SpeakerName`, TXT, Markdown ni la exportación a Obsidian. La validación física de WGC/GPU, interfaz, teclado/lector de pantalla, accesibilidad, Meet/Teams reales y sesiones de 2/5 horas sigue pendiente.
 
 ## Configuración del modelo
 
@@ -38,7 +38,7 @@ En beta 9, los perfiles de producción de Google Meet y Microsoft Teams todavía
 
 La revisión, longitud y SHA-256 fijados se documentan en [autenticidad del modelo](security.md#autenticidad-del-modelo).
 
-## Escuchar la fuente correcta en beta 9
+## Escuchar la fuente correcta en beta 10
 
 Abre **Historial**, selecciona una reunión guardada y usa **Reproductor de la reunión**:
 
@@ -51,7 +51,7 @@ Abre **Historial**, selecciona una reunión guardada y usa **Reproductor de la r
 
 El reproductor maneja las fuentes por separado. Esta versión no incluye una pista mezclada de micrófono y equipo, compensación de tono ni eliminación automática de eco. El cursor se calcula con los bytes ya reproducidos por el dispositivo y los convierte a tiempo fuente según la velocidad fija de cada operación; no usa la lectura adelantada del búfer. La coincidencia audible exacta, el cambio de velocidad, el recorrido completo por teclado y el lector de pantalla todavía requieren validación física. Las marcas de tiempo provienen del reconocimiento y pueden necesitar interpretación humana; reproducir no garantiza que las palabras del modelo sean correctas.
 
-## Buscar una reunión en beta 9
+## Buscar una reunión en beta 10
 
 En **Historial**, escribe entre 2 y 120 caracteres en **Buscar en reuniones** y pulsa **Buscar** o Enter. La consulta es literal, pero ignora mayúsculas y diacríticos: `reunion cafe` encuentra `Reunión Café`; no busca sinónimos ni significados parecidos.
 
@@ -61,7 +61,7 @@ En **Historial**, escribe entre 2 y 120 caracteres en **Buscar en reuniones** y 
 - Buscar por sí solo no cambia la sesión ni detiene/reproduce audio. Seleccionar un resultado abre la revisión **Original · revisión humana**, la fuente y el segmento, pero nunca inicia reproducción automática.
 - **Limpiar** vuelve a la lista normal de sesiones. Si una sesión o segmento fue eliminado, Trazio muestra el fallo y exige repetir la búsqueda.
 
-La consulta y los resultados no se guardan en SQLite ni en un índice. Se descifran y comparan localmente en memoria; esto no equivale a memoria segura frente a paginación, volcados o software con acceso a la misma cuenta. Esta función está incluida desde beta 8 y continúa en la beta 9 pública.
+La consulta y los resultados no se guardan en SQLite ni en un índice. Se descifran y comparan localmente en memoria; esto no equivale a memoria segura frente a paginación, volcados o software con acceso a la misma cuenta. Esta función está incluida desde beta 8 y continúa en la beta 10 pública.
 
 ## Corregir texto y recopilar terminología
 
@@ -72,9 +72,9 @@ La consulta y los resultados no se guardan en SQLite ni en un índice. Se descif
 
 **Límite actual:** el glosario registra terminología confirmada y su procedencia. Todavía no cambia las instrucciones de Whisper ni reemplaza palabras automáticamente. Guardar correcciones no entrena el modelo de voz. La aplicación futura acotada del glosario pertenece a la etapa 8.7; el entrenamiento, a la etapa 12.
 
-### Gestionar el diccionario global en beta 9
+### Gestionar el diccionario global en beta 10
 
-La beta 9 pública agrega la pestaña **Diccionario**:
+La beta 10 pública agrega la pestaña **Diccionario**:
 
 1. Usa **Filtrar términos o categoría** para buscar por forma incorrecta, término preferido o categoría. El filtro ignora mayúsculas y tildes, se ejecuta solo en memoria y muestra hasta 120 entradas.
 2. Elige **Todos**, **Activos** o **Inactivos**. Cada duplicado histórico aparece como una fila independiente con un ordinal público; no se muestran IDs internos.
@@ -83,9 +83,9 @@ La beta 9 pública agrega la pestaña **Diccionario**:
 
 Al eliminar una sesión también se eliminan las entradas del diccionario originadas en sus correcciones. Deshacer una corrección, en cambio, conserva sus entradas.
 
-### Importar o exportar en 8.3b (candidato beta 10, aún no publicado)
+### Importar o exportar en 8.3b (publicado en beta 10)
 
-La versión en desarrollo añade el panel **Importar o exportar**. **Exportar JSON…** incluye todas las entradas, no solo las visibles, y advierte antes de crear un archivo sin cifrar. **Importar JSON…** acepta el formato `trazio-glossary` versión 1, muestra cada fila y su motivo, y deja **Cancelar** como acción predeterminada. Solo **Importar N nuevas** escribe; al confirmar vuelve a comprobar el diccionario y guarda todas las nuevas o ninguna.
+La beta 10 añade el panel **Importar o exportar**. **Exportar JSON…** incluye todas las entradas, no solo las visibles, y advierte antes de crear un archivo sin cifrar. **Importar JSON…** acepta el formato `trazio-glossary` versión 1, muestra cada fila y su motivo, y deja **Cancelar** como acción predeterminada. Solo **Importar N nuevas** escribe; al confirmar vuelve a comprobar el diccionario y guarda todas las nuevas o ninguna.
 
 El archivo usa JSON UTF-8 con esta estructura exacta; los nombres de las propiedades distinguen mayúsculas y minúsculas:
 
@@ -106,7 +106,7 @@ El archivo usa JSON UTF-8 con esta estructura exacta; los nombres de las propied
 
 Se admiten hasta **5 MiB**, **5.000 entradas** y una profundidad JSON máxima de **8**. `mistakenForm` y `preferredTerm` deben tener entre 1 y 120 caracteres; `category`, entre 1 y 60. Trazio recorta los extremos y normaliza Unicode a NFC, pero rechaza NUL, saltos de línea y otros caracteres de control. Acepta UTF-8 con o sin BOM; la exportación usa UTF-8 sin BOM, saltos LF y orden determinista. Un JSON, encabezado o UTF-8 inválido aborta el archivo completo. Una fila inválida se conserva solo en la vista previa como **Rechazada** y no se escribe.
 
-Las entradas exactamente repetidas, equivalentes al ignorar mayúsculas/diacríticos o en conflicto se omiten sin fusión destructiva. Los grupos existentes quedan señalados para que ajustes **Activa** manualmente. Las entradas importadas sobreviven al borrado de reuniones porque no inventan una corrección de origen. Trazio no guarda la ruta ni el nombre del archivo y no lo envía por red; la vista previa sí existe transitoriamente en RAM, sin promesa de memoria segura. Esta función forma parte del candidato beta 10, todavía no está en la beta 9 pública y no aplica términos a Whisper.
+Las entradas exactamente repetidas, equivalentes al ignorar mayúsculas/diacríticos o en conflicto se omiten sin fusión destructiva. Los grupos existentes quedan señalados para que ajustes **Activa** manualmente. Las entradas importadas sobreviven al borrado de reuniones porque no inventan una corrección de origen. Trazio no guarda la ruta ni el nombre del archivo y no lo envía por red; la vista previa sí existe transitoriamente en RAM, sin promesa de memoria segura. Esta función está publicada en beta 10 y no aplica términos a Whisper.
 
 ## Retranscribir y comparar versiones
 
@@ -149,7 +149,7 @@ Esto traslada datos para el mismo usuario de Windows. No hace portátiles los da
 
 ## Instalar, reparar o actualizar con Setup
 
-La [versión pública beta 9](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.9) ofrece tanto el ZIP como `Trazio-Asistente-Reunion-v0.2.0-beta.9-Setup.exe`. El instalador es manual, offline y solo para tu usuario de Windows. El Setup mide **60,037,793 bytes**, su SHA-256 es `3bfd4ae6777f18d1a59b379ee6bd42c515d6e13481ed19774c2c16fb67988635` y Authenticode informa `NotSigned`. Su manifiesto mide **486 bytes** y su SHA-256 es `2457b68fbe5e87eaf75d7ec51c3c02148cd18ddbf811cbb832108a07ade1b40d`. El recurso remoto coincide con esos valores, pero el Setup con identidad productiva todavía no fue ejecutado; úsalo primero con datos no sensibles y conserva una copia de seguridad.
+La [versión pública beta 10](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.10) ofrece tanto el ZIP como `Trazio-Asistente-Reunion-v0.2.0-beta.10-Setup.exe`. El instalador es manual, offline y solo para tu usuario de Windows. El Setup mide **60,064,281 bytes**, su SHA-256 es `ce67f9ac2c05fa5718f99ef31339f74961af9de1a23a00c4a31ed56226977f2f` y Authenticode informa `NotSigned`. Su manifiesto mide **488 bytes** y su SHA-256 es `f867fc695aa9de37e266621de825958f8ef9967be989cdfd2829c83d4a197a01`. El recurso remoto coincide con esos valores, pero el Setup con identidad productiva todavía no fue ejecutado; úsalo primero con datos no sensibles y conserva una copia de seguridad.
 
 1. Descarga el `.exe`, su `.sha256` y su `.manifest.json` desde la misma versión oficial. Compara nombre, longitud y SHA-256. Como todavía no hay firma Authenticode, esa comprobación detecta diferencias respecto del sidecar pero no autentica por sí sola al editor.
 2. Finaliza la grabación y cierra Trazio normalmente. No fuerces la aplicación ni su proceso de transcripción, y no vuelvas a abrirlos hasta que Setup termine. La primera actualización desde beta 5 no puede detectar infaliblemente una instancia legacy abierta porque esa versión no creaba el nuevo mutex. Además, una App/Worker nueva podría iniciarse después del chequeo inicial del instalador; mantenerla cerrada evita esa carrera conocida.
@@ -157,7 +157,7 @@ La [versión pública beta 9](https://github.com/Andres-MMG/Trazio-Asistente-Reu
 4. Si Trazio o su Worker nuevo ya están activos durante el chequeo inicial, Setup se bloquea y permite reintentar/cancelar; nunca los cierra ni reinicia automáticamente. Ese chequeo no impide que alguien abra Trazio después, por lo que no lo hagas durante la instalación.
 5. Después de completar, abre Trazio y comprueba Historial, modelo y una prueba breve. La definición del desinstalador no incluye la raíz de datos, pero valida primero con datos de prueba antes de confiar una actualización de producción.
 
-Los binarios quedan en una raíz estable con un payload completo por versión. Durante Setup se conserva el payload anterior; si la copia/activación falla o cancelas antes de completar, Inno revierte la transacción. **Ese límite termina al finalizar Setup:** después de abrir una versión nueva no se garantiza compatibilidad de la base al volver atrás. Tampoco hay descarga automática, limpieza automática de payloads antiguos ni firma del editor. Las definiciones publicadas desde beta 6 y vigentes en beta 9/secuencia 10 no leen, copian, migran ni borran la raíz de datos; aun así, no se afirma preservación física de datos arbitrarios sin validación en otra cuenta/equipo. El Setup beta 9 permanece sin firma y no fue ejecutado. La cancelación humana y esa validación física siguen pendientes.
+Los binarios quedan en una raíz estable con un payload completo por versión. Durante Setup se conserva el payload anterior; si la copia/activación falla o cancelas antes de completar, Inno revierte la transacción. **Ese límite termina al finalizar Setup:** después de abrir una versión nueva no se garantiza compatibilidad de la base al volver atrás. Tampoco hay descarga automática, limpieza automática de payloads antiguos ni firma del editor. Las definiciones publicadas desde beta 6 y vigentes en beta 10/secuencia 11 no leen, copian, migran ni borran la raíz de datos; aun así, no se afirma preservación física de datos arbitrarios sin validación en otra cuenta/equipo. El Setup beta 10 permanece sin firma y no fue ejecutado. La cancelación humana y esa validación física siguen pendientes.
 
 ## Actualizar la instalación ZIP
 

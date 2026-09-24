@@ -52,7 +52,7 @@ Cierra primero la aplicación; no finalices la grabación activa de otra persona
 1. Reemplaza únicamente `artifacts\publish` después de comprobar que esté dentro de `artifacts`.
 2. Publica App y Worker como `win-x64`, autocontenidos, **no como archivo único**, en la misma carpeta.
 3. Copia el README y los avisos de terceros.
-4. Comprueba ejecutables/dependencias necesarios y la coincidencia de versión de producto declarada por `Directory.Build.props` entre App, Worker y `Trazio.AsistenteReunion.VisualAnalysis.dll`. La versión publicada actual es `0.2.0-beta.9`. También valida el manifiesto `trazio-capabilities.json`, versionado junto al proyecto WPF y copiado al publicar: exige **exactamente las cinco capacidades existentes** de historial, audio cifrado, exportación Obsidian, asociación de proveedor por ventana y captura efímera consentida. La validación rechaza identificadores duplicados o versiones inválidas. La infraestructura 7.2b no agrega una capacidad empaquetada de actividad/correlación anónima ni de identificación de hablantes: sus perfiles de producción permanecen `Unvalidated` y fallan de forma segura.
+4. Comprueba ejecutables/dependencias necesarios y la coincidencia de versión de producto declarada por `Directory.Build.props` entre App, Worker y `Trazio.AsistenteReunion.VisualAnalysis.dll`. La versión publicada actual es `0.2.0-beta.10`. También valida el manifiesto `trazio-capabilities.json`, versionado junto al proyecto WPF y copiado al publicar: exige **exactamente las cinco capacidades existentes** de historial, audio cifrado, exportación Obsidian, asociación de proveedor por ventana y captura efímera consentida. La validación rechaza identificadores duplicados o versiones inválidas. La infraestructura 7.2b no agrega una capacidad empaquetada de actividad/correlación anónima ni de identificación de hablantes: sus perfiles de producción permanecen `Unvalidated` y fallan de forma segura.
 5. Rechaza tipos y metadatos no incluidos en la lista permitida del layout, incluidos datos de usuario, bases SQLite, audio, modelos GGML/GGUF, imágenes, video, volcados, registros y material de claves. Además rechaza explícitamente la CLI `VisualEvaluation` (`.exe`, `.dll`, `.deps.json` y `.runtimeconfig.json`), `synthetic-corpus-v1.json`, `synthetic-corpus-v1.golden.json` y cualquier directorio denominado `tools` o `evaluation`, donde sea que aparezcan. `VisualAnalysis.dll` sí es una dependencia distribuida; el evaluador offline y sus datos sintéticos no lo son. El ZIP final también debe inspeccionarse antes del SHA-256 y la subida.
 6. Ejecuta la comprobación de salud del proceso auxiliar mediante canal con nombre.
 7. Emite `artifacts\publish-manifest.json` con versión, secuencia monotónica y cada ruta relativa normalizada, longitud y SHA-256 en orden ordinal.
@@ -101,13 +101,13 @@ Prueba el mecanismo únicamente con identificadores desechables:
 
 ## Disciplina de versiones y publicación
 
-Autoridad de versión de fuente: [Directory.Build.props](../Directory.Build.props). La fuente actual declara `VersionPrefix` **0.2.0**, `VersionSuffix` **beta.10** (versión producto `0.2.0-beta.10`), `InstallerReleaseSequence` **11** y versión de ensamblado/archivo **0.2.0.0**. Beta 10/secuencia 11 es un candidato de `main`, todavía no publicado; la versión pública continúa siendo beta 9/secuencia 10. Beta 9/secuencia 10, beta 8/secuencia 9, beta 7/secuencia 8 y todas las asignaciones anteriores permanecen como antecedentes históricos inmutables. Cada nueva versión instalable debe aumentar `InstallerReleaseSequence`; nunca compares SemVer beta como texto. El script de publicación, la definición del instalador y las [pruebas de versión/instalador](../tests/Trazio.AsistenteReunion.Tests/InstallerPackageContractTests.cs) comprueban el contrato y conservan los mapeos históricos.
+Autoridad de versión de fuente: [Directory.Build.props](../Directory.Build.props). La fuente actual declara `VersionPrefix` **0.2.0**, `VersionSuffix` **beta.10** (versión producto `0.2.0-beta.10`), `InstallerReleaseSequence` **11** y versión de ensamblado/archivo **0.2.0.0**. Beta 10/secuencia 11 es la versión pública actual. Beta 9/secuencia 10, beta 8/secuencia 9, beta 7/secuencia 8 y todas las asignaciones anteriores permanecen como antecedentes históricos inmutables. Cada nueva versión instalable debe aumentar `InstallerReleaseSequence`; nunca compares SemVer beta como texto. El script de publicación, la definición del instalador y las [pruebas de versión/instalador](../tests/Trazio.AsistenteReunion.Tests/InstallerPackageContractTests.cs) comprueban el contrato y conservan los mapeos históricos.
 
-### Candidato beta 10/secuencia 11 — no publicado
+### Evidencia publicada de beta 10/secuencia 11
 
-El candidato beta 10/secuencia 11 incorpora el intercambio de diccionario 8.3b. Su filtro enfocado de cuatro clases aprobó **48/48**, el conjunto Release completo aprobó **599/599** en serie y con paralelismo predeterminado, y la solución compiló en Release con **0 advertencias y 0 errores** antes de preparar la metadata. Esta evidencia no crea tag, ZIP, Setup ni release y no sustituye validación real de importación/exportación, interfaz, teclado o lector de pantalla. Mantiene exactamente cinco capacidades y no cambia Whisper, red ni calendario.
+Beta 10/secuencia 11 incorpora el intercambio de diccionario 8.3b. Su filtro enfocado de cuatro clases aprobó **48/48**, el conjunto Release completo aprobó **599/599** en serie y con paralelismo predeterminado, los contratos finales aprobaron **22/22**, el harness desechable **14/14** y la solución compiló en Release con **0 advertencias y 0 errores**. El layout coincidió **495/495** con `ProductVersion` `0.2.0-beta.10+52f8b016c277a5822e9aec269fc22cc055925a2e`; mantiene exactamente cinco capacidades y no cambia Whisper, red ni calendario. Los seis recursos remotos están publicados y verificados. Esta evidencia no sustituye validación real de importación/exportación, interfaz, teclado o lector de pantalla.
 
-### Evidencia publicada de beta 9/secuencia 10
+### Evidencia histórica publicada de beta 9/secuencia 10
 
 Beta 9/secuencia 10 distribuye la gestión global básica del diccionario 8.3a. El tag público resuelve a `8eb4c2e5a16ff34db21a34bb1ff91feb93de7375`. Release serial/paralelo aprobó **574/574**, la suite enfocada de 8.3a **23/23**, los contratos finales **22/22** y el harness desechable **14/14**. El layout coincidió **495/495** con `ProductVersion` `0.2.0-beta.9+8eb4c2e5a16ff34db21a34bb1ff91feb93de7375` y exactamente cinco capacidades. Activar una entrada todavía no modifica Whisper ni las transcripciones. El instalador continúa `NotSigned` y el Setup productivo no se ha ejecutado; tampoco existen pruebas físicas visuales, por teclado, lector de pantalla, audibles, WGC/GPU, Meet/Teams o 2/5 horas para esta versión.
 
@@ -133,7 +133,7 @@ La verificación aprobó los contratos enfocados **10/10**, Release serial y par
 
 ### Lista reutilizable para la próxima versión
 
-Estas casillas son un procedimiento reutilizable; no representan evidencia completada del candidato beta 10 ni tareas pendientes de la publicación beta 9 ya verificada.
+Estas casillas son un procedimiento reutilizable; no representan tareas pendientes de las publicaciones beta 10 o beta 9 ya verificadas.
 
 - [ ] Registrar commit, versión, evidencia de pruebas y límites de validación pendientes.
 - [ ] Publicar ambos ejecutables; verificar inferencia real antes de afirmar que un modelo funciona.
@@ -154,7 +154,7 @@ Get-Content -LiteralPath "$zipPath.sha256"
 Get-FileHash -Algorithm SHA256 -LiteralPath $zipPath
 ```
 
-La publicación vigente es `Trazio-Asistente-Reunion-v0.2.0-beta.9-win-x64.zip` junto a su archivo `.sha256`; su tamaño **86,876,029 bytes** y SHA-256 `64861c690b4f89dd9bf347fc970761c1c95be2bcc67a075ce24f6a0f63dca7bd` corresponden exclusivamente a ese recurso publicado. El ejemplo prepara el nombre canónico del candidato beta 10 declarado por la fuente, pero ejecutarlo no etiqueta, firma, sube ni publica por sí solo. Beta 8 y beta 7 permanecen como evidencia histórica. Publicar y enviar cambios requieren autorización explícita del mantenedor.
+La publicación vigente es `Trazio-Asistente-Reunion-v0.2.0-beta.10-win-x64.zip` junto a su archivo `.sha256`; su tamaño **86,897,741 bytes** y SHA-256 `52d5641af82e327bbfdf510dbd732d1dee7f13a7be5294af4b993fa1dc49a42f` corresponden exclusivamente a ese recurso publicado. El ejemplo reproduce el nombre canónico de beta 10 declarado por la fuente, pero ejecutarlo no etiqueta, firma, sube ni publica por sí solo. Beta 9, beta 8 y beta 7 permanecen como evidencia histórica. Publicar y enviar cambios requieren autorización explícita del mantenedor.
 
 ## Límites de contribución
 

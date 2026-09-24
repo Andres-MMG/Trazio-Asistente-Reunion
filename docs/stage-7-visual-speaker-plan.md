@@ -4,7 +4,7 @@
 >
 > **Puerta de autorización:** seleccionar la ventana, autorizar la captura WGC 7.2a y autorizar el análisis anónimo 7.2b son acciones distintas. La autorización 7.2b se consume una sola vez y queda ligada a la ventana, proveedor, sesión y alcance exactos. No autoriza identificación de hablantes ni adaptadores 7.2c/7.2d.
 
-> **Estado:** la versión pública actual [`v0.2.0-beta.9`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.9) incluye 7.2a, la infraestructura de 7.2b y el ensamblado compartido `VisualAnalysis`. La verificación aprobó Release serial/paralelo **574/574**, la suite enfocada de 8.3a **23/23**, los contratos finales **22/22** y el harness desechable **14/14**. El layout final **495/495**, con `ProductVersion` `0.2.0-beta.9+8eb4c2e5a16ff34db21a34bb1ff91feb93de7375`, excluye `VisualEvaluation`, el [corpus sintético agregado y su golden](../evaluation/stage-7b/README.md), `tools` y `evaluation`; mantiene exactamente cinco capacidades. El tag resuelve a `8eb4c2e5a16ff34db21a34bb1ff91feb93de7375`. La evaluación sintética no es calibración física: Meet/Teams permanecen `Unvalidated`, se abstienen y muestran **No disponible**; no existe identificación de hablantes. Siguen pendientes WGC/GPU/interfaz/accesibilidad/Meet/Teams físicos, 2/5 horas y firma.
+> **Estado:** la versión pública actual [`v0.2.0-beta.10`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.10) incluye 7.2a, la infraestructura de 7.2b y el ensamblado compartido `VisualAnalysis`. La verificación aprobó Release serial/paralelo **599/599**, la suite enfocada de 8.3b **48/48**, los contratos finales **22/22**, el harness desechable **14/14** y la compilación con **0 advertencias y 0 errores**. El layout final **495/495**, con `ProductVersion` `0.2.0-beta.10+52f8b016c277a5822e9aec269fc22cc055925a2e`, excluye `VisualEvaluation`, el [corpus sintético agregado y su golden](../evaluation/stage-7b/README.md), `tools` y `evaluation`; mantiene exactamente cinco capacidades. El tag resuelve a `52f8b016c277a5822e9aec269fc22cc055925a2e`. La evaluación sintética no es calibración física: Meet/Teams permanecen `Unvalidated`, se abstienen y muestran **No disponible**; no existe identificación de hablantes. Siguen pendientes WGC/GPU/interfaz/accesibilidad/Meet/Teams físicos, 2/5 horas y firma.
 
 ## Resultado esperado
 
@@ -108,7 +108,7 @@ Esta rebanada no identifica personas. Solo demuestra una captura visual efímera
 
 ### 7.2b — Actividad visual anónima
 
-**Estado:** infraestructura publicada desde beta 5 y vigente en beta 9. La lógica compartida vive en `VisualAnalysis`; el evaluador/corpus continúan como herramientas offline del código fuente y no se empaquetan. El comportamiento de producción continúa deliberadamente abstencionista. La inferencia visual es determinista y anónima: evalúa cambios coherentes en parches declarados por un perfil validado, sin reconocer rostros ni leer nombres. Los perfiles de Meet/Teams incluidos están `Unvalidated`, con cero parches y sin política; por tanto, no leen superficies para inferencia, producen cobertura no disponible y no generan actividad positiva. El corpus usa únicamente agregados sintéticos y políticas ya empleadas por pruebas; no recomienda ni habilita umbrales.
+**Estado:** infraestructura publicada desde beta 5 y vigente en beta 10. La lógica compartida vive en `VisualAnalysis`; el evaluador/corpus continúan como herramientas offline del código fuente y no se empaquetan. El comportamiento de producción continúa deliberadamente abstencionista. La inferencia visual es determinista y anónima: evalúa cambios coherentes en parches declarados por un perfil validado, sin reconocer rostros ni leer nombres. Los perfiles de Meet/Teams incluidos están `Unvalidated`, con cero parches y sin política; por tanto, no leen superficies para inferencia, producen cobertura no disponible y no generan actividad positiva. El corpus usa únicamente agregados sintéticos y políticas ya empleadas por pruebas; no recomienda ni habilita umbrales.
 
 - [D3D11VisualProbeExtractor](../src/Trazio.AsistenteReunion.App/D3D11VisualProbeExtractor.cs) acepta como máximo parches acotados de 16 × 16, los copia a un atlas de staging limitado y devuelve únicamente agregados numéricos de coincidencia, contenido no negro y luminancia media. Los bytes mapeados se limpian y no se serializan.
 - [VisualProbeSession](../src/Trazio.AsistenteReunion.App/VisualProbeSession.cs) limita la frecuencia, conserva como máximo una observación pendiente y descarta o combina trabajo obsoleto sin bloquear audio. La canalización de evidencia también es acotada.
@@ -188,7 +188,7 @@ No se persisten píxeles, superficies Direct3D, imágenes, video, URL, HWND, PID
 
 - Retención de píxeles: **cero**; los frames existen solo durante su procesamiento.
 - Los eventos derivados siguen el ciclo de vida cifrado de la sesión y se eliminan con ella.
-- La evidencia visual anónima no se exporta en beta 9. TXT, Markdown y Obsidian mantienen la transcripción y `SpeakerName` existentes sin agregar actividad visual.
+- La evidencia visual anónima no se exporta en beta 10. TXT, Markdown y Obsidian mantienen la transcripción y `SpeakerName` existentes sin agregar actividad visual.
 - Una exportación futura de evidencia requeriría diseño y consentimiento explícitos, procedencia/confianza visibles y nunca podría convertir una inferencia en hecho confirmado.
 - Las capturas de depuración están prohibidas. Una futura opción para conservar imágenes requeriría diseño, consentimiento, cifrado, retención y eliminación independientes; no se incluye en 7.2.
 
@@ -247,7 +247,7 @@ La evidencia histórica de 7.2a registra **54/54 pruebas enfocadas** (`Area=Visu
 
 La verificación final de beta 5 agregó `VersionMetadataTests` **4/4**, `publish` y smoke IPC integrado/explícito aprobados, además de un layout **495/495** archivos byte a byte. `VisualAnalysis.dll` estuvo presente y versionada; evaluador, corpus/golden, `tools` y `evaluation` estuvieron ausentes; se conservaron cinco capacidades y hubo **0** hallazgos prohibidos, rutas fuente locales o referencias CodeView. El ZIP publicado mide **86,829,207 bytes** y su SHA-256 es `0031cab096013b7bb436221a75d874719cc1d47ed03ac4047000b4e3094ddbdf`; tamaño y digest remotos coinciden y el archivo lateral está publicado.
 
-Como antecedentes históricos, beta 6 aprobó Release serial/paralelo **451/451**, beta 7 aprobó **520/520** y beta 8 aprobó **543/543**, todas con layout final **495/495**. La beta 9 pública aprobó **574/574** en serie y paralelo y conserva `VisualAnalysis.dll`, exactamente cinco capacidades y cero hallazgos prohibidos, rutas locales o CodeView; evaluador, corpus/golden, `tools` y `evaluation` permanecen ausentes. Esta evidencia no sustituye WGC/GPU, interfaz/accesibilidad, Meet/Teams o duración reales.
+Como antecedentes históricos, beta 6 aprobó Release serial/paralelo **451/451**, beta 7 aprobó **520/520**, beta 8 aprobó **543/543** y beta 9 aprobó **574/574**, todas con layout final **495/495**. La beta 10 pública aprobó **599/599** en serie y paralelo y conserva `VisualAnalysis.dll`, exactamente cinco capacidades y cero hallazgos prohibidos, rutas locales o CodeView; evaluador, corpus/golden, `tools` y `evaluation` permanecen ausentes. Esta evidencia no sustituye WGC/GPU, interfaz/accesibilidad, Meet/Teams o duración reales.
 
 - [VisualCaptureSessionControllerTests](../tests/Trazio.AsistenteReunion.Tests/VisualCaptureSessionControllerTests.cs)
 - [BoundedDropOldestProcessorTests](../tests/Trazio.AsistenteReunion.Tests/BoundedDropOldestProcessorTests.cs)
@@ -309,7 +309,7 @@ La cobertura/recall no será criterio inicial: un adaptador puede abstenerse. Pr
 - [ ] El indicador visual permanece visible y Pausar/Detener funciona por teclado y lector de pantalla.
 - [x] El backend solo crea captura para la ventana HWND/PID revalidada y no reasigna; falta demostrarlo físicamente.
 - [x] La infraestructura 7.2b mantiene canales/observaciones acotados y disposición determinista; el extractor entrega agregados numéricos, no buffers de píxeles persistibles.
-- [x] El código 7.2a/7.2b no crea videos, screenshots, dumps propios, logs sensibles ni registros de píxeles; el script y la inspección del ZIP beta 9 publicado rechazaron esas clases. Falta inspeccionar la ejecución física.
+- [x] El código 7.2a/7.2b no crea videos, screenshots, dumps propios, logs sensibles ni registros de píxeles; el script y la inspección del ZIP beta 10 publicado rechazaron esas clases. Falta inspeccionar la ejecución física.
 - [ ] Minimizar, cerrar, proteger o perder la ventana no detiene audio/transcripción.
 - [x] La correlación en código solo admite `SystemOutput`; el micrófono queda oculto y conserva la identidad local. Falta aceptación en la interfaz física.
 - [x] Los perfiles de producción Meet/Teams permanecen `Unvalidated`, se abstienen y proyectan **No disponible**; falta validarlo con aplicaciones reales.
@@ -327,7 +327,7 @@ La cobertura/recall no será criterio inicial: un adaptador puede abstenerse. Pr
 | Regresión en captura de audio | Módulo y canales independientes; kill switch visual no toca `RecordingCoordinator` de audio |
 | Cambio de UI de Meet/Teams | Mantener/desactivar el perfil afectado como `Unvalidated` y volver a **No disponible** |
 | Sobrecarga o fuga gráfica | Límites duros, métricas locales, prueba de 2 h y apagado idempotente |
-| Problema de privacidad | OFF por defecto, consentimiento consumible, cero retención de frames y ninguna exportación de evidencia en beta 9 |
+| Problema de privacidad | OFF por defecto, consentimiento consumible, cero retención de frames y ninguna exportación de evidencia en beta 10 |
 | Falso positivo | Umbral conservador, versión de política, abstención y corrección humana |
 | Incompatibilidad de Windows/GPU | Detección de soporte previa y fallback sin análisis visual |
 
