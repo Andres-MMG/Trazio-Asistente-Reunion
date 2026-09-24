@@ -19,6 +19,7 @@ public sealed record GlossaryWorkspaceItem(
     bool IsActive,
     string CreatedAtLabel,
     string SourceLabel,
+    string AttentionLabel,
     string AutomationName)
 {
     internal string EntryId { get; init; } = string.Empty;
@@ -49,10 +50,16 @@ public static class GlossaryWorkspacePresenter
         ArgumentNullException.ThrowIfNull(entries);
         timeZone ??= TimeZoneInfo.Local;
 
+        var issues = GlossaryExchangePlanner.AnalyzeExisting(entries);
+
         var ordered = entries
             .OrderByDescending(entry => entry.CreatedAt)
             .ThenByDescending(entry => entry.Id, StringComparer.Ordinal)
-            .Select((entry, index) => CreateItem(entry, index + 1, timeZone))
+            .Select((entry, index) => CreateItem(
+                entry,
+                index + 1,
+                timeZone,
+                issues.GetValueOrDefault(entry.Id)))
             .ToArray();
         var normalizedFilter = Normalize(filter);
         var matches = ordered
@@ -72,11 +79,18 @@ public static class GlossaryWorkspacePresenter
             CreateStatus(visible.Length, matches.Length, ordered.Length, activeCount, truncated));
     }
 
-    private static GlossaryWorkspaceItem CreateItem(GlossaryEntry entry, int ordinal, TimeZoneInfo timeZone)
+    private static GlossaryWorkspaceItem CreateItem(
+        GlossaryEntry entry,
+        int ordinal,
+        TimeZoneInfo timeZone,
+        GlossaryExistingIssue? issue)
     {
         var localCreatedAt = TimeZoneInfo.ConvertTime(entry.CreatedAt, timeZone);
-        const string source = "Corrección de transcripción";
+        var source = entry.Origin == GlossaryEntryOrigin.ImportedFile
+            ? "Archivo importado"
+            : "Corrección de transcripción";
         var state = entry.IsActive ? "Activa" : "Inactiva";
+        var attention = issue?.Reason ?? string.Empty;
         return new(
             ordinal,
             entry.MistakenForm,
@@ -85,7 +99,8 @@ public static class GlossaryWorkspacePresenter
             entry.IsActive,
             localCreatedAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture),
             source,
-            $"Entrada {ordinal}. {entry.MistakenForm}, reemplazar por {entry.PreferredTerm}. Categoría {entry.Category}. Fecha {localCreatedAt:yyyy-MM-dd HH:mm}. Origen {source}. Estado {state}.")
+            attention,
+            $"Entrada {ordinal}. {entry.MistakenForm}, reemplazar por {entry.PreferredTerm}. Categoría {entry.Category}. Fecha {localCreatedAt:yyyy-MM-dd HH:mm}. Origen {source}. Estado {state}.{(attention.Length == 0 ? string.Empty : $" Atención: {attention}")}")
         {
             EntryId = entry.Id
         };

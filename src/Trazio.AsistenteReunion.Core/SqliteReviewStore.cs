@@ -29,6 +29,16 @@ public sealed partial class SqliteSessionStore
               source_correction_id TEXT NOT NULL REFERENCES transcript_corrections(id) ON DELETE CASCADE,
               created_at TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS ix_glossary_active ON glossary_entries(is_active, created_at);
+            CREATE TABLE IF NOT EXISTS imported_glossary_entries (
+              id TEXT PRIMARY KEY,
+              preferred_nonce BLOB NOT NULL, preferred_cipher BLOB NOT NULL, preferred_tag BLOB NOT NULL,
+              mistaken_nonce BLOB NOT NULL, mistaken_cipher BLOB NOT NULL, mistaken_tag BLOB NOT NULL,
+              category_nonce BLOB NOT NULL, category_cipher BLOB NOT NULL, category_tag BLOB NOT NULL,
+              is_active INTEGER NOT NULL,
+              import_batch_id TEXT NOT NULL,
+              created_at TEXT NOT NULL);
+            CREATE INDEX IF NOT EXISTS ix_imported_glossary_active
+              ON imported_glossary_entries(is_active, created_at);
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -129,6 +139,11 @@ public sealed partial class SqliteSessionStore
     {
         if (string.IsNullOrWhiteSpace(preferredTerm) || string.IsNullOrWhiteSpace(mistakenForm) || string.IsNullOrWhiteSpace(category))
             throw new InvalidOperationException("Se requieren el término correcto, la forma incorrecta y la categoría.");
+        var portable = GlossaryExchangeSerializer.NormalizeAndValidate(new(
+            mistakenForm,
+            preferredTerm,
+            category,
+            isActive));
 
         await using var connection = await OpenAsync(cancellationToken);
         await using var source = connection.CreateCommand();
@@ -140,11 +155,13 @@ public sealed partial class SqliteSessionStore
 
         var entry = new GlossaryEntry(
             Guid.NewGuid().ToString("N"),
-            preferredTerm.Trim(),
-            mistakenForm.Trim(),
-            category.Trim(),
+            portable.PreferredTerm,
+            portable.MistakenForm,
+            portable.Category,
             isActive,
+            GlossaryEntryOrigin.TranscriptCorrection,
             sourceCorrectionId,
+            null,
             DateTimeOffset.UtcNow);
         var preferred = protector.Protect(Encoding.UTF8.GetBytes(entry.PreferredTerm), $"glossary:{entry.Id}:preferred");
         var mistaken = protector.Protect(Encoding.UTF8.GetBytes(entry.MistakenForm), $"glossary:{entry.Id}:mistaken");
@@ -170,29 +187,8 @@ public sealed partial class SqliteSessionStore
 
     public async Task<IReadOnlyList<GlossaryEntry>> ListGlossaryAsync(CancellationToken cancellationToken = default)
     {
-        var result = new List<GlossaryEntry>();
         await using var connection = await OpenAsync(cancellationToken);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
-            SELECT id,preferred_nonce,preferred_cipher,preferred_tag,
-                   mistaken_nonce,mistaken_cipher,mistaken_tag,
-                   category_nonce,category_cipher,category_tag,is_active,source_correction_id,created_at
-            FROM glossary_entries ORDER BY created_at,id
-            """;
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            var id = reader.GetString(0);
-            result.Add(new(
-                id,
-                UnprotectRequired(reader, 1, $"glossary:{id}:preferred"),
-                UnprotectRequired(reader, 4, $"glossary:{id}:mistaken"),
-                UnprotectRequired(reader, 7, $"glossary:{id}:category"),
-                reader.GetInt32(10) != 0,
-                reader.GetString(11),
-                DateTimeOffset.Parse(reader.GetString(12))));
-        }
-        return result;
+        return await ListGlossaryAsync(connection, transaction: null, cancellationToken);
     }
 
     public async Task<bool> SetGlossaryEntryActiveAsync(
@@ -204,11 +200,179 @@ public sealed partial class SqliteSessionStore
             throw new ArgumentException("Se requiere el identificador de la entrada del diccionario.", nameof(id));
 
         await using var connection = await OpenAsync(cancellationToken);
+        await using var transaction = connection.BeginTransaction(deferred: false);
+        await using var lookup = connection.CreateCommand();
+        lookup.Transaction = transaction;
+        lookup.CommandText = """
+            SELECT 0 FROM glossary_entries WHERE id=$id
+            UNION ALL
+            SELECT 1 FROM imported_glossary_entries WHERE id=$id
+            """;
+        lookup.Parameters.AddWithValue("$id", id);
+        var sources = new List<int>(2);
+        await using (var reader = await lookup.ExecuteReaderAsync(cancellationToken))
+            while (await reader.ReadAsync(cancellationToken)) sources.Add(reader.GetInt32(0));
+        if (sources.Count == 0)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return false;
+        }
+        if (sources.Count != 1)
+            throw new InvalidDataException("El identificador del diccionario aparece en más de una procedencia.");
+
         await using var command = connection.CreateCommand();
-        command.CommandText = "UPDATE glossary_entries SET is_active=$active WHERE id=$id";
+        command.Transaction = transaction;
+        command.CommandText = sources[0] == 0
+            ? "UPDATE glossary_entries SET is_active=$active WHERE id=$id"
+            : "UPDATE imported_glossary_entries SET is_active=$active WHERE id=$id";
         command.Parameters.AddWithValue("$active", isActive ? 1 : 0);
         command.Parameters.AddWithValue("$id", id);
-        return await command.ExecuteNonQueryAsync(cancellationToken) == 1;
+        var updated = await command.ExecuteNonQueryAsync(cancellationToken) == 1;
+        await transaction.CommitAsync(cancellationToken);
+        return updated;
+    }
+
+    public async Task<IReadOnlyList<GlossaryEntry>> ImportGlossaryEntriesAsync(
+        IReadOnlyList<GlossaryExchangeEntry> entries,
+        string expectedSnapshotToken,
+        string importBatchId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(entries);
+        ArgumentException.ThrowIfNullOrWhiteSpace(expectedSnapshotToken);
+        ArgumentException.ThrowIfNullOrWhiteSpace(importBatchId);
+        if (!Guid.TryParseExact(importBatchId, "N", out _))
+            throw new ArgumentException("El lote de importación debe ser un GUID opaco.", nameof(importBatchId));
+        if (entries.Count == 0) return [];
+        if (entries.Count > GlossaryExchangeSerializer.MaximumEntries)
+            throw new ArgumentOutOfRangeException(nameof(entries));
+        var validatedEntries = entries.Select(GlossaryExchangeSerializer.NormalizeAndValidate).ToArray();
+
+        await using var connection = await OpenAsync(cancellationToken);
+        await using var transaction = connection.BeginTransaction(deferred: false);
+        var existing = await ListGlossaryAsync(connection, transaction, cancellationToken);
+        if (!string.Equals(
+                GlossaryExchangePlanner.ComputeSnapshotToken(existing),
+                expectedSnapshotToken,
+                StringComparison.Ordinal))
+            throw new GlossaryImportSnapshotChangedException();
+
+        var rows = validatedEntries.Select((entry, index) => new GlossaryImportRow(index + 1, entry, null)).ToArray();
+        var revalidated = GlossaryExchangePlanner.CreatePreview(existing, new(rows));
+        if (revalidated.Items.Any(item => item.Classification != GlossaryImportClassification.New))
+            throw new GlossaryImportSnapshotChangedException();
+
+        var createdAt = DateTimeOffset.UtcNow;
+        var imported = new List<GlossaryEntry>(validatedEntries.Length);
+        foreach (var portable in validatedEntries)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var entry = new GlossaryEntry(
+                Guid.NewGuid().ToString("N"),
+                portable.PreferredTerm,
+                portable.MistakenForm,
+                portable.Category,
+                portable.IsActive,
+                GlossaryEntryOrigin.ImportedFile,
+                null,
+                importBatchId,
+                createdAt);
+            await InsertImportedGlossaryEntryAsync(connection, transaction, entry, cancellationToken);
+            imported.Add(entry);
+        }
+        await transaction.CommitAsync(cancellationToken);
+        return imported;
+    }
+
+    private async Task<IReadOnlyList<GlossaryEntry>> ListGlossaryAsync(
+        SqliteConnection connection,
+        SqliteTransaction? transaction,
+        CancellationToken cancellationToken)
+    {
+        var result = new List<GlossaryEntry>();
+        await using (var command = connection.CreateCommand())
+        {
+            command.Transaction = transaction;
+            command.CommandText = """
+                SELECT id,preferred_nonce,preferred_cipher,preferred_tag,
+                       mistaken_nonce,mistaken_cipher,mistaken_tag,
+                       category_nonce,category_cipher,category_tag,is_active,source_correction_id,created_at
+                FROM glossary_entries ORDER BY created_at,id
+                """;
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var id = reader.GetString(0);
+                result.Add(new(
+                    id,
+                    UnprotectRequired(reader, 1, $"glossary:{id}:preferred"),
+                    UnprotectRequired(reader, 4, $"glossary:{id}:mistaken"),
+                    UnprotectRequired(reader, 7, $"glossary:{id}:category"),
+                    reader.GetInt32(10) != 0,
+                    GlossaryEntryOrigin.TranscriptCorrection,
+                    reader.GetString(11),
+                    null,
+                    DateTimeOffset.Parse(reader.GetString(12))));
+            }
+        }
+
+        await using (var command = connection.CreateCommand())
+        {
+            command.Transaction = transaction;
+            command.CommandText = """
+                SELECT id,preferred_nonce,preferred_cipher,preferred_tag,
+                       mistaken_nonce,mistaken_cipher,mistaken_tag,
+                       category_nonce,category_cipher,category_tag,is_active,import_batch_id,created_at
+                FROM imported_glossary_entries ORDER BY created_at,id
+                """;
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var id = reader.GetString(0);
+                result.Add(new(
+                    id,
+                    UnprotectRequired(reader, 1, $"imported-glossary:{id}:preferred"),
+                    UnprotectRequired(reader, 4, $"imported-glossary:{id}:mistaken"),
+                    UnprotectRequired(reader, 7, $"imported-glossary:{id}:category"),
+                    reader.GetInt32(10) != 0,
+                    GlossaryEntryOrigin.ImportedFile,
+                    null,
+                    reader.GetString(11),
+                    DateTimeOffset.Parse(reader.GetString(12))));
+            }
+        }
+        return result.OrderBy(entry => entry.CreatedAt).ThenBy(entry => entry.Id, StringComparer.Ordinal).ToArray();
+    }
+
+    private async Task InsertImportedGlossaryEntryAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        GlossaryEntry entry,
+        CancellationToken cancellationToken)
+    {
+        var preferred = protector.Protect(
+            Encoding.UTF8.GetBytes(entry.PreferredTerm), $"imported-glossary:{entry.Id}:preferred");
+        var mistaken = protector.Protect(
+            Encoding.UTF8.GetBytes(entry.MistakenForm), $"imported-glossary:{entry.Id}:mistaken");
+        var category = protector.Protect(
+            Encoding.UTF8.GetBytes(entry.Category), $"imported-glossary:{entry.Id}:category");
+        await using var insert = connection.CreateCommand();
+        insert.Transaction = transaction;
+        insert.CommandText = """
+            INSERT INTO imported_glossary_entries(
+              id,preferred_nonce,preferred_cipher,preferred_tag,
+              mistaken_nonce,mistaken_cipher,mistaken_tag,
+              category_nonce,category_cipher,category_tag,is_active,import_batch_id,created_at)
+            VALUES($id,$pn,$pc,$pt,$mn,$mc,$mt,$cn,$cc,$ct,$active,$batch,$created)
+            """;
+        insert.Parameters.AddWithValue("$id", entry.Id);
+        AddNamedPayload(insert, "p", preferred);
+        AddNamedPayload(insert, "m", mistaken);
+        AddNamedPayload(insert, "c", category);
+        insert.Parameters.AddWithValue("$active", entry.IsActive ? 1 : 0);
+        insert.Parameters.AddWithValue("$batch", entry.ImportBatchId!);
+        insert.Parameters.AddWithValue("$created", entry.CreatedAt.ToString("O"));
+        await insert.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private async Task<TranscriptCorrection> AppendCorrectionAsync(

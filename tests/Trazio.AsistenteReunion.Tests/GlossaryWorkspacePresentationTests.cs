@@ -101,6 +101,30 @@ public sealed class GlossaryWorkspacePresentationTests
         Assert.Contains("Se muestran las primeras 120 de 123 coincidencias", state.Status, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Create_LabelsImportedOriginAndMarksEveryDuplicateGroupWithoutExposingBatch()
+    {
+        var createdAt = new DateTimeOffset(2026, 9, 24, 10, 0, 0, TimeSpan.Zero);
+        var imported = new GlossaryEntry(
+            "imported",
+            "Meet",
+            "Need",
+            "Producto",
+            true,
+            GlossaryEntryOrigin.ImportedFile,
+            null,
+            "private-batch",
+            createdAt);
+        var original = Entry("original", "Meet", "Need", "Producto", true, 1);
+
+        var state = GlossaryWorkspacePresenter.Create(
+            [imported, original], null, GlossaryEntryActivityFilter.All, Utc);
+
+        Assert.Contains(state.Items, item => item.SourceLabel == "Archivo importado");
+        Assert.All(state.Items, item => Assert.Contains("duplicado", item.AttentionLabel, StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain("private-batch", string.Join(" ", state.Items.Select(item => item.AutomationName)), StringComparison.Ordinal);
+    }
+
     private static GlossaryEntry Entry(
         string id,
         string preferred,
@@ -108,6 +132,6 @@ public sealed class GlossaryWorkspacePresentationTests
         string category,
         bool active,
         int minute) =>
-        new(id, preferred, mistaken, category, active, $"correction-{minute}",
+        new(id, preferred, mistaken, category, active, GlossaryEntryOrigin.TranscriptCorrection, $"correction-{minute}", null,
             new DateTimeOffset(2026, 9, 24, 10, 0, 0, TimeSpan.Zero).AddMinutes(minute));
 }

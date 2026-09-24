@@ -58,10 +58,40 @@ public sealed class ReviewStoreTests : IAsyncLifetime
 
         Assert.Equal(glossary, loaded);
         Assert.Equal(correction.Id, loaded.SourceCorrectionId);
+        Assert.Equal(GlossaryEntryOrigin.TranscriptCorrection, loaded.Origin);
+        Assert.Null(loaded.ImportBatchId);
         Assert.DoesNotContain("Trazio corrected", raw);
         Assert.DoesNotContain("Private Editor", raw);
         Assert.DoesNotContain("Trazzio", raw);
         Assert.DoesNotContain("Product", raw);
+    }
+
+    [Fact]
+    public async Task AddGlossaryEntry_EnforcesPortableLimitsBeforeWriting()
+    {
+        var segment = await CreateSegmentAsync("Need original");
+        var correction = await _store.SaveCorrectionAsync(segment.Id, "Meet corrected", "Andrea");
+
+        await Assert.ThrowsAsync<ArgumentException>(() => _store.AddGlossaryEntryAsync(
+            new string('x', GlossaryExchangeSerializer.MaximumTermLength + 1),
+            "Need",
+            "Producto",
+            true,
+            correction.Id));
+        await Assert.ThrowsAsync<ArgumentException>(() => _store.AddGlossaryEntryAsync(
+            "Meet",
+            "Need",
+            new string('x', GlossaryExchangeSerializer.MaximumCategoryLength + 1),
+            true,
+            correction.Id));
+        await Assert.ThrowsAsync<ArgumentException>(() => _store.AddGlossaryEntryAsync(
+            "Meet",
+            "Need\ragain",
+            "Producto",
+            true,
+            correction.Id));
+
+        Assert.Empty(await _store.ListGlossaryAsync());
     }
 
     [Fact]
@@ -153,6 +183,121 @@ public sealed class ReviewStoreTests : IAsyncLifetime
         }
 
         await Assert.ThrowsAnyAsync<CryptographicException>(() => _store.ListGlossaryAsync());
+    }
+
+    [Fact]
+    public async Task ImportedGlossary_IsEncryptedHasExclusiveProvenanceAndSurvivesSessionDeletion()
+    {
+        var segment = await CreateSegmentAsync("Need original");
+        var correction = await _store.SaveCorrectionAsync(segment.Id, "Meet corrected", "Andrea");
+        var original = await _store.AddGlossaryEntryAsync("Meet", "Need", "Producto", true, correction.Id);
+        var existing = await _store.ListGlossaryAsync();
+        var portable = new GlossaryExchangeEntry("Trazzio", "Trazio", "Producto", false);
+
+        var imported = Assert.Single(await _store.ImportGlossaryEntriesAsync(
+            [portable],
+            GlossaryExchangePlanner.ComputeSnapshotToken(existing),
+            "0123456789abcdef0123456789abcdef"));
+        var raw = System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(DatabasePath));
+
+        Assert.Equal(GlossaryEntryOrigin.ImportedFile, imported.Origin);
+        Assert.Null(imported.SourceCorrectionId);
+        Assert.Equal("0123456789abcdef0123456789abcdef", imported.ImportBatchId);
+        Assert.DoesNotContain("Trazzio", raw, StringComparison.Ordinal);
+        Assert.DoesNotContain("Trazio", raw, StringComparison.Ordinal);
+        Assert.DoesNotContain("dictionary.json", raw, StringComparison.OrdinalIgnoreCase);
+
+        Assert.True(await _store.SetGlossaryEntryActiveAsync(original.Id, false));
+        Assert.True(await _store.SetGlossaryEntryActiveAsync(imported.Id, true));
+        await _store.DeleteSessionAsync(segment.SessionId);
+        var remaining = Assert.Single(await _store.ListGlossaryAsync());
+        Assert.Equal(imported.Id, remaining.Id);
+        Assert.True(remaining.IsActive);
+    }
+
+    [Fact]
+    public async Task ImportGlossary_SnapshotMismatchAndCancellationWriteNothing()
+    {
+        var previewSnapshot = GlossaryExchangePlanner.ComputeSnapshotToken(await _store.ListGlossaryAsync());
+        var segment = await CreateSegmentAsync("Need original");
+        var correction = await _store.SaveCorrectionAsync(segment.Id, "Meet corrected", "Andrea");
+        await _store.AddGlossaryEntryAsync("Meet", "Need", "Producto", true, correction.Id);
+
+        await Assert.ThrowsAsync<GlossaryImportSnapshotChangedException>(() =>
+            _store.ImportGlossaryEntriesAsync(
+                [new("Trazzio", "Trazio", "Producto", true)],
+                previewSnapshot,
+                Guid.NewGuid().ToString("N")));
+        Assert.Single(await _store.ListGlossaryAsync());
+
+        var currentSnapshot = GlossaryExchangePlanner.ComputeSnapshotToken(await _store.ListGlossaryAsync());
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            _store.ImportGlossaryEntriesAsync(
+                [new("Trazzio", "Trazio", "Producto", true)],
+                currentSnapshot,
+                Guid.NewGuid().ToString("N"),
+                cancellation.Token));
+        Assert.Single(await _store.ListGlossaryAsync());
+    }
+
+    [Fact]
+    public async Task ImportGlossary_ReimportPreviewHasZeroNewEntries()
+    {
+        var portable = new GlossaryExchangeEntry("Need", "Meet", "Producto", true);
+        var snapshot = GlossaryExchangePlanner.ComputeSnapshotToken(await _store.ListGlossaryAsync());
+        await _store.ImportGlossaryEntriesAsync([portable], snapshot, Guid.NewGuid().ToString("N"));
+        var existing = await _store.ListGlossaryAsync();
+        var parsed = new GlossaryImportParseResult([new(1, portable, null)]);
+
+        var preview = GlossaryExchangePlanner.CreatePreview(existing, parsed);
+
+        Assert.Equal(0, preview.NewCount);
+        Assert.Equal(GlossaryImportClassification.ExactDuplicate, Assert.Single(preview.Items).Classification);
+    }
+
+    [Fact]
+    public async Task ListGlossary_CorruptedImportedEntryAbortsCompleteLoad()
+    {
+        var snapshot = GlossaryExchangePlanner.ComputeSnapshotToken(await _store.ListGlossaryAsync());
+        var imported = Assert.Single(await _store.ImportGlossaryEntriesAsync(
+            [new("Need", "Meet", "Producto", true)], snapshot, Guid.NewGuid().ToString("N")));
+        await using (var connection = new SqliteConnection($"Data Source={DatabasePath};Pooling=False"))
+        {
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = "UPDATE imported_glossary_entries SET preferred_cipher=zeroblob(length(preferred_cipher)) WHERE id=$id";
+            command.Parameters.AddWithValue("$id", imported.Id);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        await Assert.ThrowsAnyAsync<CryptographicException>(() => _store.ListGlossaryAsync());
+    }
+
+    [Fact]
+    public async Task InitializeAsync_Beta9DatabaseAddsImportedTableIdempotentlyWithoutChangingOriginalGlossary()
+    {
+        var segment = await CreateSegmentAsync("Need original");
+        var correction = await _store.SaveCorrectionAsync(segment.Id, "Meet corrected", "Andrea");
+        var original = await _store.AddGlossaryEntryAsync("Meet", "Need", "Producto", true, correction.Id);
+        await using (var connection = new SqliteConnection($"Data Source={DatabasePath};Pooling=False"))
+        {
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = "DROP TABLE imported_glossary_entries";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        await _store.InitializeAsync();
+        await _store.InitializeAsync();
+
+        Assert.Equal(original, Assert.Single(await _store.ListGlossaryAsync()));
+        await using var reopened = new SqliteConnection($"Data Source={DatabasePath};Pooling=False");
+        await reopened.OpenAsync();
+        await using var exists = reopened.CreateCommand();
+        exists.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='imported_glossary_entries'";
+        Assert.Equal(1L, (long)(await exists.ExecuteScalarAsync())!);
     }
 
     [Fact]
