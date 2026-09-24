@@ -157,7 +157,15 @@ El cierre funcional de la etapa 6 no marca estos controles como aprobados. La in
 - [ ] Confirmar que la evidencia visual solo aparece en filas `SystemOutput`; el micrófono queda oculto y transcripción, `SpeakerName`, TXT, Markdown y Obsidian permanecen idénticos.
 - [ ] Inspeccionar almacenamiento, registros y paquete después de la sesión: no deben existir píxeles, video, screenshots ni bytes de imagen retenidos por 7.2a/7.2b. Solo pueden existir intervalos cifrados derivados de cobertura/actividad; no OCR, rostros, nombres, chat, subtítulos ni documentos.
 - [ ] Pausar/reanudar/detener; no confundir intervalos pausados con sonido capturado; la finalización informa errores.
-- [ ] Navegar entre fragmentos/huecos; usar la acción de audio de cada segmento, pausa y saltos de 10 segundos.
+- [ ] Navegar con **Segmento anterior/siguiente** y confirmar que cambia selección/scroll sin reproducir; probar primera, intermedia, última, una sola fila y cambio de revisión.
+- [ ] Recorrer fragmentos y huecos con deslizador/saltos de 10 segundos; confirmar tiempo real no comprimido, salto determinista al siguiente audio, fin exclusivo del segmento y ninguna reproducción posterior a ese límite.
+- [ ] Durante reproducción, confirmar resaltado por fuente sin mover foco, selección ni editor; en huecos no debe existir fila resaltada y cambiar sesión/fuente/revisión o detener debe limpiarlo.
+- [ ] Con un dispositivo de audio real, comparar el resaltado lógico con el sonido audible antes y después de huecos; registrar cualquier latencia introducida por el búfer del dispositivo.
+- [ ] Pausar durante el descifrado y en el cambio entre dos fragmentos; confirmar que el fragmento siguiente no comienza hasta pulsar **Continuar**.
+- [ ] Desconectar o hacer fallar el dispositivo al pausar/continuar; confirmar error visible, detención completa y ausencia de cierre inesperado de la aplicación.
+- [ ] Iniciar la preparación de un fragmento y eliminar la sesión; confirmar que **Eliminar sesión** permanece deshabilitado durante la operación, que el borrado bloquea nuevas reproducciones hasta terminar y que, tras confirmar por una vía ya iniciada, la cancelación termina antes del borrado.
+- [ ] Escuchar una fila de una fuente distinta y confirmar que la fuente, la revisión, la forma de onda y el editor visibles no cambian; solo el resaltado corresponde a la fuente transitoria reproducida. Pausar/continuar/detener debe seguir disponible, pero los saltos y el deslizador deben quedar deshabilitados durante ese intervalo acotado.
+- [ ] Repetir el flujo con teclado y lector de pantalla; confirmar nombres/ayuda de navegación y estado sin anuncios excesivos.
 - [ ] Corregir/deshacer; guardar solo términos modificados del glosario; comparar original/nueva revisión sin sobrescrituras.
 - [ ] Retranscribir una fuente completa y cancelar otra ejecución; las incompletas no son comparaciones exitosas.
 - [ ] Una sesión antigua/con audio eliminado permite revisión de texto, explica el sonido ausente y rechaza retranscripción imposible.

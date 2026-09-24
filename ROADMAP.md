@@ -196,13 +196,17 @@ La diarización de audio separa voces, pero no revela nombres reales. Asociar un
 ## Etapa 8 — Historial y productividad
 
 - Búsqueda de texto completo entre reuniones.
-- Navegación avanzada: segmento anterior/siguiente, control de velocidad, resaltado continuo y revisión por lotes.
+- **8.1a implementada en código; validación física pendiente:** segmento anterior/siguiente sobre las filas cargadas sin reproducción automática, línea de tiempo que conserva los huecos reales del audio y resaltado continuo separado de la selección de edición. Cambiar sesión, fuente o revisión y detener limpia la operación anterior.
+- **8.1b pendiente:** control de velocidad sin alterar las marcas de tiempo lógicas ni los límites del segmento.
+- Navegación avanzada restante: revisión por lotes.
 - Revisión y aprobación avanzadas por lotes de revisiones de transcripción y etiquetas de hablantes.
 - Gestión global del glosario, detección de duplicados, importación y exportación.
 - Aplicar glosario de forma acotada a instrucciones de Whisper o posprocesamiento determinista, siempre con vista previa, procedencia y deshacer; nunca reemplazar silenciosamente términos ambiguos.
 - Marcadores, notas, etiquetas e indicadores de seguimiento.
 - Ampliar los formatos estructurados más allá de la nota Markdown/Obsidian ya entregada y evaluar integración directa solo si conserva el control explícito del usuario.
 - Evaluar Opus para archivos de audio cifrados más pequeños, preservando navegación y exportación fiables.
+
+La evidencia automatizada de 8.1a cubre límites de navegación, listas reemplazadas y fuentes mezcladas; huecos, fronteras y fin exclusivo de intervalos; reloj de salida resistente a lectura adelantada; cancelación con espera; pausa entre fragmentos; reproducción transitoria sin cambiar fuente/revisión; resaltado por fuente y solapamientos deterministas; contrato XAML, accesibilidad declarada y ausencia de reproducción implícita. No reemplaza una prueba con dispositivo de audio real, teclado completo ni lector de pantalla.
 
 ## Etapa 9 — Inteligencia de reuniones opcional
 

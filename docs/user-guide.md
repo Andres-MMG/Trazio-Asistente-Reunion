@@ -41,11 +41,12 @@ La revisión, longitud y SHA-256 fijados se documentan en [autenticidad del mode
 Abre **Historial**, selecciona una reunión guardada y usa **Reproductor de la reunión**:
 
 1. Selecciona **Micrófono** o **Audio del equipo**. El nombre de la persona local corresponde al micrófono; no identifica a los participantes remotos.
-2. Usa **Reproducir**, pausa, el deslizador de la línea de tiempo o **Retroceder 10 s / Avanzar 10 s**. La forma de onda representa el audio conservado de esa fuente.
-3. Usa **Escuchar fragmento** en una fila de transcripción para oír la fuente y el intervalo correspondientes. Seleccionar texto para editarlo no autoriza a iniciar automáticamente la reproducción.
-4. Una fuente sin audio conservado no puede reproducirse ni exportarse a WAV. La transcripción puede seguir disponible aunque su audio falte o haya sido eliminado por retención.
+2. Usa **Reproducir**, pausa, el deslizador de la línea de tiempo o **Retroceder 10 s / Avanzar 10 s**. La forma de onda representa el audio conservado de esa fuente. La posición conserva el tiempo real de la reunión: si eliges un hueco sin audio, salta al siguiente tramo disponible.
+3. Usa **Segmento anterior / Segmento siguiente** para mover la selección y el editor entre las filas cargadas. Estos botones no reproducen audio.
+4. Usa **Escuchar fragmento** en una fila de transcripción para oír su fuente y su intervalo. Si la fila pertenece a otra fuente, la reproducción es transitoria: no cambia el selector de pista, la forma de onda ni la revisión elegida. Puedes pausar, continuar o detener ese fragmento; los saltos y el deslizador quedan deshabilitados para no cambiar silenciosamente a la pista visible. El borde azul sigue el fragmento reproducido sin cambiar la selección de corrección; en un hueco no se resalta ninguna fila y el estado accesible informa la transición.
+5. Una fuente sin audio conservado no puede reproducirse ni exportarse a WAV. La transcripción puede seguir disponible aunque su audio falte o haya sido eliminado por retención.
 
-El reproductor maneja las fuentes por separado. Esta versión no incluye una pista mezclada de micrófono y equipo, control de velocidad ni eliminación automática de eco. Las marcas de tiempo provienen del reconocimiento y pueden necesitar interpretación humana; reproducir no garantiza que las palabras del modelo sean correctas.
+El reproductor maneja las fuentes por separado. Esta versión no incluye una pista mezclada de micrófono y equipo, control de velocidad ni eliminación automática de eco. El cursor se calcula con los bytes ya reproducidos por el dispositivo y no con la lectura adelantada del búfer; la coincidencia audible exacta todavía requiere validación física en hardware real. La reproducción, el recorrido completo por teclado y el lector de pantalla también requieren validación física. Las marcas de tiempo provienen del reconocimiento y pueden necesitar interpretación humana; reproducir no garantiza que las palabras del modelo sean correctas.
 
 ## Corregir texto y recopilar terminología
 
