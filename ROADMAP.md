@@ -3,8 +3,9 @@
 - Fecha del estado: 2026-09-24
 - Madurez actual: MVP funcional avanzado / versión preliminar pública
 - Versión publicada actual: [`0.2.0-beta.6`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.6), secuencia de instalador **7**
+- Candidato local preparado: `0.2.0-beta.7`, secuencia de instalador **8**; todavía sin tag ni release pública
 
-Este es el plan canónico de etapas. **La beta 6/secuencia 7 publica la etapa 5.1: instalador manual offline por usuario, versionado y fail-safe. El ZIP y el Setup remotos están verificados, pero el Setup permanece sin firma y no se ejecutó con identidad productiva. Siguen pendientes cancelación humana, validación física en otra máquina o cuenta y autoactualización.** La etapa 6 tiene una línea base funcional implementada; 7.1a, 7.2a y la infraestructura de 7.2b están publicadas, todavía pendientes de validación física. Beta 6 distribuye el ensamblado compartido puro y sin paquetes `VisualAnalysis`; el evaluador offline, el corpus sintético agregado y el golden canónico permanecen en el código fuente y fuera del paquete. Esa regresión sintética no valida superficies reales. 7.2b falla de forma segura en producción porque los perfiles Meet/Teams permanecen `Unvalidated`: se abstiene y presenta la evidencia como No disponible. No existe identificación de hablantes, no se agrega una capacidad empaquetada y la etapa 7 no está completa. La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md), el [corpus sintético](evaluation/stage-7b/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
+Este es el plan canónico de etapas. **La beta 6/secuencia 7 publica la etapa 5.1: instalador manual offline por usuario, versionado y fail-safe. El candidato local beta 7/secuencia 8 conserva ese instalador e incorpora la revisión de historial 8.1, pero aún no es una release pública.** El ZIP y el Setup remotos de beta 6 están verificados; tanto el Setup publicado como el candidato permanecen sin firma y no se ejecutaron con identidad productiva. Siguen pendientes cancelación humana, validación física en otra máquina o cuenta y autoactualización. La etapa 6 tiene una línea base funcional implementada; 7.1a, 7.2a y la infraestructura de 7.2b están publicadas, todavía pendientes de validación física. Beta 6 distribuye el ensamblado compartido puro y sin paquetes `VisualAnalysis`; el evaluador offline, el corpus sintético agregado y el golden canónico permanecen en el código fuente y fuera del paquete. Esa regresión sintética no valida superficies reales. 7.2b falla de forma segura en producción porque los perfiles Meet/Teams permanecen `Unvalidated`: se abstiene y presenta la evidencia como No disponible. No existe identificación de hablantes, no se agrega una capacidad empaquetada y la etapa 7 no está completa. La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md), el [corpus sintético](evaluation/stage-7b/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
 
 ## Principios del producto
 
@@ -22,11 +23,11 @@ Este es el plan canónico de etapas. **La beta 6/secuencia 7 publica la etapa 5.
 | 2 | Captura de audio de dos fuentes y transcripción local | Implementada — validación de producción pendiente |
 | 3 | Transcripción cifrada e historial de audio cifrado obligatorio | Implementada — validación de producción pendiente |
 | 4 | Historial utilizable y almacenamiento configurable | Implementada — validación de producción pendiente |
-| 5 | Beta distribuible y mantenible | Etapa 5.1 publicada en beta 6/secuencia 7 y validación automatizada aprobada — firma, ejecución productiva del Setup, validación física y cancelación humana pendientes |
+| 5 | Beta distribuible y mantenible | Etapa 5.1 publicada en beta 6/secuencia 7 y conservada en el candidato beta 7/secuencia 8 — firma, ejecución productiva del Setup, validación física y cancelación humana pendientes |
 | 5.5 | Identidad del usuario local y atribución del micrófono | Implementada — validación física de interfaz pendiente |
 | 6 | Revisión, corrección, glosario de procedencia y retranscripción versionada | Línea base funcional implementada — validación física pendiente |
 | 7 | Fuente de reunión y atribución de hablantes | 7.1a/7.2a y la infraestructura de 7.2b publicadas en beta 6; evaluador/corpus sintético presentes solo en fuente — perfiles de producción no validados, sin identificación de hablantes y con validación física pendiente; 7.2c+ planificadas |
-| 8 | Búsqueda, revisión por lotes, glosario global y productividad | Planificada — edición y navegación de audio básicas ya entregadas en la etapa 6 |
+| 8 | Búsqueda, revisión por lotes, glosario global y productividad | En curso — 8.1 incluida en el candidato beta 7; búsqueda, revisión por lotes y glosario global siguen planificados |
 | 9 | Inteligencia de reuniones opcional | Planificada |
 | 10 | Integración organizacional/con plataforma opcional | Futura |
 | 11 | Cuentas conectadas, calendarios y automatización de reuniones | Futura |
@@ -119,7 +120,7 @@ Esto identifica a la persona que usa el micrófono configurado. No demuestra qui
 
 ### Trabajo reasignado
 
-- La navegación avanzada (anterior/siguiente, velocidad, resaltado continuo y revisión por lotes) pasa a la etapa 8.
+- La navegación anterior/siguiente, la velocidad y el resaltado continuo se implementaron como 8.1 en el candidato beta 7; la revisión por lotes permanece pendiente dentro de la etapa 8.
 - La aplicación futura del glosario a instrucciones de Whisper o posprocesamiento con vista previa/deshacer pasa a la etapa 8. Guardar una entrada no reentrena el modelo.
 - Los perfiles de calidad y la evaluación medible de precisión no son un requisito de cierre funcional de esta etapa; forman parte de la validación de producción aplazada.
 - Siguen pendientes la validación física de la interfaz de revisión y una exportación real hacia una bóveda de Obsidian de prueba.
@@ -196,8 +197,8 @@ La diarización de audio separa voces, pero no revela nombres reales. Asociar un
 ## Etapa 8 — Historial y productividad
 
 - Búsqueda de texto completo entre reuniones.
-- **8.1a implementada en código; validación física pendiente:** segmento anterior/siguiente sobre las filas cargadas sin reproducción automática, línea de tiempo que conserva los huecos reales del audio y resaltado continuo separado de la selección de edición. Cambiar sesión, fuente o revisión y detener limpia la operación anterior.
-- **8.1b implementada en código; validación audible pendiente:** selector temporal de `0,75×`, `1×`, `1,25×`, `1,5×` y `2×` para pista, fragmento e intervalo comparado. El cambio reinicia desde la posición fuente calculada a partir de los bytes informados por el dispositivo, conserva pausa y límite final, y no altera las marcas lógicas. Usa WDL de NAudio sin dependencia nueva; deliberadamente cambia el tono y no pretende hacer *time-stretch* natural.
+- **8.1a incluida en el candidato beta 7; validación física pendiente:** segmento anterior/siguiente sobre las filas cargadas sin reproducción automática, línea de tiempo que conserva los huecos reales del audio y resaltado continuo separado de la selección de edición. Cambiar sesión, fuente o revisión y detener limpia la operación anterior.
+- **8.1b incluida en el candidato beta 7; validación audible pendiente:** selector temporal de `0,75×`, `1×`, `1,25×`, `1,5×` y `2×` para pista, fragmento e intervalo comparado. El cambio reinicia desde la posición fuente calculada a partir de los bytes informados por el dispositivo, conserva pausa y límite final, y no altera las marcas lógicas. Usa WDL de NAudio sin dependencia nueva; deliberadamente cambia el tono y no pretende hacer *time-stretch* natural. La velocidad no se persiste y vuelve a `1×` al reiniciar.
 - Navegación avanzada restante: revisión por lotes.
 - Revisión y aprobación avanzadas por lotes de revisiones de transcripción y etiquetas de hablantes.
 - Gestión global del glosario, detección de duplicados, importación y exportación.

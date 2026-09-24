@@ -2,6 +2,8 @@
 
 **Comienza con una prueba breve y no sensible.** Trazio es una versión preliminar para Windows 11 x64 con interfaz en español. Necesitas una CPU x64 compatible, un micrófono/dispositivo de salida funcional y espacio en disco para el modelo y el audio cifrado. El ZIP publicado incluye el entorno de ejecución de .NET.
 
+> **Estado de esta guía:** la descarga pública continúa siendo beta 6. La navegación, el resaltado y la velocidad descritos en **Escuchar la fuente correcta** pertenecen al candidato local beta 7/secuencia 8 y todavía no están publicados.
+
 ## Primera grabación
 
 1. Descarga el ZIP completo de Windows desde la [versión publicada v0.2.0-beta.6](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.6). Verifica el archivo lateral `.sha256`: el ZIP debe medir **86,830,231 bytes** y su SHA-256 debe ser `4a2a5e9e1f9d305e9986f37d07613f4852e463d4024a4f5ce62b951720106070`. Extráelo en una carpeta normal de aplicaciones; no lo ejecutes desde dentro del ZIP.
@@ -36,7 +38,7 @@ En beta 6, los perfiles de producción de Google Meet y Microsoft Teams todavía
 
 La revisión, longitud y SHA-256 fijados se documentan en [autenticidad del modelo](security.md#autenticidad-del-modelo).
 
-## Escuchar la fuente correcta
+## Escuchar la fuente correcta en el candidato beta 7
 
 Abre **Historial**, selecciona una reunión guardada y usa **Reproductor de la reunión**:
 
@@ -107,7 +109,7 @@ La [versión pública beta 6](https://github.com/Andres-MMG/Trazio-Asistente-Reu
 4. Si Trazio o su Worker nuevo ya están activos durante el chequeo inicial, Setup se bloquea y permite reintentar/cancelar; nunca los cierra ni reinicia automáticamente. Ese chequeo no impide que alguien abra Trazio después, por lo que no lo hagas durante la instalación.
 5. Después de completar, abre Trazio y comprueba Historial, modelo y una prueba breve. La definición del desinstalador no incluye la raíz de datos, pero valida primero con datos de prueba antes de confiar una actualización de producción.
 
-Los binarios quedan en una raíz estable con un payload completo por versión. Durante Setup se conserva el payload anterior; si la copia/activación falla o cancelas antes de completar, Inno revierte la transacción. **Ese límite termina al finalizar Setup:** después de abrir una versión nueva no se garantiza compatibilidad de la base al volver atrás. Tampoco hay descarga automática, limpieza automática de payloads antiguos ni firma del editor. La definición de beta 6/secuencia 7 no lee, copia, migra ni borra la raíz de datos; aun así, no se afirma preservación física de datos arbitrarios sin validación en otra cuenta/equipo. La cancelación humana y esa validación física siguen pendientes.
+Los binarios quedan en una raíz estable con un payload completo por versión. Durante Setup se conserva el payload anterior; si la copia/activación falla o cancelas antes de completar, Inno revierte la transacción. **Ese límite termina al finalizar Setup:** después de abrir una versión nueva no se garantiza compatibilidad de la base al volver atrás. Tampoco hay descarga automática, limpieza automática de payloads antiguos ni firma del editor. Las definiciones de beta 6/secuencia 7 y del candidato beta 7/secuencia 8 no leen, copian, migran ni borran la raíz de datos; aun así, no se afirma preservación física de datos arbitrarios sin validación en otra cuenta/equipo. El Setup candidato permanece sin firma y no fue ejecutado. La cancelación humana y esa validación física siguen pendientes.
 
 ## Actualizar la instalación ZIP
 

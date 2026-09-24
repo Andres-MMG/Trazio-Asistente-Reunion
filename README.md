@@ -18,6 +18,8 @@ Un asistente de escritorio para Windows que captura el micrófono y el audio del
 
 > **Límite de validación.** La publicación remota y la integridad de ambos recursos están verificadas, pero el Setup con identidad productiva no se ejecutó. La cancelación humana, la validación en otra máquina o cuenta, la firma y las pruebas físicas siguen pendientes; no deben inferirse a partir del harness desechable.
 
+> **Candidato local `v0.2.0-beta.7` — todavía no publicado.** La secuencia de instalador **8** conserva la distribución manual de la etapa 5.1 e incorpora la revisión de historial de la etapa 8.1: navegación anterior/siguiente sin reproducción automática, línea de tiempo que conserva huecos, resaltado independiente y velocidades temporales `0,75×–2×` para pista, fragmento y comparación. El resampling cambia el tono y la velocidad vuelve a `1×` al reiniciar. La beta 6 continúa siendo la descarga pública hasta que exista una release beta 7 verificable.
+
 ## De la conversación en vivo a un registro revisable
 
 ```text
@@ -30,7 +32,7 @@ MICRÓFONO + AUDIO DEL EQUIPO
    ESCUCHAR → CORREGIR → COMPARAR
 ```
 
-| Disponible ahora | Qué significa |
+| Disponible en el código actual y en el candidato beta 7 | Qué significa |
 |---|---|
 | Dos fuentes de audio diferenciadas | Selecciona un micrófono y/o un dispositivo de salida de Windows. Cada uno conserva su propia identidad de audio y transcripción. |
 | Grabación manual rápida | Título automático editable; inicio, pausa, reanudación y detención; diagnóstico de captura visible. |
@@ -40,11 +42,12 @@ MICRÓFONO + AUDIO DEL EQUIPO
 | Reconocimiento de voz local | Un proceso independiente de Whisper ejecuta la inferencia en este equipo. El modelo recomendado se descarga solo después de una acción explícita. |
 | Historial de reuniones cifrado | Las nuevas grabaciones siempre conservan audio cifrado; el contenido de texto sensible se cifra antes de insertarse en SQLite. |
 | Revisión humana | Forma de onda por fuente, línea de tiempo que conserva huecos reales, saltos de 10 segundos, anterior/siguiente sin reproducción automática, resaltado del fragmento reproducido, correcciones/deshacer y sugerencias de glosario por término, como `Need → Meet`. |
+| Velocidad de reproducción temporal | Permite `0,75×`, `1×`, `1,25×`, `1,5×` y `2×` para pista, fragmento e intervalo comparado. Se mantiene solo durante la ejecución; usa resampling y por eso cambia el tono. |
 | Retranscripción no destructiva | Procesa el audio conservado en una nueva revisión del modelo; compara versiones por intervalos de 15 segundos y escucha la fuente correspondiente. |
 | Exportación para Obsidian | Crea de forma explícita una nota Markdown en la carpeta elegida, con metadatos, marcas de tiempo, fuente, hablante y correcciones humanas vigentes; no exporta audio ni selecciona silenciosamente una revisión del modelo. |
 | Instalación manual segura | La beta 6 publica un instalador offline por usuario con payloads versionados, reparación de la misma versión, bloqueo de downgrade y rollback durante Setup. El instalador permanece sin firma y no fue ejecutado con identidad productiva; no hay descarga ni actualización automática. |
 
-**Implementado en `main` y previsto para la próxima beta:** control temporal de velocidad `0,75×–2×` para pista, fragmento e intervalo comparado. Todavía no forma parte de la beta 6 pública. El resampling cambia el tono y su validación audible con hardware real continúa pendiente.
+Las funciones de revisión de la etapa 8.1 forman parte del candidato local beta 7, **no de la beta 6 pública**. Su validación audible con hardware real, teclado completo y lector de pantalla continúa pendiente.
 
 **Todavía no implementado:** identificación de hablantes remotos, perfiles de producción validados, OCR, reconocimiento de rostros, lectura de nombres, pestañas/DOM/URL, chat, subtítulos o documentos, adaptadores de proveedores, automatización de calendarios, sincronización en la nube, resúmenes/traducción de reuniones, actualizaciones automáticas o entrenamiento de modelos. La evidencia visual anónima solo se correlaciona con `SystemOutput`; no modifica la transcripción, `SpeakerName` ni las exportaciones TXT, Markdown u Obsidian. Las entradas del glosario se guardan, pero **todavía no se incorporan a Whisper ni se aplican automáticamente a nuevas transcripciones**. Una diferencia textual entre versiones no es una puntuación de precisión.
 
@@ -86,10 +89,10 @@ La [guía de arquitectura](docs/architecture.md) vincula estas afirmaciones con 
 | Línea de trabajo | Situación actual |
 |---|---|
 | Captura, cifrado, almacenamiento, historial | Bases implementadas; aceptación física y de larga duración todavía pendiente |
-| Etapa 5 — distribución | ZIP y Setup beta 6 publicados. El instalador manual offline versionado incluye reparación, bloqueo de downgrade, rollback transaccional y manifiestos SHA-256; firma, ejecución productiva del Setup, cancelación humana y validación física en otra máquina o cuenta continúan pendientes |
+| Etapa 5 — distribución | ZIP y Setup beta 6 publicados; candidato local beta 7/secuencia 8 preparado con el mismo instalador manual offline versionado. Incluye reparación, bloqueo de downgrade, rollback transaccional y manifiestos SHA-256; firma, ejecución productiva del Setup, cancelación humana y validación física en otra máquina o cuenta continúan pendientes |
 | Etapa 5.5 — identidad | Perfil local y atribución del micrófono implementados; validación física de interfaz y captura pendiente |
 | Etapa 6 — revisión | Línea base funcional implementada: reproducción por fuente/segmento, corrección, glosario cifrado con procedencia, retranscripción versionada, comparación y exportación manual a Obsidian |
-| Etapa 8.1a — navegación del historial | Implementada en código: anterior/siguiente sobre filas cargadas, timeline sensible a huecos y resaltado de reproducción independiente de la selección. Reproducción real, teclado y lector de pantalla aún requieren validación física |
+| Etapa 8.1 — revisión del historial | Incluida en el candidato local beta 7: anterior/siguiente sobre filas cargadas, línea de tiempo sensible a huecos, resaltado independiente y velocidad temporal `0,75×–2×`. Reproducción real, tono, teclado y lector de pantalla aún requieren validación física |
 | Etapa 7 y posteriores | 7.1a, 7.2a y la infraestructura fuente de 7.2b están implementadas; 7.2b permanece inactiva en producción porque Meet/Teams siguen `Unvalidated`, y toda validación física continúa pendiente. La etapa 7 no está completa y no identifica hablantes → adaptadores 7.2c–7.2e → productividad/glosario avanzado (8) → inteligencia/integración opcionales → calendarios (11) → entrenamiento (12) |
 
 La evidencia histórica de `v0.1.1-mvp` registró **164/164 pruebas**, `v0.2.0-beta.2` registró **197/197** en `a8481ef` y la base funcional de `v0.2.0-beta.3`, validada en `b075958`, registró **54/54 pruebas enfocadas de captura visual** y **250/250 pruebas seriales**. La versión publicada `v0.2.0-beta.4` completó **4/4 `VersionMetadataTests`**, **132/132 pruebas `Area=VisualCapture`**, **371/371 pruebas Release seriales** y **371/371 en paralelo predeterminado**, con compilación de **0 advertencias y 0 errores**; también aprobaron el contrato de publicación, la prueba básica por canal con nombre y la comparación del layout (**494/494 archivos byte a byte**, **0** hallazgos prohibidos, **0** rutas fuente locales y **0** referencias CodeView). El tag corresponde al commit `f871f20c3bf9e77b0cf9ad51134febb83c673de7`; el ZIP remoto de **86,823,005 bytes**, su digest SHA-256 y el archivo lateral publicado coinciden con el paquete verificado. Ninguna de estas comprobaciones demuestra WGC/GPU real, interfaz renderizada, lector de pantalla, Meet/Teams reales ni estabilidad de 2/5 horas. Consulta [evidencia de validación y lista de aceptación](docs/validation.md).

@@ -363,9 +363,9 @@ Assert-True ($appMutex -ne "Trazio.AsistenteReunion.AppRunning.v1") "El harness 
 Assert-True ($setupMutex -ne "Trazio.AsistenteReunion.Setup.v1") "El harness no puede usar el mutex de Setup productivo."
 
 try {
-    $payloadA = New-SyntheticPayload -Label "A" -Version "0.2.0-beta.5" -Sequence 6
-    $payloadB = New-SyntheticPayload -Label "B" -Version "0.2.0-beta.6" -Sequence 7
-    $payloadC = New-SyntheticPayload -Label "C-failure" -Version "0.2.0-beta.7-harness" -Sequence 8 -IncludeRollbackTrigger
+    $payloadA = New-SyntheticPayload -Label "A" -Version "0.2.0-beta.6" -Sequence 7
+    $payloadB = New-SyntheticPayload -Label "B" -Version "0.2.0-beta.7" -Sequence 8
+    $payloadC = New-SyntheticPayload -Label "C-failure" -Version "0.2.0-beta.8-harness" -Sequence 9 -IncludeRollbackTrigger
 
     $installerA = Build-HarnessInstaller -Payload $payloadA
     $installerB = Build-HarnessInstaller -Payload $payloadB
@@ -378,12 +378,12 @@ try {
     $productOverrideCases = [ordered]@{
         Configuration = "Debug"
         SkipPublish = $true
-        Version = "0.2.0-beta.6"
-        ReleaseSequence = 7
+        Version = "0.2.0-beta.7"
+        ReleaseSequence = 8
         PayloadDirectory = (Join-Path $root "artifacts\publish")
         PayloadManifestPath = (Join-Path $root "artifacts\publish-manifest.json")
         OutputDirectory = (Join-Path $root "artifacts\installer")
-        OutputBaseFilename = "Trazio-Asistente-Reunion-v0.2.0-beta.6-Setup"
+        OutputBaseFilename = "Trazio-Asistente-Reunion-v0.2.0-beta.7-Setup"
         TestWorkspaceRoot = $workspace
         AppGuid = "8C7AF6E0-31F1-4E2E-BF21-8A9AC6D1DDF1"
         DefaultDirName = "{localappdata}\Programs\Trazio Asistente Reunion"
