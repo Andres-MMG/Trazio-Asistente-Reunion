@@ -9,9 +9,9 @@ namespace Trazio.AsistenteReunion.Tests;
 
 public sealed class VersionMetadataTests
 {
-    private const string ExpectedVersion = "0.2.0-beta.5";
-    private const int ExpectedInstallerReleaseSequence = 6;
-    private const string ExpectedReleaseArchive = "Trazio-Asistente-Reunion-v0.2.0-beta.5-win-x64.zip";
+    private const string ExpectedVersion = "0.2.0-beta.6";
+    private const int ExpectedInstallerReleaseSequence = 7;
+    private const string ExpectedReleaseArchive = "Trazio-Asistente-Reunion-v0.2.0-beta.6-win-x64.zip";
 
     [Fact]
     public void Assemblies_UseBetaVersionAndProductName()

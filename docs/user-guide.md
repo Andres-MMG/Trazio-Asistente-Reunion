@@ -97,7 +97,7 @@ Esto traslada datos para el mismo usuario de Windows. No hace portátiles los da
 
 ## Instalar, reparar o actualizar con Setup
 
-La descarga pública actual de beta 5 sigue siendo un ZIP. Cuando una versión oficial publique además `Trazio-Asistente-Reunion-v<versión>-Setup.exe`, su instalador es manual, offline y solo para tu usuario de Windows:
+La descarga pública vigente es el ZIP de beta 5; la fuente contiene un candidato local beta 6/secuencia 7, aún no publicado. Cuando una versión oficial publique `Trazio-Asistente-Reunion-v<versión>-Setup.exe`, su instalador será manual, offline y solo para tu usuario de Windows. No descargues el artefacto local como si fuera una release oficial. Para una versión oficialmente distribuida:
 
 1. Descarga el `.exe`, su `.sha256` y su `.manifest.json` desde la misma versión oficial. Compara nombre, longitud y SHA-256. Como todavía no hay firma Authenticode, esa comprobación detecta diferencias respecto del sidecar pero no autentica por sí sola al editor.
 2. Finaliza la grabación y cierra Trazio normalmente. No fuerces la aplicación ni su proceso de transcripción, y no vuelvas a abrirlos hasta que Setup termine. La primera actualización desde beta 5 no puede detectar infaliblemente una instancia legacy abierta porque esa versión no creaba el nuevo mutex. Además, una App/Worker nueva podría iniciarse después del chequeo inicial del instalador; mantenerla cerrada evita esa carrera conocida.
@@ -105,7 +105,7 @@ La descarga pública actual de beta 5 sigue siendo un ZIP. Cuando una versión o
 4. Si Trazio o su Worker nuevo ya están activos durante el chequeo inicial, Setup se bloquea y permite reintentar/cancelar; nunca los cierra ni reinicia automáticamente. Ese chequeo no impide que alguien abra Trazio después, por lo que no lo hagas durante la instalación.
 5. Después de completar, abre Trazio y comprueba Historial, modelo y una prueba breve. La definición del desinstalador no incluye la raíz de datos, pero valida primero con datos de prueba antes de confiar una actualización de producción.
 
-Los binarios quedan en una raíz estable con un payload completo por versión. Durante Setup se conserva el payload anterior; si la copia/activación falla o cancelas antes de completar, Inno revierte la transacción. **Ese límite termina al finalizar Setup:** después de abrir una versión nueva no se garantiza compatibilidad de la base al volver atrás. Tampoco hay descarga automática, limpieza automática de payloads antiguos ni firma del editor.
+Los binarios quedan en una raíz estable con un payload completo por versión. Durante Setup se conserva el payload anterior; si la copia/activación falla o cancelas antes de completar, Inno revierte la transacción. **Ese límite termina al finalizar Setup:** después de abrir una versión nueva no se garantiza compatibilidad de la base al volver atrás. Tampoco hay descarga automática, limpieza automática de payloads antiguos ni firma del editor. La definición del candidato beta 6/secuencia 7 no lee, copia, migra ni borra la raíz de datos; aun así, no se afirma preservación física de datos arbitrarios sin validación en otra cuenta/equipo. La cancelación interactiva y esa validación física siguen pendientes.
 
 ## Actualizar la instalación ZIP
 

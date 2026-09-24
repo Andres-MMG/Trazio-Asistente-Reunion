@@ -2,10 +2,10 @@
 #define MyAppExeName "Trazio.AsistenteReunion.exe"
 
 #ifndef MyAppVersion
-  #define MyAppVersion "0.2.0-beta.5"
+  #define MyAppVersion "0.2.0-beta.6"
 #endif
 #ifndef MyReleaseSequence
-  #define MyReleaseSequence 6
+  #define MyReleaseSequence 7
 #endif
 #ifndef MyAppGuid
   #define MyAppGuid "8C7AF6E0-31F1-4E2E-BF21-8A9AC6D1DDF1"
@@ -118,6 +118,8 @@ begin
     Sequence := 5
   else if VersionText = '0.2.0-beta.5' then
     Sequence := 6
+  else if VersionText = '0.2.0-beta.6' then
+    Sequence := 7
   else
     Result := False;
 end;

@@ -85,7 +85,9 @@ public sealed class InstallerPackageContractTests
         Assert.Contains("InstalledSequence > CurrentReleaseSequence", script, StringComparison.Ordinal);
         Assert.Contains("VersionText = '0.1.1-mvp'", script, StringComparison.Ordinal);
         Assert.Contains("VersionText = '0.2.0-beta.5'", script, StringComparison.Ordinal);
+        Assert.Contains("VersionText = '0.2.0-beta.6'", script, StringComparison.Ordinal);
         Assert.Contains("Sequence := 6", script, StringComparison.Ordinal);
+        Assert.Contains("Sequence := 7", script, StringComparison.Ordinal);
         Assert.Contains("DetectedInstallMode := 'repair'", script, StringComparison.Ordinal);
         Assert.Contains("DetectedInstallMode := 'upgrade'", script, StringComparison.Ordinal);
         Assert.DoesNotContain("TryMapLegacyVersion", script, StringComparison.Ordinal);

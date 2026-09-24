@@ -3,8 +3,9 @@
 - Fecha del estado: 2026-09-24
 - Madurez actual: MVP funcional avanzado / versión preliminar pública
 - Versión publicada actual: [`0.2.0-beta.5`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.5)
+- Candidato fuente actual: `0.2.0-beta.6`, secuencia de instalador **7**, sin tag ni release pública; la descarga vigente sigue siendo beta 5.
 
-Este es el plan canónico de etapas. **La etapa 5.1 ya tiene en la fuente un instalador manual offline por usuario, versionado y fail-safe; todavía faltan firma, publicación del recurso, validación física en otra máquina y autoactualización. La etapa 6 tiene una línea base funcional implementada; 7.1a, 7.2a y la infraestructura fuente de 7.2b están publicadas en `0.2.0-beta.5`, todavía pendientes de validación física. Beta 5 distribuye el ensamblado compartido puro y sin paquetes `VisualAnalysis`; el evaluador offline, el corpus sintético agregado y el golden reproducible permanecen en el código fuente y fuera del paquete. Esa regresión sintética no valida superficies reales. 7.2b falla de forma segura en producción porque los perfiles Meet/Teams permanecen `Unvalidated`: se abstiene y presenta la evidencia como No disponible.** No existe identificación de hablantes, no se agrega una capacidad empaquetada y la etapa 7 no está completa. La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md), el [corpus sintético](evaluation/stage-7b/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
+Este es el plan canónico de etapas. **La fuente candidata beta 6/secuencia 7 incluye la etapa 5.1 implementada y validada automáticamente: instalador manual offline por usuario, versionado y fail-safe. La beta 5 continúa siendo la única versión pública; el Setup candidato aún no se publicó ni ejecutó con identidad productiva. Siguen pendientes firma, publicación del recurso, cancelación interactiva y validación física en otra máquina; la autoactualización no está implementada.** La etapa 6 tiene una línea base funcional implementada; 7.1a, 7.2a y la infraestructura fuente de 7.2b están en `0.2.0-beta.5`, todavía pendientes de validación física. Beta 5 distribuye el ensamblado compartido puro y sin paquetes `VisualAnalysis`; el evaluador offline, el corpus sintético agregado y el golden canónico permanecen en el código fuente y fuera del paquete. Esa regresión sintética no valida superficies reales. 7.2b falla de forma segura en producción porque los perfiles Meet/Teams permanecen `Unvalidated`: se abstiene y presenta la evidencia como No disponible. No existe identificación de hablantes, no se agrega una capacidad empaquetada y la etapa 7 no está completa. La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md), el [corpus sintético](evaluation/stage-7b/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
 
 ## Principios del producto
 
@@ -22,7 +23,7 @@ Este es el plan canónico de etapas. **La etapa 5.1 ya tiene en la fuente un ins
 | 2 | Captura de audio de dos fuentes y transcripción local | Implementada — validación de producción pendiente |
 | 3 | Transcripción cifrada e historial de audio cifrado obligatorio | Implementada — validación de producción pendiente |
 | 4 | Historial utilizable y almacenamiento configurable | Implementada — validación de producción pendiente |
-| 5 | Beta distribuible y mantenible | Base 5.1 implementada en fuente — publicación/firma/validación física pendientes |
+| 5 | Beta distribuible y mantenible | Etapa 5.1 completa en la fuente beta 6/secuencia 7 y validación automatizada aprobada — publicación/firma/validación física y cancelación interactiva pendientes |
 | 5.5 | Identidad del usuario local y atribución del micrófono | Implementada — validación física de interfaz pendiente |
 | 6 | Revisión, corrección, glosario de procedencia y retranscripción versionada | Línea base funcional implementada — validación física pendiente |
 | 7 | Fuente de reunión y atribución de hablantes | 7.1a/7.2a y la infraestructura fuente de 7.2b publicadas en beta 5; evaluador/corpus sintético presentes solo en fuente — perfiles de producción no validados, sin identificación de hablantes y con validación física pendiente; 7.2c+ planificadas |
@@ -49,6 +50,7 @@ Permitir instalar, actualizar, diagnosticar y recuperar la aplicación existente
 - La fuente posterior a beta 5 incluye un instalador Inno Setup manual/offline por usuario. Mantiene una raíz estable y payloads en `versions/<versión>`, repara la misma secuencia, actualiza solo hacia secuencias mayores y rechaza downgrades o versiones legacy desconocidas antes de copiar.
 - App y Worker retienen el mismo mutex de actividad; el instalador no los cierra ni reinicia y bloquea si cualquiera está abierto durante su chequeo inicial. El named pipe continúa siendo la autoridad de instancia única de la aplicación. Sigue pendiente cerrar o aceptar explícitamente la carrera de una App/Worker que se inicie después de ese chequeo.
 - `publish.ps1` emite un manifiesto determinista de ruta relativa, longitud y SHA-256. `build-installer.ps1` productivo vuelve a publicar, exige rutas e identidades canónicas, valida completamente los sidecars y produce instalador, `.sha256` y manifiesto sin firma; no se afirma reproducibilidad byte a byte del `.exe`. El harness usa AppId, workspace, ruta, registro, grupo y mutex desechables y nunca la instalación productiva.
+- Candidato local `0.2.0-beta.6`, secuencia 7: compilación Release con 0 advertencias/errores; pruebas enfocadas 10/10, Release serial y paralelo 451/451; `VE000 verified`, `publish` y smoke IPC integrado/explícito aprobados. El manifiesto y ZIP coinciden en 495/495 archivos. El ZIP de 86,830,246 bytes tiene SHA-256 `c2c36402e63ecb45a5644f4d6fe0a9442fb5940c70c526984c740e4241e70b3a`; Setup de 60,002,700 bytes, SHA-256 `01a674c4e0f6a12318e1ef678a5f64795039347e93024c15f79be6d97145b940`, `NotSigned`; SHA-256 del manifiesto de payload `457317add99a2433ac3a34e6878e6f9ad53e9e88edca2790b5c61a84a2ec096c`. El Setup productivo se compiló, pero no se ejecutó y esos artefactos no se publicaron.
 
 ### Alcance pendiente
 
@@ -58,7 +60,7 @@ Permitir instalar, actualizar, diagnosticar y recuperar la aplicación existente
 - Actualizar la aplicación y el modelo Whisper de forma independiente cuando el modelo no haya cambiado.
 - Firmar el ejecutable y el instalador.
 - Exportar diagnósticos que protejan la privacidad, sin transcripciones, audio conservado, capturas, secretos ni claves de cifrado.
-- Mantener como regresión el bloqueo SQLite ya corregido mediante disposición determinista de comandos y limpieza segura; no reabrirlo sin nueva evidencia.
+- El bloqueo intermitente de archivos SQLite de prueba ya está corregido y cubierto por regresiones; no es trabajo pendiente. Reabrirlo solo ante evidencia nueva.
 
 ### Criterios de salida
 
