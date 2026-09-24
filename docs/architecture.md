@@ -6,6 +6,8 @@ La versión pública actual `0.2.0-beta.7` separa la lógica determinista en el 
 
 El tag público de beta 7 resuelve a `25e3f36867250599ef5026d7270fc37af85a7c44`. El ZIP de **86,851,547 bytes** y SHA-256 `951ce1653c2bbdd0d5c0a0827cab5b3c6d5c5c762f1574a3434fa937c44d00e8`, y el Setup de **60,024,844 bytes** y SHA-256 `fb476b57e82fbf696e886831029be17d221596e5aaf0fd8cddf808714e0fe526`, coinciden con los recursos remotos y sus sidecars. El Setup informa `NotSigned`; el SHA-256 del manifiesto del payload es `8d585ce9438c9c3778b1a4eb1f8c4de0e9ae3924ed5110a4b624ea661da4a8a0`.
 
+La fuente en `main` declara ahora el candidato `0.2.0-beta.8`, secuencia de instalador **9**, e incorpora la búsqueda local 8.2 descrita más abajo. Aún no existen tag, commit final, artefactos ni evidencia de layout para ese candidato; beta 7 continúa siendo la publicación vigente. El manifiesto conserva exactamente cinco capacidades. No hay firma Authenticode ni ejecución productiva del Setup, y toda validación física audible, WGC/GPU, interfaz/accesibilidad, Meet/Teams y 2/5 horas permanece pendiente.
+
 ## Mapa de componentes
 
 ```mermaid

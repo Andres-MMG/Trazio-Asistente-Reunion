@@ -2,6 +2,8 @@
 
 **Trazio Asistente Reunión** es un producto de escritorio para Windows, independiente de Trazio Platforms. La versión publicada actual es [`0.2.0-beta.7`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.7); incorpora 7.2a, la infraestructura de 7.2b, el instalador manual de la etapa 5.1 y la revisión de historial 8.1 sin afirmar identificación de hablantes ni validación de producción.
 
+La fuente en `main` prepara el candidato `0.2.0-beta.8`, secuencia de instalador **9**, con la búsqueda local 8.2. Todavía no es una release: no tiene tag, commit final, ZIP, Setup, tamaños ni hashes definitivos. Mantiene exactamente cinco capacidades. La firma Authenticode, la ejecución productiva del Setup y la validación física audible, WGC/GPU, interfaz/accesibilidad, Meet/Teams y 2/5 horas siguen pendientes.
+
 La beta 7 pública, secuencia de instalador **8**, incluye la revisión de historial 8.1: anterior/siguiente sin reproducción automática, línea de tiempo con huecos reales, resaltado independiente y velocidad temporal `0,75×–2×`. La velocidad cambia el tono, no se persiste y la validación audible/accesible continúa pendiente.
 
 El tag de beta 7 resuelve a `25e3f36867250599ef5026d7270fc37af85a7c44`. El ZIP publicado mide **86,851,547 bytes** y su SHA-256 es `951ce1653c2bbdd0d5c0a0827cab5b3c6d5c5c762f1574a3434fa937c44d00e8`; el Setup mide **60,024,844 bytes**, su SHA-256 es `fb476b57e82fbf696e886831029be17d221596e5aaf0fd8cddf808714e0fe526` y Authenticode informa `NotSigned`. Tamaños y digest remotos coinciden con los artefactos verificados. El Setup productivo no se ejecutó.

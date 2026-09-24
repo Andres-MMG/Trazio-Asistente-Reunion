@@ -11,6 +11,8 @@ public sealed class InstallerPackageContractTests
         var root = FindRepositoryRoot();
         var script = File.ReadAllText(Path.Combine(root, "installer", "Trazio.AsistenteReunion.iss"));
 
+        Assert.Contains("#define MyAppVersion \"0.2.0-beta.8\"", script, StringComparison.Ordinal);
+        Assert.Contains("#define MyReleaseSequence 9", script, StringComparison.Ordinal);
         Assert.Contains("AppId={{{#MyAppGuid}}", script, StringComparison.Ordinal);
         Assert.Contains("DefaultDirName={#MyDefaultDirName}", script, StringComparison.Ordinal);
         Assert.Contains(@"DestDir: ""{app}\versions\{#MyAppVersion}""", script, StringComparison.Ordinal);
@@ -83,22 +85,29 @@ public sealed class InstallerPackageContractTests
         Assert.Contains("MappedSequence <> InstalledSequence", script, StringComparison.Ordinal);
         Assert.Contains("else if TryReadLegacyVersion(InstalledVersion)", script, StringComparison.Ordinal);
         Assert.Contains("InstalledSequence > CurrentReleaseSequence", script, StringComparison.Ordinal);
-        Assert.Contains("VersionText = '0.1.1-mvp'", script, StringComparison.Ordinal);
-        Assert.Contains("VersionText = '0.2.0-beta.1'", script, StringComparison.Ordinal);
-        Assert.Contains("VersionText = '0.2.0-beta.2'", script, StringComparison.Ordinal);
-        Assert.Contains("VersionText = '0.2.0-beta.3'", script, StringComparison.Ordinal);
-        Assert.Contains("VersionText = '0.2.0-beta.4'", script, StringComparison.Ordinal);
-        Assert.Contains("VersionText = '0.2.0-beta.5'", script, StringComparison.Ordinal);
-        Assert.Contains("VersionText = '0.2.0-beta.6'", script, StringComparison.Ordinal);
-        Assert.Contains("VersionText = '0.2.0-beta.7'", script, StringComparison.Ordinal);
-        Assert.Contains("Sequence := 1", script, StringComparison.Ordinal);
-        Assert.Contains("Sequence := 2", script, StringComparison.Ordinal);
-        Assert.Contains("Sequence := 3", script, StringComparison.Ordinal);
-        Assert.Contains("Sequence := 4", script, StringComparison.Ordinal);
-        Assert.Contains("Sequence := 5", script, StringComparison.Ordinal);
-        Assert.Contains("Sequence := 6", script, StringComparison.Ordinal);
-        Assert.Contains("Sequence := 7", script, StringComparison.Ordinal);
-        Assert.Contains("Sequence := 8", script, StringComparison.Ordinal);
+        var versionMappings = Regex.Matches(
+                script,
+                @"VersionText = '(?<version>[^']+)' then\s+Sequence := (?<sequence>\d+)",
+                RegexOptions.CultureInvariant)
+            .Cast<Match>()
+            .ToDictionary(
+                match => match.Groups["version"].Value,
+                match => int.Parse(match.Groups["sequence"].Value, System.Globalization.CultureInfo.InvariantCulture),
+                StringComparer.Ordinal);
+        var expectedMappings = new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["0.1.1-mvp"] = 1,
+            ["0.2.0-beta.1"] = 2,
+            ["0.2.0-beta.2"] = 3,
+            ["0.2.0-beta.3"] = 4,
+            ["0.2.0-beta.4"] = 5,
+            ["0.2.0-beta.5"] = 6,
+            ["0.2.0-beta.6"] = 7,
+            ["0.2.0-beta.7"] = 8,
+            ["0.2.0-beta.8"] = 9
+        };
+        Assert.Equal(expectedMappings.Count, versionMappings.Count);
+        Assert.All(expectedMappings, expected => Assert.Equal(expected.Value, versionMappings[expected.Key]));
         Assert.Contains("DetectedInstallMode := 'repair'", script, StringComparison.Ordinal);
         Assert.Contains("DetectedInstallMode := 'upgrade'", script, StringComparison.Ordinal);
         Assert.DoesNotContain("TryMapLegacyVersion", script, StringComparison.Ordinal);

@@ -51,7 +51,7 @@ Abre **Historial**, selecciona una reunión guardada y usa **Reproductor de la r
 
 El reproductor maneja las fuentes por separado. Esta versión no incluye una pista mezclada de micrófono y equipo, compensación de tono ni eliminación automática de eco. El cursor se calcula con los bytes ya reproducidos por el dispositivo y los convierte a tiempo fuente según la velocidad fija de cada operación; no usa la lectura adelantada del búfer. La coincidencia audible exacta, el cambio de velocidad, el recorrido completo por teclado y el lector de pantalla todavía requieren validación física. Las marcas de tiempo provienen del reconocimiento y pueden necesitar interpretación humana; reproducir no garantiza que las palabras del modelo sean correctas.
 
-## Buscar una reunión en la versión de desarrollo 8.2
+## Buscar una reunión en el candidato beta 8
 
 En **Historial**, escribe entre 2 y 120 caracteres en **Buscar en reuniones** y pulsa **Buscar** o Enter. La consulta es literal, pero ignora mayúsculas y diacríticos: `reunion cafe` encuentra `Reunión Café`; no busca sinónimos ni significados parecidos.
 
@@ -61,7 +61,7 @@ En **Historial**, escribe entre 2 y 120 caracteres en **Buscar en reuniones** y 
 - Buscar por sí solo no cambia la sesión ni detiene/reproduce audio. Seleccionar un resultado abre la revisión **Original · revisión humana**, la fuente y el segmento, pero nunca inicia reproducción automática.
 - **Limpiar** vuelve a la lista normal de sesiones. Si una sesión o segmento fue eliminado, Trazio muestra el fallo y exige repetir la búsqueda.
 
-La consulta y los resultados no se guardan en SQLite ni en un índice. Se descifran y comparan localmente en memoria; esto no equivale a memoria segura frente a paginación, volcados o software con acceso a la misma cuenta. Esta función está en `main` y espera la próxima beta; no está incluida en la descarga beta 7.
+La consulta y los resultados no se guardan en SQLite ni en un índice. Se descifran y comparan localmente en memoria; esto no equivale a memoria segura frente a paginación, volcados o software con acceso a la misma cuenta. Esta función está en el candidato beta 8 de `main`, pero todavía no está incluida en una descarga publicada; beta 7 sigue siendo la versión pública vigente.
 
 ## Corregir texto y recopilar terminología
 
