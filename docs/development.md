@@ -20,12 +20,13 @@ installer/                       publicación, pruebas básicas de proceso/infer
 docs/                            documentación de ingeniería
 artifacts/publish/                aplicación combinada generada; ignorada por Git
 artifacts/publish-manifest.json   inventario determinista del payload; ignorado por Git
+artifacts/Trazio-*.zip            ZIP portable y sidecar generados; ignorados por Git
 artifacts/installer/              instalador y sidecars generados; ignorados por Git
 ```
 
 El repositorio actual no fija un parche de SDK en `global.json`, no incluye archivo de bloqueo de dependencias versionado, flujo de CI ni actualizador automático. No describas evidencia de pruebas locales como evidencia de CI.
 
-Los scripts `publish.ps1`, `build-installer.ps1` y `test-installer.ps1` se guardan como UTF-8 con BOM para que Windows PowerShell 5.1 interprete correctamente el texto español. No retires ese marcador al editarlos; las pruebas de contrato lo comprueban.
+Los scripts `publish.ps1`, `package-portable.ps1`, `build-installer.ps1` y `test-installer.ps1` se guardan como UTF-8 con BOM. `publish.ps1` y los scripts del instalador mantienen compatibilidad con Windows PowerShell 5.1; el empaquetador portable exige PowerShell Core 7.4 o posterior y no usa `Compress-Archive`. No retires el marcador al editarlos; las pruebas de contrato lo comprueban.
 
 ## Compilar
 
@@ -58,7 +59,23 @@ Cierra primero la aplicación; no finalices la grabación activa de otra persona
 
 Ejecuta `artifacts\publish\Trazio.AsistenteReunion.exe`. Una comprobación de salud demuestra inicio/respuesta del proceso auxiliar, **no** carga de modelo, captura ni reconocimiento; usa la [prueba básica de inferencia](validation.md#pruebas-básicas-de-paquete-e-inferencia-real) para ese límite independiente.
 
-El script actual de empaquetado copia el README y los avisos, no `docs/`. El README incluye un índice de documentación en línea para quienes leen desde el ZIP.
+La publicación combinada copia el README y los avisos, no `docs/`. El README incluye un índice de documentación en línea para quienes leen desde el ZIP.
+
+### Crear el ZIP portable canónico
+
+Después de ejecutar `publish.ps1`, crea el recurso portable sin parámetros personalizados:
+
+```powershell
+pwsh -NoProfile -File .\installer\package-portable.ps1
+```
+
+[El empaquetador](../installer/package-portable.ps1) acepta en modo productivo únicamente `artifacts\publish`, `artifacts\publish-manifest.json` y el nombre `Trazio-Asistente-Reunion-v<versión>-win-x64.zip` derivado de `Directory.Build.props`. Antes de escribir, rechaza archivos faltantes, adicionales o manipulados, rutas duplicadas o ambiguas, traversal, rutas absolutas y cualquier vínculo simbólico, junction o reparse point. El ZIP contiene exactamente las entradas del manifiesto, usa rutas `/`, orden ordinal, fecha fija `2000-01-01T00:00:00`, atributos externos en cero y `ZipArchive` con `CompressionLevel.Optimal`. El propio manifiesto y los sidecars no entran al ZIP porque no pertenecen al inventario del payload.
+
+El ZIP y su `.sha256` se construyen con nombres temporales en la misma carpeta, se verifican y luego se reemplazan mediante operaciones atómicas por archivo; un error controlado revierte el par anterior y elimina temporales. Si también falla esa recuperación, el script conserva y comunica cualquier backup disponible en vez de borrarlo. El sidecar usa SHA-256 en minúsculas, dos espacios, nombre del ZIP y LF final. Dos ejecuciones con el mismo payload producen bytes y SHA-256 idénticos **cuando se usa la misma compilación exacta de PowerShell y del runtime .NET**. El script requiere como mínimo PowerShell 7.4 y .NET 8, pero no promete el mismo flujo DEFLATE entre versiones o parches distintos: registra `$PSVersionTable.PSVersion` y `[Environment]::Version` junto con la evidencia de release.
+
+**Límite transaccional:** ZIP y sidecar son dos archivos y no pueden cambiarse atómicamente como una sola unidad. Un error normal capturado se revierte, pero un corte de energía o terminación abrupta entre ambos reemplazos puede dejar un par mixto; vuelve a ejecutar el empaquetador y verifica el sidecar antes de publicar. Las comprobaciones de rutas/reparse también presuponen un workspace de build local confiable y de un solo escritor: no son una defensa contra un actor local que altere rutas concurrentemente.
+
+Los overrides existen solo para pruebas contractuales: requieren `-AllowTestOverrides`, todas las rutas explícitas dentro de un `TestWorkspaceRoot` desechable bajo `%TEMP%` y un nombre no productivo. Nunca uses ese modo para preparar una release.
 
 ### Instalador manual offline
 
@@ -113,6 +130,7 @@ Estas casillas son un procedimiento para una versión futura; no representan tar
 - [ ] Registrar commit, versión, evidencia de pruebas y límites de validación pendientes.
 - [ ] Publicar ambos ejecutables; verificar inferencia real antes de afirmar que un modelo funciona.
 - [ ] Empaquetar **toda** la salida, incluidos subdirectorios nativos del entorno de ejecución/avisos.
+- [ ] Ejecutar `pwsh -NoProfile -File .\installer\package-portable.ps1`; repetir con el mismo payload y comprobar identidad byte a byte usando la misma compilación de PowerShell/.NET.
 - [ ] Excluir símbolos de depuración innecesarios y todos los datos de reuniones, claves, credenciales, registros y evidencia específica del desarrollador.
 - [ ] Generar SHA-256; verificar tamaño/hash del recurso subido contra el ZIP local.
 - [ ] Mantener una versión preliminar hasta cumplir la [aceptación de producción](validation.md#aceptación-manual-de-versiones).
@@ -121,12 +139,14 @@ Estas casillas son un procedimiento para una versión futura; no representan tar
 Ejemplo de suma de comprobación para un ZIP preparado:
 
 ```powershell
-$version = '0.2.0-beta.7' # Sustituir por la versión exacta del ZIP que se valida.
+pwsh -NoProfile -File .\installer\package-portable.ps1
+$version = '0.2.0-beta.8' # Debe coincidir con Directory.Build.props.
 $zipPath = ".\artifacts\Trazio-Asistente-Reunion-v$version-win-x64.zip"
-Get-FileHash -Algorithm SHA256 $zipPath
+Get-Content -LiteralPath "$zipPath.sha256"
+Get-FileHash -Algorithm SHA256 -LiteralPath $zipPath
 ```
 
-La publicación vigente es `Trazio-Asistente-Reunion-v0.2.0-beta.7-win-x64.zip` junto a su archivo `.sha256`; su tamaño **86,851,547 bytes** y SHA-256 `951ce1653c2bbdd0d5c0a0827cab5b3c6d5c5c762f1574a3434fa937c44d00e8` corresponden exclusivamente a ese recurso publicado. En una futura publicación, sustituye `<versión>` por la versión exacta del artefacto que quieras comprobar. Este comando solo calcula el hash de un archivo local: no crea un ZIP ni una versión publicada. Beta 6 permanece como evidencia histórica. Publicar, firmar y enviar cambios requieren autorización explícita del mantenedor.
+La publicación vigente es `Trazio-Asistente-Reunion-v0.2.0-beta.7-win-x64.zip` junto a su archivo `.sha256`; su tamaño **86,851,547 bytes** y SHA-256 `951ce1653c2bbdd0d5c0a0827cab5b3c6d5c5c762f1574a3434fa937c44d00e8` corresponden exclusivamente a ese recurso publicado. El ejemplo crea el ZIP del candidato declarado actualmente, pero no lo etiqueta, firma, sube ni convierte por sí solo en una versión publicada. Beta 6 permanece como evidencia histórica. Publicar y enviar cambios requieren autorización explícita del mantenedor.
 
 ## Límites de contribución
 

@@ -126,10 +126,11 @@ Lee el [modelo de amenazas y los límites de retención/recuperación](docs/secu
 dotnet restore .\Trazio.AsistenteReunion.slnx
 dotnet build .\Trazio.AsistenteReunion.slnx -c Release --no-restore
 .\installer\publish.ps1
+pwsh -NoProfile -File .\installer\package-portable.ps1
 .\installer\build-installer.ps1
 ```
 
-La salida combinada admitida es `artifacts\publish`. Cierra la aplicación antes de volver a publicarla; el script reemplaza esa carpeta. El constructor productivo vuelve a ejecutar `publish.ps1`, exige esas rutas canónicas recién verificadas y genera el instalador en `artifacts\installer`. El `.exe` permanece sin firma; sus archivos `.sha256` y `.manifest.json` prueban integridad local, no identidad del editor. El manifiesto del payload es determinista, pero no se afirma que dos compilaciones de Inno Setup produzcan un `.exe` idéntico byte a byte. Consulta [entorno de desarrollo, pruebas, comprobación de paquetes y reglas de contribución](docs/development.md).
+La salida combinada admitida es `artifacts\publish`. Cierra la aplicación antes de volver a publicarla; el script reemplaza esa carpeta. El empaquetador portable exige el payload y manifiesto canónicos, verifica cada entrada y genera el ZIP con orden, fecha y rutas normalizados, más su sidecar SHA-256. La identidad byte a byte se garantiza para el mismo payload bajo la misma compilación exacta de PowerShell/.NET, no entre runtimes distintos. El constructor productivo vuelve a ejecutar `publish.ps1` y genera el instalador en `artifacts\installer`. El `.exe` permanece sin firma; sus archivos `.sha256` y `.manifest.json` prueban integridad local, no identidad del editor. No se afirma que dos compilaciones de Inno Setup produzcan un `.exe` idéntico byte a byte. Consulta [entorno de desarrollo, pruebas, comprobación de paquetes y reglas de contribución](docs/development.md).
 
 ## Licencia y agradecimientos
 
