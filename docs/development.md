@@ -6,7 +6,7 @@
 
 - Windows 11 x64 y un SDK .NET 10; C# 14 está configurado en los proyectos fuente.
 - Una CPU x64 compatible con el entorno de ejecución CPU de Whisper incluido.
-- PowerShell. Opcional: Inno Setup 6 para la definición del instalador.
+- PowerShell. Inno Setup 6 para compilar/probar el instalador; el script localiza `ISCC.exe` en `PATH`, Program Files y `%LOCALAPPDATA%\Programs\Inno Setup 6`.
 - Un modelo GGML confiable y WAV de prueba autorizado solo para comprobaciones reales de inferencia.
 
 ```text
@@ -19,9 +19,13 @@ tests/                           comprobaciones automatizadas
 installer/                       publicación, pruebas básicas de proceso/inferencia, Inno Setup
 docs/                            documentación de ingeniería
 artifacts/publish/                aplicación combinada generada; ignorada por Git
+artifacts/publish-manifest.json   inventario determinista del payload; ignorado por Git
+artifacts/installer/              instalador y sidecars generados; ignorados por Git
 ```
 
 El repositorio actual no fija un parche de SDK en `global.json`, no incluye archivo de bloqueo de dependencias versionado, flujo de CI ni actualizador automático. No describas evidencia de pruebas locales como evidencia de CI.
+
+Los scripts `publish.ps1`, `build-installer.ps1` y `test-installer.ps1` se guardan como UTF-8 con BOM para que Windows PowerShell 5.1 interprete correctamente el texto español. No retires ese marcador al editarlos; las pruebas de contrato lo comprueban.
 
 ## Compilar
 
@@ -32,7 +36,7 @@ dotnet restore .\Trazio.AsistenteReunion.slnx
 dotnet build .\Trazio.AsistenteReunion.slnx -c Release --no-restore
 ```
 
-Sigue la [guía de validación](validation.md) para las pruebas, incluido el problema conocido de limpieza paralela de SQLite. Cierra Trazio normalmente antes de probar el comportamiento de instancia única.
+Sigue la [guía de validación](validation.md) para las pruebas, incluido el antecedente ya corregido de limpieza paralela de SQLite y sus regresiones. Cierra Trazio normalmente antes de probar el comportamiento de instancia única.
 
 ## Publicar una carpeta completa para Windows
 
@@ -50,24 +54,37 @@ Cierra primero la aplicación; no finalices la grabación activa de otra persona
 4. Comprueba ejecutables/dependencias necesarios y la coincidencia de versión de producto `0.2.0-beta.5` entre App, Worker y `Trazio.AsistenteReunion.VisualAnalysis.dll`. También valida el manifiesto `trazio-capabilities.json`, versionado junto al proyecto WPF y copiado al publicar: exige **exactamente las cinco capacidades existentes** de historial, audio cifrado, exportación Obsidian, asociación de proveedor por ventana y captura efímera consentida. La validación rechaza identificadores duplicados o versiones inválidas. La infraestructura fuente 7.2b no agrega una capacidad empaquetada de actividad/correlación anónima ni de identificación de hablantes: sus perfiles de producción permanecen `Unvalidated` y fallan de forma segura.
 5. Rechaza tipos y metadatos no incluidos en la lista permitida del layout, incluidos datos de usuario, bases SQLite, audio, modelos GGML/GGUF, imágenes, video, volcados, registros y material de claves. Además rechaza explícitamente la CLI `VisualEvaluation` (`.exe`, `.dll`, `.deps.json` y `.runtimeconfig.json`), `synthetic-corpus-v1.json`, `synthetic-corpus-v1.golden.json` y cualquier directorio denominado `tools` o `evaluation`, donde sea que aparezcan. `VisualAnalysis.dll` sí es una dependencia distribuida; el evaluador offline y sus datos sintéticos no lo son. El ZIP final también debe inspeccionarse antes del SHA-256 y la subida.
 6. Ejecuta la comprobación de salud del proceso auxiliar mediante canal con nombre.
+7. Emite `artifacts\publish-manifest.json` con versión, secuencia monotónica y cada ruta relativa normalizada, longitud y SHA-256 en orden ordinal.
 
 Ejecuta `artifacts\publish\Trazio.AsistenteReunion.exe`. Una comprobación de salud demuestra inicio/respuesta del proceso auxiliar, **no** carga de modelo, captura ni reconocimiento; usa la [prueba básica de inferencia](validation.md#pruebas-básicas-de-paquete-e-inferencia-real) para ese límite independiente.
 
 El script actual de empaquetado copia el README y los avisos, no `docs/`. El README incluye un índice de documentación en línea para quienes leen desde el ZIP.
 
-### Instalador opcional
+### Instalador manual offline
 
-Después de publicar, con Inno Setup 6 instalado:
+Para compilar el instalador productivo:
 
 ```powershell
-& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" .\installer\Trazio.AsistenteReunion.iss
+.\installer\build-installer.ps1
 ```
 
-[La definición](../installer/Trazio.AsistenteReunion.iss) instala por usuario sin elevación y produce `artifacts\installer\Trazio-Asistente-Reunion-Setup.exe`. Su presencia no demuestra validación de actualización/reversión. La base pública ofrece un ZIP; la firma de código de producción no está configurada.
+[El constructor](../installer/build-installer.ps1) productivo toma `Version` e `InstallerReleaseSequence` desde `Directory.Build.props`, ejecuta `publish.ps1` en la misma invocación, exige `artifacts\publish` y su manifiesto canónico, vuelve a comprobar cada byte y compila [la definición](../installer/Trazio.AsistenteReunion.iss). Genera `Trazio-Asistente-Reunion-v<versión>-Setup.exe`, su `.sha256` y un `.manifest.json`, y relee todos sus campos, nombres, longitudes, hashes y formato. `-SkipPublish`, rutas o cualquier override solo se aceptan con `-AllowTestOverrides`, todos los identificadores no productivos y todas las rutas bajo un `TestWorkspaceRoot` desechable en `%TEMP%`. El instalador sigue sin firma: SHA-256 comprueba integridad del archivo observado, no identidad del editor ni confianza del canal. Solo el manifiesto del payload tiene salida determinista; no se promete un Setup idéntico byte a byte entre compilaciones.
+
+El instalador es por usuario, no usa red y mantiene `{app}` como raíz estable. Cada payload queda en `{app}\versions\<versión>`; accesos directos y registro activan la versión nueva dentro de la transacción de Setup. El estado moderno de versión/secuencia se valida como una unidad; valores ausentes, cero o contradictorios se rechazan antes de `[Files]`. La misma secuencia repara, una secuencia menor actualiza y una mayor bloquea el downgrade. App y Worker mantienen `Trazio.AsistenteReunion.AppRunning.v1`; Setup nunca los cierra/reinicia. Como App/Worker no adquieren `SetupMutex`, aún pueden iniciarse después del chequeo inicial de `AppMutex`: mantenlos cerrados hasta que Setup termine. La definición no contiene operaciones sobre la raíz de datos predeterminada o configurada, modelos, DB, audio, ajustes ni claves; su supervivencia real sigue requiriendo la matriz física pendiente.
+
+Prueba el mecanismo únicamente con identificadores desechables:
+
+```powershell
+.\installer\test-installer.ps1
+```
+
+[El harness](../installer/test-installer.ps1) compila payloads sintéticos y usa AppId, workspace, carpeta, registro, grupo, nombre de acceso directo y mutex nuevos por ejecución. El shortcut desechable incluye el `runId`; el builder rechaza el nombre productivo en modo test, y el harness comprueba que el acceso directo productivo del escritorio permanezca ausente o byte a byte intacto. Cubre instalación limpia, reparación, A→B, rechazo B→A, secuencia cero, versión/secuencia contradictorias, estado moderno parcial, versión legacy desconocida, aplicación abierta, manipulación de manifiesto, fallo durante `[Files]` y desinstalación. También comprueba que archivos arbitrarios fuera del árbol de programa desechable no cambien; eso **no** sustituye una prueba física con la raíz real de datos. La cancelación interactiva no se automatiza de forma fiable y queda marcada `NOT_AUTOMATED`; no debe presentarse como evidencia aprobada.
+
+**Límite de rollback:** Inno restaura la activación/payload anterior si Setup falla o se cancela antes de completar. No se promete rollback después de ejecutar la versión nueva ni compatibilidad hacia atrás del esquema de datos. Las versiones anteriores consumen disco hasta una futura política explícita de limpieza.
 
 ## Disciplina de versiones y publicación
 
-Versión fuente publicada: **0.2.0-beta.5** (`VersionPrefix` 0.2.0 + `VersionSuffix` beta.5); versión de ensamblado/archivo: **0.2.0.0**. [Directory.Build.props](../Directory.Build.props) es la autoridad compartida de versión. El script de publicación, la definición del instalador y las [pruebas de versión](../tests/Trazio.AsistenteReunion.Tests/VersionMetadataTests.cs) también contienen comprobaciones; actualízalos juntos para una nueva versión.
+Versión fuente publicada: **0.2.0-beta.5** (`VersionPrefix` 0.2.0 + `VersionSuffix` beta.5); versión de ensamblado/archivo: **0.2.0.0**; secuencia de instalador: **6**. [Directory.Build.props](../Directory.Build.props) es la autoridad compartida. Cada nueva versión instalable debe aumentar `InstallerReleaseSequence`; nunca compares SemVer beta como texto. El script de publicación, la definición del instalador y las [pruebas de versión/instalador](../tests/Trazio.AsistenteReunion.Tests/InstallerPackageContractTests.cs) comprueban el contrato.
 
 La beta 4 publicada completó `VersionMetadataTests` (4/4), `Area=VisualCapture` (132/132), el conjunto Release serial (371/371), el conjunto Release paralelo predeterminado (371/371) y la compilación (0 advertencias, 0 errores). También aprobaron el contrato de publicación, la prueba básica por canal con nombre y la comparación del layout (494/494 archivos byte a byte, 0 hallazgos prohibidos, 0 rutas fuente locales y 0 referencias CodeView). El tag `v0.2.0-beta.4` corresponde al commit `f871f20c3bf9e77b0cf9ad51134febb83c673de7`. El recurso remoto `Trazio-Asistente-Reunion-v0.2.0-beta.4-win-x64.zip` mide 86,823,005 bytes y su digest coincide exactamente con el ZIP local y el archivo lateral publicado: SHA-256 `c08d6d6df3d986d19773c6a0d3723c587c7449a37b3d1d29ef601a936768c0d6`.
 

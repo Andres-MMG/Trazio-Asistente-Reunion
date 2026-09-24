@@ -40,6 +40,7 @@ MICRÓFONO + AUDIO DEL EQUIPO
 | Revisión humana | Forma de onda por fuente, línea de tiempo, saltos de 10 segundos, reproducción de segmentos, correcciones/deshacer y sugerencias de glosario por término, como `Need → Meet`. |
 | Retranscripción no destructiva | Procesa el audio conservado en una nueva revisión del modelo; compara versiones por intervalos de 15 segundos y escucha la fuente correspondiente. |
 | Exportación para Obsidian | Crea de forma explícita una nota Markdown en la carpeta elegida, con metadatos, marcas de tiempo, fuente, hablante y correcciones humanas vigentes; no exporta audio ni selecciona silenciosamente una revisión del modelo. |
+| Instalación manual segura | La fuente incluye un instalador offline por usuario con payloads versionados, reparación de la misma versión, bloqueo de downgrade y preservación de la versión anterior durante la transacción. No descarga ni actualiza automáticamente. |
 
 **Todavía no implementado:** identificación de hablantes remotos, perfiles de producción validados, OCR, reconocimiento de rostros, lectura de nombres, pestañas/DOM/URL, chat, subtítulos o documentos, adaptadores de proveedores, automatización de calendarios, sincronización en la nube, resúmenes/traducción de reuniones, actualizaciones automáticas o entrenamiento de modelos. La evidencia visual anónima solo se correlaciona con `SystemOutput`; no modifica la transcripción, `SpeakerName` ni las exportaciones TXT, Markdown u Obsidian. Las entradas del glosario se guardan, pero **todavía no se incorporan a Whisper ni se aplican automáticamente a nuevas transcripciones**. Una diferencia textual entre versiones no es una puntuación de precisión.
 
@@ -50,7 +51,7 @@ MICRÓFONO + AUDIO DEL EQUIPO
 3. Confirma tu nombre visible local, selecciona los dispositivos correctos y, si quieres registrar el proveedor, asocia manualmente una ventana superior de reunión. La captura visual y el análisis anónimo requieren autorizaciones separadas; la segunda es de un solo uso y, con los perfiles de producción actuales, se abstiene y muestra **No disponible**. Descarga el modelo recomendado desde la aplicación (aproximadamente 148 MB, una vez).
 4. Haz clic en **Iniciar transcripción**. Usa **Detener** para finalizar antes de revisar la reunión en **Historial**.
 
-El paquete incluye el entorno de ejecución de .NET. Se requiere una CPU x64 compatible. La definición del instalador opcional existe en el código fuente; la versión preliminar publicada es un ZIP. Consulta [primera grabación, reproducción, actualizaciones y solución de problemas](docs/user-guide.md).
+El paquete incluye el entorno de ejecución de .NET. Se requiere una CPU x64 compatible. La descarga pública actual sigue siendo el ZIP de beta 5; la fuente posterior incorpora un instalador manual offline que debe publicarse y verificarse como recurso separado antes de usarlo. Consulta [primera grabación, reproducción, actualizaciones y solución de problemas](docs/user-guide.md).
 
 > **Límite de grabación:** silenciarte en Meet, Teams o Zoom no silencia la captura independiente del micrófono de Trazio. Pausa Trazio cuando deba dejar de capturar. El audio del equipo abarca el dispositivo de salida seleccionado, no solo una pestaña de reunión. Obtén los permisos correspondientes antes de grabar.
 
@@ -72,7 +73,7 @@ flowchart LR
 | Reconocimiento | Whisper.net + entorno de ejecución CPU 1.9.1; catálogo Whisper Base multilingüe |
 | Persistencia | Microsoft.Data.Sqlite 10.0.4; contenido cifrado |
 | Protección | AES-256-GCM; Windows DPAPI `CurrentUser` para la clave maestra y la configuración |
-| Distribución / comprobaciones | Publicación y pruebas básicas con PowerShell, Inno Setup 6 opcional; pruebas xUnit |
+| Distribución / comprobaciones | Publicación y manifiesto determinista con PowerShell; instalador offline por usuario con Inno Setup 6; harness desechable; pruebas xUnit |
 
 La [guía de arquitectura](docs/architecture.md) vincula estas afirmaciones con archivos fuente, registra decisiones y límites, y explica los flujos de captura/recuperación/retranscripción. Esta aplicación es **independiente de Trazio Platforms**; no hay conexión con la plataforma en esta versión.
 
@@ -81,7 +82,7 @@ La [guía de arquitectura](docs/architecture.md) vincula estas afirmaciones con 
 | Línea de trabajo | Situación actual |
 |---|---|
 | Captura, cifrado, almacenamiento, historial | Bases implementadas; aceptación física y de larga duración todavía pendiente |
-| Etapa 5 — distribución | Código público y ZIP beta 5 publicados; el recurso remoto, su digest y el archivo lateral coinciden con el paquete verificado. Firma y actualización/reversión automáticas continúan pendientes |
+| Etapa 5 — distribución | Código público y ZIP beta 5 publicados. La fuente posterior añade instalador manual offline versionado, reparación, bloqueo de downgrade, rollback transaccional y manifiestos SHA-256; firma, autoactualización y validación física en otra máquina continúan pendientes |
 | Etapa 5.5 — identidad | Perfil local y atribución del micrófono implementados; validación física de interfaz y captura pendiente |
 | Etapa 6 — revisión | Línea base funcional implementada: reproducción por fuente/segmento, corrección, glosario cifrado con procedencia, retranscripción versionada, comparación y exportación manual a Obsidian |
 | Etapa 7 y posteriores | 7.1a, 7.2a y la infraestructura fuente de 7.2b están implementadas; 7.2b permanece inactiva en producción porque Meet/Teams siguen `Unvalidated`, y toda validación física continúa pendiente. La etapa 7 no está completa y no identifica hablantes → adaptadores 7.2c–7.2e → productividad/glosario avanzado (8) → inteligencia/integración opcionales → calendarios (11) → entrenamiento (12) |
@@ -109,9 +110,10 @@ Lee el [modelo de amenazas y los límites de retención/recuperación](docs/secu
 dotnet restore .\Trazio.AsistenteReunion.slnx
 dotnet build .\Trazio.AsistenteReunion.slnx -c Release --no-restore
 .\installer\publish.ps1
+.\installer\build-installer.ps1
 ```
 
-La salida combinada admitida es `artifacts\publish`. Cierra la aplicación antes de volver a publicarla; el script reemplaza esa carpeta. Consulta [entorno de desarrollo, pruebas, comprobación de paquetes y reglas de contribución](docs/development.md).
+La salida combinada admitida es `artifacts\publish`. Cierra la aplicación antes de volver a publicarla; el script reemplaza esa carpeta. El constructor productivo vuelve a ejecutar `publish.ps1`, exige esas rutas canónicas recién verificadas y genera el instalador en `artifacts\installer`. El `.exe` permanece sin firma; sus archivos `.sha256` y `.manifest.json` prueban integridad local, no identidad del editor. El manifiesto del payload es determinista, pero no se afirma que dos compilaciones de Inno Setup produzcan un `.exe` idéntico byte a byte. Consulta [entorno de desarrollo, pruebas, comprobación de paquetes y reglas de contribución](docs/development.md).
 
 ## Licencia y agradecimientos
 

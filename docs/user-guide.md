@@ -95,6 +95,18 @@ Se rechazan destinos de red/UNC, unidades extraíbles, raíz de unidad, subárbo
 
 Esto traslada datos para el mismo usuario de Windows. No hace portátiles los datos cifrados a otra cuenta o equipo. Consulta [seguridad y límites de recuperación](security.md).
 
+## Instalar, reparar o actualizar con Setup
+
+La descarga pública actual de beta 5 sigue siendo un ZIP. Cuando una versión oficial publique además `Trazio-Asistente-Reunion-v<versión>-Setup.exe`, su instalador es manual, offline y solo para tu usuario de Windows:
+
+1. Descarga el `.exe`, su `.sha256` y su `.manifest.json` desde la misma versión oficial. Compara nombre, longitud y SHA-256. Como todavía no hay firma Authenticode, esa comprobación detecta diferencias respecto del sidecar pero no autentica por sí sola al editor.
+2. Finaliza la grabación y cierra Trazio normalmente. No fuerces la aplicación ni su proceso de transcripción, y no vuelvas a abrirlos hasta que Setup termine. La primera actualización desde beta 5 no puede detectar infaliblemente una instancia legacy abierta porque esa versión no creaba el nuevo mutex. Además, una App/Worker nueva podría iniciarse después del chequeo inicial del instalador; mantenerla cerrada evita esa carrera conocida.
+3. Ejecuta Setup. Una instalación limpia crea el programa; ejecutar la misma secuencia repara archivos; una secuencia mayor actualiza. Una versión anterior o legacy desconocida se rechaza sin copiar. El instalador no accede a Internet.
+4. Si Trazio o su Worker nuevo ya están activos durante el chequeo inicial, Setup se bloquea y permite reintentar/cancelar; nunca los cierra ni reinicia automáticamente. Ese chequeo no impide que alguien abra Trazio después, por lo que no lo hagas durante la instalación.
+5. Después de completar, abre Trazio y comprueba Historial, modelo y una prueba breve. La definición del desinstalador no incluye la raíz de datos, pero valida primero con datos de prueba antes de confiar una actualización de producción.
+
+Los binarios quedan en una raíz estable con un payload completo por versión. Durante Setup se conserva el payload anterior; si la copia/activación falla o cancelas antes de completar, Inno revierte la transacción. **Ese límite termina al finalizar Setup:** después de abrir una versión nueva no se garantiza compatibilidad de la base al volver atrás. Tampoco hay descarga automática, limpieza automática de payloads antiguos ni firma del editor.
+
 ## Actualizar la instalación ZIP
 
 **Todavía no hay actualizador automático. No actualices reemplazando solo un EXE.**
