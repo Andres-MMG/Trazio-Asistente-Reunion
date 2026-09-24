@@ -72,9 +72,9 @@ La consulta y los resultados no se guardan en SQLite ni en un índice. Se descif
 
 **Límite actual:** el glosario registra terminología confirmada y su procedencia. Todavía no cambia las instrucciones de Whisper ni reemplaza palabras automáticamente. Guardar correcciones no entrena el modelo de voz. La aplicación futura acotada del glosario pertenece a la etapa 8.7; el entrenamiento, a la etapa 12.
 
-### Gestionar el diccionario global en la versión de desarrollo
+### Gestionar el diccionario global en el candidato beta 9
 
-La rama `main`, posterior a beta 8 y todavía no publicada, agrega la pestaña **Diccionario**:
+El candidato beta 9 de `main`, todavía no publicado, agrega la pestaña **Diccionario**. La descarga pública beta 8 todavía no contiene esta función:
 
 1. Usa **Filtrar términos o categoría** para buscar por forma incorrecta, término preferido o categoría. El filtro ignora mayúsculas y tildes, se ejecuta solo en memoria y muestra hasta 120 entradas.
 2. Elige **Todos**, **Activos** o **Inactivos**. Cada duplicado histórico aparece como una fila independiente con un ordinal público; no se muestran IDs internos.

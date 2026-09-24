@@ -8,6 +8,8 @@ El tag público de beta 8 resuelve a `20c94272261f5697a548c56754039029b23f1548`.
 
 La beta 8 usa la secuencia de instalador **9** y agrega el empaquetador ZIP canónico, que relee el manifiesto del payload y normaliza rutas, orden y fecha. La identidad byte a byte del ZIP se exige solo con la misma compilación exacta de PowerShell/.NET. El manifiesto conserva exactamente cinco capacidades. No hay firma Authenticode ni ejecución productiva del Setup, y toda validación física audible, WGC/GPU, interfaz/accesibilidad, Meet/Teams y 2/5 horas permanece pendiente.
 
+La fuente en `main` declara el candidato `0.2.0-beta.9`, secuencia de instalador **10**, e incorpora el espacio global de diccionario 8.3a sobre el esquema cifrado existente. Todavía no existen tag, commit final, ZIP, Setup, tamaños, SHA-256 ni layout final para ese candidato; beta 8 continúa siendo la publicación vigente. El manifiesto mantiene exactamente cinco capacidades. El candidato tampoco cambia los límites pendientes de firma, ejecución productiva del Setup ni validación visual, por teclado, lector de pantalla, audible, WGC/GPU, Meet/Teams y 2/5 horas.
+
 ## Mapa de componentes
 
 ```mermaid

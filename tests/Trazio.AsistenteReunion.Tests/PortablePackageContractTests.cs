@@ -30,7 +30,7 @@ public sealed class PortablePackageContractTests
         Assert.Contains("AllowTestOverrides", script, StringComparison.Ordinal);
         Assert.Contains("TestWorkspaceRoot", script, StringComparison.Ordinal);
         Assert.DoesNotContain("Compress-Archive", script, StringComparison.Ordinal);
-        Assert.DoesNotContain("Trazio-Asistente-Reunion-v0.2.0-beta.8-win-x64.zip", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("Trazio-Asistente-Reunion-v0.2.0-beta.9-win-x64.zip", script, StringComparison.Ordinal);
     }
 
     [Fact]

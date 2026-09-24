@@ -6,7 +6,7 @@ La beta 8 usa la secuencia de instalador **9**, mantiene exactamente cinco capac
 
 La beta 8 pública incluye la revisión de historial 8.1: anterior/siguiente sin reproducción automática, línea de tiempo con huecos reales, resaltado independiente y velocidad temporal `0,75×–2×`. La velocidad cambia el tono, no se persiste y la validación audible/accesible continúa pendiente.
 
-La rama `main`, posterior a beta 8 y todavía no publicada, incorpora 8.3a: una pestaña global de diccionario con filtro local y activación por entrada. Esta rebanada no aplica el diccionario a Whisper ni agrega una capacidad nueva al paquete.
+La rama `main` prepara el candidato `0.2.0-beta.9`, secuencia de instalador **10**, e incorpora 8.3a: una pestaña global de diccionario con filtro local y activación por entrada. Esta rebanada no aplica el diccionario a Whisper ni agrega una capacidad nueva al paquete. Beta 9 todavía no es una release: no tiene tag, commit final, ZIP, Setup, tamaños ni hashes definitivos; beta 8 sigue siendo la descarga pública vigente. El candidato conserva exactamente cinco capacidades y mantiene pendientes la firma, la ejecución productiva del Setup y la validación visual, por teclado, lector de pantalla, audible, WGC/GPU, Meet/Teams y 2/5 horas.
 
 El tag de beta 8 resuelve a `20c94272261f5697a548c56754039029b23f1548`. El ZIP publicado mide **86,866,781 bytes** y su SHA-256 es `240a792ab8388a0511fb8b25ac466feeb104fdf6779b72938302adc9570b2e3f`; el Setup mide **60,034,031 bytes**, su SHA-256 es `61d87a71e2a040f10c70fa05389ca341db79e5cdcd88b2e314dcaf00c88fcaa0` y Authenticode informa `NotSigned`. Tamaños y digest remotos coinciden con los artefactos verificados. El Setup productivo no se ejecutó.
 

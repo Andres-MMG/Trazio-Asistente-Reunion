@@ -101,7 +101,11 @@ Prueba el mecanismo únicamente con identificadores desechables:
 
 ## Disciplina de versiones y publicación
 
-Autoridad de versión de fuente: [Directory.Build.props](../Directory.Build.props). La fuente publicada declara `VersionPrefix` **0.2.0**, `VersionSuffix` **beta.8** (versión producto `0.2.0-beta.8`), `InstallerReleaseSequence` **9** y versión de ensamblado/archivo **0.2.0.0**. Beta 7/secuencia 8, beta 6/secuencia 7 y todas las asignaciones anteriores permanecen como antecedentes históricos inmutables. Cada nueva versión instalable debe aumentar `InstallerReleaseSequence`; nunca compares SemVer beta como texto. El script de publicación, la definición del instalador y las [pruebas de versión/instalador](../tests/Trazio.AsistenteReunion.Tests/InstallerPackageContractTests.cs) comprueban el contrato y conservan los mapeos históricos.
+Autoridad de versión de fuente: [Directory.Build.props](../Directory.Build.props). El candidato actual declara `VersionPrefix` **0.2.0**, `VersionSuffix` **beta.9** (versión producto `0.2.0-beta.9`), `InstallerReleaseSequence` **10** y versión de ensamblado/archivo **0.2.0.0**. La versión pública sigue siendo beta 8/secuencia 9; beta 7/secuencia 8 y todas las asignaciones anteriores permanecen como antecedentes históricos inmutables. Cada nueva versión instalable debe aumentar `InstallerReleaseSequence`; nunca compares SemVer beta como texto. El script de publicación, la definición del instalador y las [pruebas de versión/instalador](../tests/Trazio.AsistenteReunion.Tests/InstallerPackageContractTests.cs) comprueban el contrato y conservan los mapeos históricos.
+
+### Candidato beta 9/secuencia 10
+
+La metadata de fuente reserva beta 9/secuencia 10 para distribuir la gestión global básica del diccionario 8.3a. Hasta completar la compilación final, etiquetar y publicar, no se deben registrar commit, tamaños, SHA-256 ni conteos de layout como evidencia definitiva. El candidato conserva exactamente cinco capacidades. El instalador continúa `NotSigned` y el Setup productivo no se ha ejecutado; tampoco existen pruebas físicas visuales, por teclado, lector de pantalla, audibles, WGC/GPU, Meet/Teams o 2/5 horas para esta versión.
 
 ### Evidencia publicada de beta 8/secuencia 9
 
@@ -140,7 +144,7 @@ Ejemplo de suma de comprobación para un ZIP preparado:
 
 ```powershell
 pwsh -NoProfile -File .\installer\package-portable.ps1
-$version = '0.2.0-beta.8' # Debe coincidir con Directory.Build.props.
+$version = '0.2.0-beta.9' # Debe coincidir con Directory.Build.props.
 $zipPath = ".\artifacts\Trazio-Asistente-Reunion-v$version-win-x64.zip"
 Get-Content -LiteralPath "$zipPath.sha256"
 Get-FileHash -Algorithm SHA256 -LiteralPath $zipPath

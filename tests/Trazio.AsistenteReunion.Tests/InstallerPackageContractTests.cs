@@ -11,8 +11,8 @@ public sealed class InstallerPackageContractTests
         var root = FindRepositoryRoot();
         var script = File.ReadAllText(Path.Combine(root, "installer", "Trazio.AsistenteReunion.iss"));
 
-        Assert.Contains("#define MyAppVersion \"0.2.0-beta.8\"", script, StringComparison.Ordinal);
-        Assert.Contains("#define MyReleaseSequence 9", script, StringComparison.Ordinal);
+        Assert.Contains("#define MyAppVersion \"0.2.0-beta.9\"", script, StringComparison.Ordinal);
+        Assert.Contains("#define MyReleaseSequence 10", script, StringComparison.Ordinal);
         Assert.Contains("AppId={{{#MyAppGuid}}", script, StringComparison.Ordinal);
         Assert.Contains("DefaultDirName={#MyDefaultDirName}", script, StringComparison.Ordinal);
         Assert.Contains(@"DestDir: ""{app}\versions\{#MyAppVersion}""", script, StringComparison.Ordinal);
@@ -104,7 +104,8 @@ public sealed class InstallerPackageContractTests
             ["0.2.0-beta.5"] = 6,
             ["0.2.0-beta.6"] = 7,
             ["0.2.0-beta.7"] = 8,
-            ["0.2.0-beta.8"] = 9
+            ["0.2.0-beta.8"] = 9,
+            ["0.2.0-beta.9"] = 10
         };
         Assert.Equal(expectedMappings.Count, versionMappings.Count);
         Assert.All(expectedMappings, expected => Assert.Equal(expected.Value, versionMappings[expected.Key]));
