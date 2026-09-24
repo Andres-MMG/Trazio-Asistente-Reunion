@@ -1,13 +1,13 @@
 <Project>
   <PropertyGroup>
-    <Version>0.2.0-beta.12</Version>
+    <Version>0.2.0-beta.13</Version>
     <VersionPrefix>0.2.0</VersionPrefix>
-    <VersionSuffix>beta.12</VersionSuffix>
-    <PackageVersion>0.2.0-beta.12</PackageVersion>
+    <VersionSuffix>beta.13</VersionSuffix>
+    <PackageVersion>0.2.0-beta.13</PackageVersion>
     <AssemblyVersion>0.2.0.0</AssemblyVersion>
     <FileVersion>0.2.0.0</FileVersion>
-    <InformationalVersion>0.2.0-beta.12</InformationalVersion>
-    <InstallerReleaseSequence>13</InstallerReleaseSequence>
+    <InformationalVersion>0.2.0-beta.13</InformationalVersion>
+    <InstallerReleaseSequence>14</InstallerReleaseSequence>
     <Product>Trazio Asistente Reunión</Product>
     <Company>Trazio</Company>
   </PropertyGroup>
