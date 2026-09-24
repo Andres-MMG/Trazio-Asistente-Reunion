@@ -14,6 +14,7 @@ La versión publicada actual es [`v0.2.0-beta.4`](https://github.com/Andres-MMG/
 | Base funcional beta 3 (`b075958`), conjunto Release serial | 250/250 aprobadas; compilación Release con 0 errores y 0 advertencias |
 | Metadatos/capacidad de beta 3 | 3/3 pruebas de `VersionMetadataTests`; manifiesto con 5 capacidades únicas |
 | Implementación fuente 7.2b de beta 4 | Consentimiento adicional de un solo uso, sondeo WGC/D3D11 agregado y acotado, intervalos cifrados de cobertura/actividad, correlación `SystemOutput` y presentación fail-closed en vivo/Historial presentes en la versión publicada |
+| Evaluador visual en fuente posterior a beta 4 | Herramienta de consola no empaquetada, corpus sintético agregado esquema v1 y golden canónico versionados; `verify` compara bytes sin reescribir. La verificación final independiente aprobó 74/74 pruebas `VisualEvaluation`, 206/206 `Area=VisualCapture`, 446/446 del conjunto Release serial, 446/446 del conjunto Release paralelo predeterminado, la compilación con 0 advertencias/0 errores y el comando CLI `verify`. El golden canónico mide 23.193 bytes y su SHA-256 es `6BBA6F4BA88482FE6616E4145C0840EBAD2BE0A34C9F20832B44500C13BE1738`. Es regresión de software sobre código fuente y datos sintéticos, no evidencia física ni una nueva versión publicada |
 | Perfiles de producción Meet/Teams | `Unvalidated`, sin política de detección: el procesamiento se abstiene y la evidencia se presenta como **No disponible** |
 | Metadatos/capacidades de beta 4 | `VersionMetadataTests`: 4/4 aprobadas; el conjunto empaquetado permanece exactamente en 5 capacidades y no anuncia actividad/correlación visual anónima ni identificación de hablantes |
 | Pruebas visuales de beta 4 | `Area=VisualCapture`: 132/132 aprobadas; no es evidencia de WGC/GPU físico |
@@ -40,7 +41,7 @@ El comando habitual de desarrollo es:
 dotnet test .\Trazio.AsistenteReunion.slnx -c Release
 ```
 
-Antecedente resuelto: algunas colecciones paralelas dejaban intermitentemente archivos SQLite de prueba bloqueados durante la limpieza. La causa se corrigió mediante disposición determinista de cada `SqliteCommand` y limpieza de conexiones segura ante excepciones. La ejecución Release paralela predeterminada actual aprobó **371/371 pruebas**, respaldada por las regresiones de ciclo de vida de [SqliteCommandLifetimeTests](../tests/Trazio.AsistenteReunion.Tests/SqliteCommandLifetimeTests.cs), que ejercitan operaciones concurrentes y eliminación inmediata de los archivos de prueba. Un nuevo bloqueo debe registrarse como regresión, sin ocultarlo mediante reintentos ni atribuirlo automáticamente al problema histórico.
+Antecedente resuelto: algunas colecciones paralelas dejaban intermitentemente archivos SQLite de prueba bloqueados durante la limpieza. La causa se corrigió mediante disposición determinista de cada `SqliteCommand` y limpieza de conexiones segura ante excepciones. La ejecución Release paralela predeterminada actual aprobó **446/446 pruebas**, respaldada por las regresiones de ciclo de vida de [SqliteCommandLifetimeTests](../tests/Trazio.AsistenteReunion.Tests/SqliteCommandLifetimeTests.cs), que ejercitan operaciones concurrentes y eliminación inmediata de los archivos de prueba. Un nuevo bloqueo debe registrarse como regresión, sin ocultarlo mediante reintentos ni atribuirlo automáticamente al problema histórico.
 
 ### Reproducir la base en serie
 
@@ -69,8 +70,21 @@ finally { Remove-Item -LiteralPath $settings -ErrorAction SilentlyContinue }
 | Contratos de proceso auxiliar / paquete | [IpcTests](../tests/Trazio.AsistenteReunion.Tests/IpcTests.cs), [HistoryWorkspacePublicationTests](../tests/Trazio.AsistenteReunion.Tests/HistoryWorkspacePublicationTests.cs), [VersionMetadataTests](../tests/Trazio.AsistenteReunion.Tests/VersionMetadataTests.cs) |
 | Captura visual efímera / consentimiento / estado | [BoundedDropOldestProcessorTests](../tests/Trazio.AsistenteReunion.Tests/BoundedDropOldestProcessorTests.cs), [VisualCaptureSessionControllerTests](../tests/Trazio.AsistenteReunion.Tests/VisualCaptureSessionControllerTests.cs), [WindowsGraphicsCaptureServiceTests](../tests/Trazio.AsistenteReunion.Tests/WindowsGraphicsCaptureServiceTests.cs), [VisualCapturePresentationTests](../tests/Trazio.AsistenteReunion.Tests/VisualCapturePresentationTests.cs) |
 | Actividad visual anónima / cifrado / correlación / presentación | [AnonymousVisualAnalysisActivationTests](../tests/Trazio.AsistenteReunion.Tests/AnonymousVisualAnalysisActivationTests.cs), [D3D11VisualProbeExtractorTests](../tests/Trazio.AsistenteReunion.Tests/D3D11VisualProbeExtractorTests.cs), [VisualProbePipelineTests](../tests/Trazio.AsistenteReunion.Tests/VisualProbePipelineTests.cs), [VisualProbeProfileTests](../tests/Trazio.AsistenteReunion.Tests/VisualProbeProfileTests.cs), [DeterministicVisualActivityDetectorTests](../tests/Trazio.AsistenteReunion.Tests/DeterministicVisualActivityDetectorTests.cs), [SqliteVisualProbeEvidenceSinkTests](../tests/Trazio.AsistenteReunion.Tests/SqliteVisualProbeEvidenceSinkTests.cs), [AnonymousVisualActivityCorrelatorTests](../tests/Trazio.AsistenteReunion.Tests/AnonymousVisualActivityCorrelatorTests.cs), [AnonymousVisualEvidencePresentationTests](../tests/Trazio.AsistenteReunion.Tests/AnonymousVisualEvidencePresentationTests.cs) |
+| Evaluador sintético / corpus / golden / privacidad | [VisualEvaluationCorpusTests](../tests/Trazio.AsistenteReunion.Tests/VisualEvaluationCorpusTests.cs), [VisualEvaluationRunnerTests](../tests/Trazio.AsistenteReunion.Tests/VisualEvaluationRunnerTests.cs), [VisualEvaluationIsolationTests](../tests/Trazio.AsistenteReunion.Tests/VisualEvaluationIsolationTests.cs), [VisualEvaluationGoldenTests](../tests/Trazio.AsistenteReunion.Tests/VisualEvaluationGoldenTests.cs) y [contrato del corpus](../evaluation/stage-7b/README.md) |
 
 Estas pruebas no reemplazan controladores físicos, interacción con el escritorio renderizado ni precisión de voz medida.
+
+### Regresión sintética de actividad visual
+
+El corpus agregado versionado puede verificarse sin acceder a WGC, superficies, datos de aplicación ni configuración de producción:
+
+```powershell
+dotnet run --project .\tools\Trazio.AsistenteReunion.VisualEvaluation -c Release -- verify `
+  --corpus .\evaluation\stage-7b\synthetic-corpus-v1.json `
+  --golden .\evaluation\stage-7b\synthetic-corpus-v1.golden.json
+```
+
+`VE000 verified` demuestra únicamente que la lógica actual reproduce el informe canónico sintético. `VE200 golden-mismatch` exige revisión explícita y nunca actualiza el archivo. Los valores del candidato son entradas de regresión tomadas de pruebas existentes: no son umbrales de producción, no ordenan candidatos y no habilitan los perfiles Meet/Teams. La aceptación física WGC/GPU/accesibilidad, las reuniones reales y las duraciones de 2/5 horas continúan pendientes.
 
 ## Pruebas básicas de paquete e inferencia real
 

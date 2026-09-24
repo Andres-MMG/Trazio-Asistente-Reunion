@@ -1,0 +1,751 @@
+{
+  "schemaVersion": 1,
+  "corpusId": "corpus-001",
+  "scope": "synthetic-aggregate-only",
+  "suites": [
+    {
+      "suiteId": "suite-001",
+      "provider": "google-meet",
+      "profileVersion": 1,
+      "evidenceVersion": 1,
+      "detectorVersion": 1,
+      "expectedFeatureCount": 4,
+      "candidates": [
+        {
+          "candidateId": "candidate-001",
+          "policyVersion": 1,
+          "metrics": {
+            "match": 9,
+            "miss": 2,
+            "falseMatch": 1,
+            "abstain": 3,
+            "unavailable": 5,
+            "insufficient": 4,
+            "microphoneExcluded": 1
+          },
+          "denominators": {
+            "total": 25,
+            "evaluated": 24,
+            "remoteActivity": 14,
+            "remoteInactive": 5,
+            "remoteUnavailable": 5
+          },
+          "ratios": {
+            "matchPpm": 642857,
+            "missPpm": 142857,
+            "falseMatchPpm": 100000,
+            "abstainPpm": 125000,
+            "unavailablePpm": 208333,
+            "insufficientPpm": 166666,
+            "microphoneExcludedPpm": 40000
+          },
+          "latencyMs": {
+            "sampleCount": 9,
+            "p50Ms": 6000,
+            "p95Ms": 12001,
+            "maxMs": 12001
+          },
+          "resources": {
+            "detectorCalls": 84,
+            "observations": 68,
+            "featureCells": 768,
+            "correlationCalls": 51,
+            "evidenceIntervals": 33,
+            "peakRetainedIntervals": 5,
+            "maxFeatures": 4
+          },
+          "scenarios": [
+            {
+              "scenarioId": "scenario-001",
+              "metrics": {
+                "match": 1,
+                "miss": 0,
+                "falseMatch": 0,
+                "abstain": 0,
+                "unavailable": 0,
+                "insufficient": 1,
+                "microphoneExcluded": 1
+              },
+              "denominators": {
+                "total": 3,
+                "evaluated": 2,
+                "remoteActivity": 1,
+                "remoteInactive": 1,
+                "remoteUnavailable": 0
+              },
+              "ratios": {
+                "matchPpm": 1000000,
+                "missPpm": 0,
+                "falseMatchPpm": 0,
+                "abstainPpm": 0,
+                "unavailablePpm": 0,
+                "insufficientPpm": 500000,
+                "microphoneExcludedPpm": 333333
+              },
+              "latencyMs": {
+                "sampleCount": 1,
+                "p50Ms": 7000,
+                "p95Ms": 7000,
+                "maxMs": 7000
+              },
+              "resources": {
+                "detectorCalls": 8,
+                "observations": 7,
+                "featureCells": 84,
+                "correlationCalls": 6,
+                "evidenceIntervals": 2,
+                "peakRetainedIntervals": 2,
+                "maxFeatures": 4
+              }
+            },
+            {
+              "scenarioId": "scenario-002",
+              "metrics": {
+                "match": 0,
+                "miss": 0,
+                "falseMatch": 0,
+                "abstain": 0,
+                "unavailable": 0,
+                "insufficient": 1,
+                "microphoneExcluded": 0
+              },
+              "denominators": {
+                "total": 1,
+                "evaluated": 1,
+                "remoteActivity": 0,
+                "remoteInactive": 1,
+                "remoteUnavailable": 0
+              },
+              "ratios": {
+                "matchPpm": null,
+                "missPpm": null,
+                "falseMatchPpm": 0,
+                "abstainPpm": 0,
+                "unavailablePpm": 0,
+                "insufficientPpm": 1000000,
+                "microphoneExcludedPpm": 0
+              },
+              "latencyMs": {
+                "sampleCount": 0,
+                "p50Ms": null,
+                "p95Ms": null,
+                "maxMs": null
+              },
+              "resources": {
+                "detectorCalls": 4,
+                "observations": 3,
+                "featureCells": 36,
+                "correlationCalls": 1,
+                "evidenceIntervals": 1,
+                "peakRetainedIntervals": 1,
+                "maxFeatures": 4
+              }
+            },
+            {
+              "scenarioId": "scenario-003",
+              "metrics": {
+                "match": 0,
+                "miss": 0,
+                "falseMatch": 0,
+                "abstain": 0,
+                "unavailable": 0,
+                "insufficient": 1,
+                "microphoneExcluded": 0
+              },
+              "denominators": {
+                "total": 1,
+                "evaluated": 1,
+                "remoteActivity": 0,
+                "remoteInactive": 1,
+                "remoteUnavailable": 0
+              },
+              "ratios": {
+                "matchPpm": null,
+                "missPpm": null,
+                "falseMatchPpm": 0,
+                "abstainPpm": 0,
+                "unavailablePpm": 0,
+                "insufficientPpm": 1000000,
+                "microphoneExcludedPpm": 0
+              },
+              "latencyMs": {
+                "sampleCount": 0,
+                "p50Ms": null,
+                "p95Ms": null,
+                "maxMs": null
+              },
+              "resources": {
+                "detectorCalls": 5,
+                "observations": 4,
+                "featureCells": 48,
+                "correlationCalls": 1,
+                "evidenceIntervals": 1,
+                "peakRetainedIntervals": 1,
+                "maxFeatures": 4
+              }
+            },
+            {
+              "scenarioId": "scenario-004",
+              "metrics": {
+                "match": 0,
+                "miss": 0,
+                "falseMatch": 0,
+                "abstain": 0,
+                "unavailable": 1,
+                "insufficient": 0,
+                "microphoneExcluded": 0
+              },
+              "denominators": {
+                "total": 1,
+                "evaluated": 1,
+                "remoteActivity": 0,
+                "remoteInactive": 0,
+                "remoteUnavailable": 1
+              },
+              "ratios": {
+                "matchPpm": null,
+                "missPpm": null,
+                "falseMatchPpm": 0,
+                "abstainPpm": 0,
+                "unavailablePpm": 1000000,
+                "insufficientPpm": 0,
+                "microphoneExcludedPpm": 0
+              },
+              "latencyMs": {
+                "sampleCount": 0,
+                "p50Ms": null,
+                "p95Ms": null,
+                "maxMs": null
+              },
+              "resources": {
+                "detectorCalls": 3,
+                "observations": 2,
+                "featureCells": 24,
+                "correlationCalls": 1,
+                "evidenceIntervals": 1,
+                "peakRetainedIntervals": 1,
+                "maxFeatures": 4
+              }
+            },
+            {
+              "scenarioId": "scenario-005",
+              "metrics": {
+                "match": 0,
+                "miss": 0,
+                "falseMatch": 0,
+                "abstain": 0,
+                "unavailable": 1,
+                "insufficient": 0,
+                "microphoneExcluded": 0
+              },
+              "denominators": {
+                "total": 1,
+                "evaluated": 1,
+                "remoteActivity": 0,
+                "remoteInactive": 0,
+                "remoteUnavailable": 1
+              },
+              "ratios": {
+                "matchPpm": null,
+                "missPpm": null,
+                "falseMatchPpm": 0,
+                "abstainPpm": 0,
+                "unavailablePpm": 1000000,
+                "insufficientPpm": 0,
+                "microphoneExcludedPpm": 0
+              },
+              "latencyMs": {
+                "sampleCount": 0,
+                "p50Ms": null,
+                "p95Ms": null,
+                "maxMs": null
+              },
+              "resources": {
+                "detectorCalls": 3,
+                "observations": 2,
+                "featureCells": 24,
+                "correlationCalls": 1,
+                "evidenceIntervals": 1,
+                "peakRetainedIntervals": 1,
+                "maxFeatures": 4
+              }
+            },
+            {
+              "scenarioId": "scenario-006",
+              "metrics": {
+                "match": 0,
+                "miss": 0,
+                "falseMatch": 0,
+                "abstain": 0,
+                "unavailable": 1,
+                "insufficient": 0,
+                "microphoneExcluded": 0
+              },
+              "denominators": {
+                "total": 1,
+                "evaluated": 1,
+                "remoteActivity": 0,
+                "remoteInactive": 0,
+                "remoteUnavailable": 1
+              },
+              "ratios": {
+                "matchPpm": null,
+                "missPpm": null,
+                "falseMatchPpm": 0,
+                "abstainPpm": 0,
+                "unavailablePpm": 1000000,
+                "insufficientPpm": 0,
+                "microphoneExcludedPpm": 0
+              },
+              "latencyMs": {
+                "sampleCount": 0,
+                "p50Ms": null,
+                "p95Ms": null,
+                "maxMs": null
+              },
+              "resources": {
+                "detectorCalls": 3,
+                "observations": 2,
+                "featureCells": 0,
+                "correlationCalls": 1,
+                "evidenceIntervals": 1,
+                "peakRetainedIntervals": 1,
+                "maxFeatures": 0
+              }
+            },
+            {
+              "scenarioId": "scenario-007",
+              "metrics": {
+                "match": 1,
+                "miss": 0,
+                "falseMatch": 0,
+                "abstain": 1,
+                "unavailable": 1,
+                "insufficient": 0,
+                "microphoneExcluded": 0
+              },
+              "denominators": {
+                "total": 3,
+                "evaluated": 3,
+                "remoteActivity": 2,
+                "remoteInactive": 0,
+                "remoteUnavailable": 1
+              },
+              "ratios": {
+                "matchPpm": 500000,
+                "missPpm": 0,
+                "falseMatchPpm": 0,
+                "abstainPpm": 333333,
+                "unavailablePpm": 333333,
+                "insufficientPpm": 0,
+                "microphoneExcludedPpm": 0
+              },
+              "latencyMs": {
+                "sampleCount": 1,
+                "p50Ms": 5001,
+                "p95Ms": 5001,
+                "maxMs": 5001
+              },
+              "resources": {
+                "detectorCalls": 6,
+                "observations": 5,
+                "featureCells": 60,
+                "correlationCalls": 7,
+                "evidenceIntervals": 4,
+                "peakRetainedIntervals": 4,
+                "maxFeatures": 4
+              }
+            },
+            {
+              "scenarioId": "scenario-008",
+              "metrics": {
+                "match": 2,
+                "miss": 0,
+                "falseMatch": 0,
+                "abstain": 1,
+                "unavailable": 1,
+                "insufficient": 0,
+                "microphoneExcluded": 0
+              },
+              "denominators": {
+                "total": 4,
+                "evaluated": 4,
+                "remoteActivity": 3,
+                "remoteInactive": 0,
+                "remoteUnavailable": 1
+              },
+              "ratios": {
+                "matchPpm": 666666,
+                "missPpm": 0,
+                "falseMatchPpm": 0,
+                "abstainPpm": 250000,
+                "unavailablePpm": 250000,
+                "insufficientPpm": 0,
+                "microphoneExcludedPpm": 0
+              },
+              "latencyMs": {
+                "sampleCount": 2,
+                "p50Ms": 3000,
+                "p95Ms": 3000,
+                "maxMs": 3000
+              },
+              "resources": {
+                "detectorCalls": 7,
+                "observations": 6,
+                "featureCells": 72,
+                "correlationCalls": 9,
+                "evidenceIntervals": 5,
+                "peakRetainedIntervals": 5,
+                "maxFeatures": 4
+              }
+            },
+            {
+              "scenarioId": "scenario-009",
+              "metrics": {
+                "match": 1,
+                "miss": 0,
+                "falseMatch": 0,
+                "abstain": 0,
+                "unavailable": 0,
+                "insufficient": 0,
+                "microphoneExcluded": 0
+              },
+              "denominators": {
+                "total": 1,
+                "evaluated": 1,
+                "remoteActivity": 1,
+                "remoteInactive": 0,
+                "remoteUnavailable": 0
+              },
+              "ratios": {
+                "matchPpm": 1000000,
+                "missPpm": 0,
+                "falseMatchPpm": null,
+                "abstainPpm": 0,
+                "unavailablePpm": 0,
+                "insufficientPpm": 0,
+                "microphoneExcludedPpm": 0
+              },
+              "latencyMs": {
+                "sampleCount": 1,
+                "p50Ms": 3000,
+                "p95Ms": 3000,
+                "maxMs": 3000
+              },
+              "resources": {
+                "detectorCalls": 4,
+                "observations": 3,
+                "featureCells": 36,
+                "correlationCalls": 2,
+                "evidenceIntervals": 2,
+                "peakRetainedIntervals": 2,
+                "maxFeatures": 4
+              }
+            },
+            {
+              "scenarioId": "scenario-010",
+              "metrics": {
+                "match": 0,
+                "miss": 1,
+                "falseMatch": 0,
+                "abstain": 0,
+                "unavailable": 0,
+                "insufficient": 0,
+                "microphoneExcluded": 0
+              },
+              "denominators": {
+                "total": 1,
+                "evaluated": 1,
+                "remoteActivity": 1,
+                "remoteInactive": 0,
+                "remoteUnavailable": 0
+              },
+              "ratios": {
+                "matchPpm": 0,
+                "missPpm": 1000000,
+                "falseMatchPpm": null,
+                "abstainPpm": 0,
+                "unavailablePpm": 0,
+                "insufficientPpm": 0,
+                "microphoneExcludedPpm": 0
+              },
+              "latencyMs": {
+                "sampleCount": 0,
+                "p50Ms": null,
+                "p95Ms": null,
+                "maxMs": null
+              },
+              "resources": {
+                "detectorCalls": 3,
+                "observations": 2,
+                "featureCells": 24,
+                "correlationCalls": 2,
+                "evidenceIntervals": 1,
+                "peakRetainedIntervals": 1,
+                "maxFeatures": 4
+              }
+            },
+            {
+              "scenarioId": "scenario-011",
+              "metrics": {
+                "match": 1,
+                "miss": 0,
+                "falseMatch": 0,
+                "abstain": 0,
+                "unavailable": 0,
+                "insufficient": 1,
+                "microphoneExcluded": 0
+              },
+              "denominators": {
+                "total": 2,
+                "evaluated": 2,
+                "remoteActivity": 1,
+                "remoteInactive": 1,
+                "remoteUnavailable": 0
+              },
+              "ratios": {
+                "matchPpm": 1000000,
+                "missPpm": 0,
+                "falseMatchPpm": 0,
+                "abstainPpm": 0,
+                "unavailablePpm": 0,
+                "insufficientPpm": 500000,
+                "microphoneExcludedPpm": 0
+              },
+              "latencyMs": {
+                "sampleCount": 1,
+                "p50Ms": 6000,
+                "p95Ms": 6000,
+                "maxMs": 6000
+              },
+              "resources": {
+                "detectorCalls": 6,
+                "observations": 5,
+                "featureCells": 60,
+                "correlationCalls": 5,
+                "evidenceIntervals": 2,
+                "peakRetainedIntervals": 2,
+                "maxFeatures": 4
+              }
+            },
+            {
+              "scenarioId": "scenario-012",
+              "metrics": {
+                "match": 0,
+                "miss": 0,
+                "falseMatch": 1,
+                "abstain": 0,
+                "unavailable": 0,
+                "insufficient": 0,
+                "microphoneExcluded": 0
+              },
+              "denominators": {
+                "total": 1,
+                "evaluated": 1,
+                "remoteActivity": 0,
+                "remoteInactive": 1,
+                "remoteUnavailable": 0
+              },
+              "ratios": {
+                "matchPpm": null,
+                "missPpm": null,
+                "falseMatchPpm": 1000000,
+                "abstainPpm": 0,
+                "unavailablePpm": 0,
+                "insufficientPpm": 0,
+                "microphoneExcludedPpm": 0
+              },
+              "latencyMs": {
+                "sampleCount": 0,
+                "p50Ms": null,
+                "p95Ms": null,
+                "maxMs": null
+              },
+              "resources": {
+                "detectorCalls": 5,
+                "observations": 4,
+                "featureCells": 48,
+                "correlationCalls": 1,
+                "evidenceIntervals": 2,
+                "peakRetainedIntervals": 2,
+                "maxFeatures": 4
+              }
+            },
+            {
+              "scenarioId": "scenario-013",
+              "metrics": {
+                "match": 1,
+                "miss": 0,
+                "falseMatch": 0,
+                "abstain": 0,
+                "unavailable": 0,
+                "insufficient": 0,
+                "microphoneExcluded": 0
+              },
+              "denominators": {
+                "total": 1,
+                "evaluated": 1,
+                "remoteActivity": 1,
+                "remoteInactive": 0,
+                "remoteUnavailable": 0
+              },
+              "ratios": {
+                "matchPpm": 1000000,
+                "missPpm": 0,
+                "falseMatchPpm": null,
+                "abstainPpm": 0,
+                "unavailablePpm": 0,
+                "insufficientPpm": 0,
+                "microphoneExcludedPpm": 0
+              },
+              "latencyMs": {
+                "sampleCount": 1,
+                "p50Ms": 10000,
+                "p95Ms": 10000,
+                "maxMs": 10000
+              },
+              "resources": {
+                "detectorCalls": 6,
+                "observations": 5,
+                "featureCells": 48,
+                "correlationCalls": 2,
+                "evidenceIntervals": 3,
+                "peakRetainedIntervals": 3,
+                "maxFeatures": 4
+              }
+            },
+            {
+              "scenarioId": "scenario-014",
+              "metrics": {
+                "match": 0,
+                "miss": 0,
+                "falseMatch": 0,
+                "abstain": 1,
+                "unavailable": 0,
+                "insufficient": 0,
+                "microphoneExcluded": 0
+              },
+              "denominators": {
+                "total": 1,
+                "evaluated": 1,
+                "remoteActivity": 1,
+                "remoteInactive": 0,
+                "remoteUnavailable": 0
+              },
+              "ratios": {
+                "matchPpm": 0,
+                "missPpm": 0,
+                "falseMatchPpm": null,
+                "abstainPpm": 1000000,
+                "unavailablePpm": 0,
+                "insufficientPpm": 0,
+                "microphoneExcludedPpm": 0
+              },
+              "latencyMs": {
+                "sampleCount": 0,
+                "p50Ms": null,
+                "p95Ms": null,
+                "maxMs": null
+              },
+              "resources": {
+                "detectorCalls": 6,
+                "observations": 5,
+                "featureCells": 48,
+                "correlationCalls": 2,
+                "evidenceIntervals": 3,
+                "peakRetainedIntervals": 3,
+                "maxFeatures": 4
+              }
+            },
+            {
+              "scenarioId": "scenario-015",
+              "metrics": {
+                "match": 1,
+                "miss": 1,
+                "falseMatch": 0,
+                "abstain": 0,
+                "unavailable": 0,
+                "insufficient": 0,
+                "microphoneExcluded": 0
+              },
+              "denominators": {
+                "total": 2,
+                "evaluated": 2,
+                "remoteActivity": 2,
+                "remoteInactive": 0,
+                "remoteUnavailable": 0
+              },
+              "ratios": {
+                "matchPpm": 500000,
+                "missPpm": 500000,
+                "falseMatchPpm": null,
+                "abstainPpm": 0,
+                "unavailablePpm": 0,
+                "insufficientPpm": 0,
+                "microphoneExcludedPpm": 0
+              },
+              "latencyMs": {
+                "sampleCount": 1,
+                "p50Ms": 12001,
+                "p95Ms": 12001,
+                "maxMs": 12001
+              },
+              "resources": {
+                "detectorCalls": 9,
+                "observations": 8,
+                "featureCells": 96,
+                "correlationCalls": 6,
+                "evidenceIntervals": 2,
+                "peakRetainedIntervals": 2,
+                "maxFeatures": 4
+              }
+            },
+            {
+              "scenarioId": "scenario-016",
+              "metrics": {
+                "match": 1,
+                "miss": 0,
+                "falseMatch": 0,
+                "abstain": 0,
+                "unavailable": 0,
+                "insufficient": 0,
+                "microphoneExcluded": 0
+              },
+              "denominators": {
+                "total": 1,
+                "evaluated": 1,
+                "remoteActivity": 1,
+                "remoteInactive": 0,
+                "remoteUnavailable": 0
+              },
+              "ratios": {
+                "matchPpm": 1000000,
+                "missPpm": 0,
+                "falseMatchPpm": null,
+                "abstainPpm": 0,
+                "unavailablePpm": 0,
+                "insufficientPpm": 0,
+                "microphoneExcludedPpm": 0
+              },
+              "latencyMs": {
+                "sampleCount": 1,
+                "p50Ms": 7000,
+                "p95Ms": 7000,
+                "maxMs": 7000
+              },
+              "resources": {
+                "detectorCalls": 6,
+                "observations": 5,
+                "featureCells": 60,
+                "correlationCalls": 4,
+                "evidenceIntervals": 2,
+                "peakRetainedIntervals": 2,
+                "maxFeatures": 4
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

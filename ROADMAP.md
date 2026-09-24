@@ -4,7 +4,7 @@
 - Madurez actual: MVP funcional avanzado / versión preliminar pública
 - Versión publicada actual: [`0.2.0-beta.4`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.4)
 
-Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funcional implementada; 7.1a, 7.2a y la infraestructura fuente de 7.2b están publicadas en `0.2.0-beta.4`, todavía pendientes de validación física. 7.2b falla de forma segura en producción porque los perfiles Meet/Teams permanecen `Unvalidated`: se abstiene y presenta la evidencia como No disponible. Las rebanadas 7.2c–7.2e y el fortalecimiento de la distribución de la etapa 5 siguen pendientes.** No existe identificación de hablantes y la etapa 7 no está completa. La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
+Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funcional implementada; 7.1a, 7.2a y la infraestructura fuente de 7.2b están publicadas en `0.2.0-beta.4`, todavía pendientes de validación física. El código fuente posterior a beta 4 incorpora además un evaluador no empaquetado y un corpus sintético agregado con golden reproducible; no forman parte de una nueva versión publicada ni validan superficies reales. 7.2b falla de forma segura en producción porque los perfiles Meet/Teams permanecen `Unvalidated`: se abstiene y presenta la evidencia como No disponible. Las rebanadas 7.2c–7.2e y el fortalecimiento de la distribución de la etapa 5 siguen pendientes.** No existe identificación de hablantes y la etapa 7 no está completa. La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md), el [corpus sintético](evaluation/stage-7b/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
 
 ## Principios del producto
 
@@ -25,7 +25,7 @@ Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funciona
 | 5 | Beta distribuible y mantenible | En curso |
 | 5.5 | Identidad del usuario local y atribución del micrófono | Implementada — validación física de interfaz pendiente |
 | 6 | Revisión, corrección, glosario de procedencia y retranscripción versionada | Línea base funcional implementada — validación física pendiente |
-| 7 | Fuente de reunión y atribución de hablantes | 7.1a/7.2a y la infraestructura fuente de 7.2b implementadas — perfiles de producción no validados, sin identificación de hablantes y con validación física pendiente; 7.2c+ planificadas |
+| 7 | Fuente de reunión y atribución de hablantes | 7.1a/7.2a y la infraestructura fuente de 7.2b implementadas; evaluador/corpus sintético agregados en fuente después de beta 4 — perfiles de producción no validados, sin identificación de hablantes y con validación física pendiente; 7.2c+ planificadas |
 | 8 | Búsqueda, revisión por lotes, glosario global y productividad | Planificada — edición y navegación de audio básicas ya entregadas en la etapa 6 |
 | 9 | Inteligencia de reuniones opcional | Planificada |
 | 10 | Integración organizacional/con plataforma opcional | Futura |
@@ -121,7 +121,7 @@ Esto identifica a la persona que usa el micrófono configurado. No demuestra qui
 
 ## Etapa 7 — Fuente de reunión y atribución de hablantes
 
-**Estado: en curso.** La rebanada 7.1a asocia opcionalmente una ventana superior. La 7.2a agrega consentimiento por sesión y captura WGC efímera. La infraestructura fuente de 7.2b agrega un consentimiento adicional de un solo uso, sondeo agregado WGC/D3D11 acotado, evidencia cifrada de cobertura/actividad y presentación fail-closed en vivo/Historial. Los perfiles de producción Meet/Teams permanecen `Unvalidated`, no tienen política de detección y se abstienen: la evidencia aparece como **No disponible**. No existe identificación de hablantes.
+**Estado: en curso.** La rebanada 7.1a asocia opcionalmente una ventana superior. La 7.2a agrega consentimiento por sesión y captura WGC efímera. La infraestructura fuente de 7.2b agrega un consentimiento adicional de un solo uso, sondeo agregado WGC/D3D11 acotado, evidencia cifrada de cobertura/actividad y presentación fail-closed en vivo/Historial. Después de beta 4 se agregó en fuente un evaluador no empaquetado con [corpus sintético agregado y golden canónico](evaluation/stage-7b/README.md); es una regresión determinista, no calibración física ni aceptación de producción. Los perfiles de producción Meet/Teams permanecen `Unvalidated`, no tienen política de detección y se abstienen: la evidencia aparece como **No disponible**. No existe identificación de hablantes.
 
 ### Objetivo
 
@@ -152,7 +152,7 @@ Esta primera rebanada selecciona una **ventana superior**, no una pestaña indiv
 El trabajo se divide en rebanadas verificables:
 
 1. **7.2a:** incluida desde beta 3: HWND/PID revalidado, consentimiento separado, frame pool de dos buffers, ciclo de vida y descarte inmediato; faltan WGC físico, interfaz/lector de pantalla y prueba de dos horas.
-2. **7.2b:** infraestructura publicada en beta 4: consentimiento adicional de un solo uso, sondeo agregado D3D11 acotado, eventos derivados cifrados, correlación exclusiva con `SystemOutput` y presentación fail-closed. Los perfiles de producción siguen `Unvalidated`; faltan calibración, WGC/GPU/accesibilidad, Meet/Teams reales y pruebas de 2/5 horas.
+2. **7.2b:** infraestructura publicada en beta 4: consentimiento adicional de un solo uso, sondeo agregado D3D11 acotado, eventos derivados cifrados, correlación exclusiva con `SystemOutput` y presentación fail-closed. El código fuente posterior añade un evaluador de consola no empaquetado, corpus sintético agregado y verificación golden byte a byte, sin promover umbrales. Los perfiles de producción siguen `Unvalidated`; faltan calibración física, WGC/GPU/accesibilidad, Meet/Teams reales y pruebas de 2/5 horas.
 3. **7.2c:** adaptador versionado de Google Meet web mediante una extensión con permiso mínimo y WGC como respaldo.
 4. **7.2d:** adaptador de Microsoft Teams web/escritorio; extensión para web y WGC para escritorio/respaldo.
 5. **7.2e:** evaluación de precisión, accesibilidad, recursos y duración; aprobar 2 horas antes de intentar 5 horas.

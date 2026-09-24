@@ -1,0 +1,2066 @@
+{
+  "schemaVersion": 1,
+  "corpusId": "corpus-001",
+  "scope": "synthetic-aggregate-only",
+  "suites": [
+    {
+      "id": "suite-001",
+      "provider": "google-meet",
+      "profileVersion": 1,
+      "evidenceVersion": 1,
+      "detectorVersion": 1,
+      "expectedFeatureCount": 4,
+      "candidates": [
+        {
+          "id": "candidate-001",
+          "policyVersion": 1,
+          "detector": {
+            "enterScore": 800,
+            "exitScore": 200,
+            "activationHoldMs": 2000,
+            "releaseHoldMs": 2000,
+            "maxObservationGapMs": 2000,
+            "minimumCoherentFeatures": 2
+          },
+          "correlation": {
+            "minimumConfidencePpm": 750000,
+            "minimumCoveragePpm": 800000,
+            "minimumActivityOverlapPpm": 250000
+          }
+        }
+      ],
+      "scenarios": [
+        {
+          "id": "scenario-001",
+          "observations": [
+            {
+              "atMs": 0,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 1000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 2000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 3000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 4000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            },
+            {
+              "atMs": 5000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            },
+            {
+              "atMs": 6000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            }
+          ],
+          "completionAtMs": 7000,
+          "segments": [
+            {
+              "source": "systemOutput",
+              "startMs": 0,
+              "endMs": 4000,
+              "truth": "remoteActivity"
+            },
+            {
+              "source": "systemOutput",
+              "startMs": 4000,
+              "endMs": 7000,
+              "truth": "remoteInactive"
+            },
+            {
+              "source": "microphone",
+              "startMs": 0,
+              "endMs": 1000,
+              "truth": "microphoneExcluded"
+            }
+          ]
+        },
+        {
+          "id": "scenario-002",
+          "observations": [
+            {
+              "atMs": 0,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            },
+            {
+              "atMs": 1000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            },
+            {
+              "atMs": 2000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            }
+          ],
+          "completionAtMs": 3000,
+          "segments": [
+            {
+              "source": "systemOutput",
+              "startMs": 0,
+              "endMs": 3000,
+              "truth": "remoteInactive"
+            }
+          ]
+        },
+        {
+          "id": "scenario-003",
+          "observations": [
+            {
+              "atMs": 0,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 1000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 500000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 500000
+                },
+                {
+                  "highlightMatchPpm": 500000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 500000
+                },
+                {
+                  "highlightMatchPpm": 500000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 500000
+                },
+                {
+                  "highlightMatchPpm": 500000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 500000
+                }
+              ]
+            },
+            {
+              "atMs": 2000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 3000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 500000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 500000
+                },
+                {
+                  "highlightMatchPpm": 500000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 500000
+                },
+                {
+                  "highlightMatchPpm": 500000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 500000
+                },
+                {
+                  "highlightMatchPpm": 500000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 500000
+                }
+              ]
+            }
+          ],
+          "completionAtMs": 4000,
+          "segments": [
+            {
+              "source": "systemOutput",
+              "startMs": 0,
+              "endMs": 4000,
+              "truth": "remoteInactive"
+            }
+          ]
+        },
+        {
+          "id": "scenario-004",
+          "observations": [
+            {
+              "atMs": 0,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            },
+            {
+              "atMs": 1000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            }
+          ],
+          "completionAtMs": 2000,
+          "segments": [
+            {
+              "source": "systemOutput",
+              "startMs": 0,
+              "endMs": 2000,
+              "truth": "remoteUnavailable"
+            }
+          ]
+        },
+        {
+          "id": "scenario-005",
+          "observations": [
+            {
+              "atMs": 0,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 500000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 500000
+                },
+                {
+                  "highlightMatchPpm": 500000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 500000
+                },
+                {
+                  "highlightMatchPpm": 500000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 500000
+                }
+              ]
+            },
+            {
+              "atMs": 1000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 500000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 500000
+                },
+                {
+                  "highlightMatchPpm": 500000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 500000
+                },
+                {
+                  "highlightMatchPpm": 500000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 500000
+                }
+              ]
+            }
+          ],
+          "completionAtMs": 2000,
+          "segments": [
+            {
+              "source": "systemOutput",
+              "startMs": 0,
+              "endMs": 2000,
+              "truth": "remoteUnavailable"
+            }
+          ]
+        },
+        {
+          "id": "scenario-006",
+          "observations": [
+            {
+              "atMs": 0,
+              "surfaceRevision": 1,
+              "status": "unavailable",
+              "features": []
+            },
+            {
+              "atMs": 1000,
+              "surfaceRevision": 1,
+              "status": "unavailable",
+              "features": []
+            }
+          ],
+          "completionAtMs": 2000,
+          "segments": [
+            {
+              "source": "systemOutput",
+              "startMs": 0,
+              "endMs": 2000,
+              "truth": "remoteUnavailable"
+            }
+          ]
+        },
+        {
+          "id": "scenario-007",
+          "observations": [
+            {
+              "atMs": 0,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 1000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 2000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 5001,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 6000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            }
+          ],
+          "completionAtMs": 7000,
+          "segments": [
+            {
+              "source": "systemOutput",
+              "startMs": 0,
+              "endMs": 2000,
+              "truth": "remoteActivity"
+            },
+            {
+              "source": "systemOutput",
+              "startMs": 2000,
+              "endMs": 5001,
+              "truth": "remoteUnavailable"
+            },
+            {
+              "source": "systemOutput",
+              "startMs": 0,
+              "endMs": 5001,
+              "truth": "remoteActivity"
+            }
+          ]
+        },
+        {
+          "id": "scenario-008",
+          "observations": [
+            {
+              "atMs": 0,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 1000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 2000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 3000,
+              "surfaceRevision": 2,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 4000,
+              "surfaceRevision": 2,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 5000,
+              "surfaceRevision": 2,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            }
+          ],
+          "completionAtMs": 6000,
+          "segments": [
+            {
+              "source": "systemOutput",
+              "startMs": 0,
+              "endMs": 2000,
+              "truth": "remoteActivity"
+            },
+            {
+              "source": "systemOutput",
+              "startMs": 2000,
+              "endMs": 3000,
+              "truth": "remoteUnavailable"
+            },
+            {
+              "source": "systemOutput",
+              "startMs": 3000,
+              "endMs": 6000,
+              "truth": "remoteActivity"
+            },
+            {
+              "source": "systemOutput",
+              "startMs": 1500,
+              "endMs": 3500,
+              "truth": "remoteActivity"
+            }
+          ]
+        },
+        {
+          "id": "scenario-009",
+          "observations": [
+            {
+              "atMs": 0,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 1999,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 2000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            }
+          ],
+          "completionAtMs": 3000,
+          "segments": [
+            {
+              "source": "systemOutput",
+              "startMs": 0,
+              "endMs": 3000,
+              "truth": "remoteActivity"
+            }
+          ]
+        },
+        {
+          "id": "scenario-010",
+          "observations": [
+            {
+              "atMs": 0,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 1999,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            }
+          ],
+          "completionAtMs": 2000,
+          "segments": [
+            {
+              "source": "systemOutput",
+              "startMs": 0,
+              "endMs": 2000,
+              "truth": "remoteActivity"
+            }
+          ]
+        },
+        {
+          "id": "scenario-011",
+          "observations": [
+            {
+              "atMs": 0,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 2000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 3000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            },
+            {
+              "atMs": 4999,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            },
+            {
+              "atMs": 5000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            }
+          ],
+          "completionAtMs": 6000,
+          "segments": [
+            {
+              "source": "systemOutput",
+              "startMs": 0,
+              "endMs": 3000,
+              "truth": "remoteActivity"
+            },
+            {
+              "source": "systemOutput",
+              "startMs": 3000,
+              "endMs": 6000,
+              "truth": "remoteInactive"
+            }
+          ]
+        },
+        {
+          "id": "scenario-012",
+          "observations": [
+            {
+              "atMs": 0,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 2000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 3000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            },
+            {
+              "atMs": 4999,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            }
+          ],
+          "completionAtMs": 5000,
+          "segments": [
+            {
+              "source": "systemOutput",
+              "startMs": 3000,
+              "endMs": 5000,
+              "truth": "remoteInactive"
+            }
+          ]
+        },
+        {
+          "id": "scenario-013",
+          "observations": [
+            {
+              "atMs": 0,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 2000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 4000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 6000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 8000,
+              "surfaceRevision": 1,
+              "status": "unavailable",
+              "features": []
+            }
+          ],
+          "completionAtMs": 10000,
+          "segments": [
+            {
+              "source": "systemOutput",
+              "startMs": 0,
+              "endMs": 10000,
+              "truth": "remoteActivity"
+            }
+          ]
+        },
+        {
+          "id": "scenario-014",
+          "observations": [
+            {
+              "atMs": 0,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 2000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 4000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 6000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 7999,
+              "surfaceRevision": 1,
+              "status": "unavailable",
+              "features": []
+            }
+          ],
+          "completionAtMs": 10000,
+          "segments": [
+            {
+              "source": "systemOutput",
+              "startMs": 0,
+              "endMs": 10000,
+              "truth": "remoteActivity"
+            }
+          ]
+        },
+        {
+          "id": "scenario-015",
+          "observations": [
+            {
+              "atMs": 0,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 2000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 3000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            },
+            {
+              "atMs": 5000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            },
+            {
+              "atMs": 7000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            },
+            {
+              "atMs": 9000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            },
+            {
+              "atMs": 11000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            },
+            {
+              "atMs": 12001,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            }
+          ],
+          "completionAtMs": 12001,
+          "segments": [
+            {
+              "source": "systemOutput",
+              "startMs": 0,
+              "endMs": 12000,
+              "truth": "remoteActivity"
+            },
+            {
+              "source": "systemOutput",
+              "startMs": 0,
+              "endMs": 12001,
+              "truth": "remoteActivity"
+            }
+          ]
+        },
+        {
+          "id": "scenario-016",
+          "observations": [
+            {
+              "atMs": 0,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 2000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 3000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                },
+                {
+                  "highlightMatchPpm": 900000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 900000
+                }
+              ]
+            },
+            {
+              "atMs": 4000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            },
+            {
+              "atMs": 6000,
+              "surfaceRevision": 1,
+              "status": "available",
+              "features": [
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                },
+                {
+                  "highlightMatchPpm": 100000,
+                  "nonBlackPpm": 900000,
+                  "meanLumaPpm": 100000
+                }
+              ]
+            }
+          ],
+          "completionAtMs": 7000,
+          "segments": [
+            {
+              "source": "systemOutput",
+              "startMs": 0,
+              "endMs": 3000,
+              "truth": "remoteActivity"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
