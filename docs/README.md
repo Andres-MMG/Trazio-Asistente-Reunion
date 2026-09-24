@@ -1,6 +1,6 @@
 # Documentación de ingeniería
 
-**Trazio Asistente Reunión** es un producto de escritorio para Windows, independiente de Trazio Platforms. La versión publicada actual es [`0.2.0-beta.10`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.10); incorpora 7.2a, la infraestructura de 7.2b, el instalador manual de la etapa 5.1, la revisión de historial 8.1, la búsqueda local 8.2, el diccionario global 8.3a y el intercambio JSON 8.3b sin afirmar identificación de hablantes ni validación de producción.
+**Trazio Asistente Reunión** es un producto de escritorio para Windows, independiente de Trazio Platforms. La versión publicada actual es [`0.2.0-beta.11`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.11); incorpora la bandeja individual 8.4a además de las funciones publicadas hasta 8.3b, sin afirmar identificación de hablantes ni validación de producción.
 
 La beta 10 usa la secuencia de instalador **11**, mantiene exactamente cinco capacidades y conserva el empaquetador ZIP canónico. La firma Authenticode, la ejecución productiva del Setup y la validación física audible, importación/exportación real, WGC/GPU, interfaz/accesibilidad, Meet/Teams y 2/5 horas siguen pendientes.
 
@@ -10,7 +10,7 @@ La etapa 8.3a publicada agrega una pestaña global de diccionario con filtro loc
 
 La etapa 8.3b está publicada en `0.2.0-beta.10`, secuencia **11**: intercambio JSON v1, vista previa en memoria, importación cifrada atómica y exportación explícita sin cifrar. Conserva duplicados históricos, señala conflictos y no fusiona ni elimina entradas automáticamente.
 
-La etapa 8.4a forma el candidato `0.2.0-beta.11`, secuencia **12**, en `main` y todavía no se ha publicado. Añade una bandeja global de revisión individual, acotada a 100 filas visibles, sin reproducción automática ni acciones masivas. La descarga pública continúa siendo beta 10.
+La etapa 8.4a está publicada en `0.2.0-beta.11`, secuencia **12**. Añade una bandeja global de revisión individual, acotada a 100 filas visibles, sin reproducción automática ni acciones masivas.
 
 El tag de beta 10 resuelve a `52f8b016c277a5822e9aec269fc22cc055925a2e`. El ZIP publicado mide **86,897,741 bytes** y su SHA-256 es `52d5641af82e327bbfdf510dbd732d1dee7f13a7be5294af4b993fa1dc49a42f`; el Setup mide **60,064,281 bytes**, su SHA-256 es `ce67f9ac2c05fa5718f99ef31339f74961af9de1a23a00c4a31ed56226977f2f` y Authenticode informa `NotSigned`. El manifiesto de publicación mide **123,577 bytes**, SHA-256 `f5fb80b5dce7b32dd478f2b062de3adf40d96a2db0dc254d8b6c4e1c6d6d81f4`; el manifiesto del Setup mide **488 bytes**, SHA-256 `f867fc695aa9de37e266621de825958f8ef9967be989cdfd2829c83d4a197a01`. Los seis recursos remotos coinciden con los artefactos verificados. El Setup productivo no se ejecutó.
 

@@ -2,11 +2,11 @@
 
 **Comienza con una prueba breve y no sensible.** Trazio es una versión preliminar para Windows 11 x64 con interfaz en español. Necesitas una CPU x64 compatible, un micrófono/dispositivo de salida funcional y espacio en disco para el modelo y el audio cifrado. El ZIP publicado incluye el entorno de ejecución de .NET.
 
-> **Estado de esta guía:** la descarga pública actual es beta 10/secuencia 11. Incluye la navegación, el resaltado, la velocidad, la búsqueda local, el diccionario global y el intercambio JSON descritos más abajo; su validación audible con hardware real, de importación/exportación, visual, por teclado y lector de pantalla continúa pendiente. La bandeja 8.4a descrita en una sección separada forma el candidato beta 11 de `main`; todavía no está en beta 10.
+> **Estado de esta guía:** la descarga pública actual es beta 11/secuencia 12. Incluye la bandeja individual 8.4a además de navegación, resaltado, velocidad, búsqueda local, diccionario global e intercambio JSON. La validación audible con hardware real, visual, por teclado y lector de pantalla continúa pendiente.
 
 ## Primera grabación
 
-1. Descarga el ZIP completo de Windows desde la [versión publicada v0.2.0-beta.10](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.10). Verifica el archivo lateral `.sha256`: el ZIP debe medir **86,897,741 bytes** y su SHA-256 debe ser `52d5641af82e327bbfdf510dbd732d1dee7f13a7be5294af4b993fa1dc49a42f`. Extráelo en una carpeta normal de aplicaciones; no lo ejecutes desde dentro del ZIP.
+1. Descarga el ZIP completo de Windows desde la [versión publicada v0.2.0-beta.11](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.11). Verifica el archivo lateral `.sha256`: el ZIP debe medir **86,928,062 bytes** y su SHA-256 debe ser `81ded5f88ca7875efce8e0c73df852e7cefc0d9f51cdfbb614ba60ce2c39b934`. Extráelo en una carpeta normal de aplicaciones; no lo ejecutes desde dentro del ZIP.
 2. Abre `Trazio.AsistenteReunion.exe`. No lo separes del proceso auxiliar ni de las DLL. La beta sin firma puede generar advertencias de reputación de Windows; verifica el origen de la versión y su SHA-256 antes de decidir ejecutarla. No desactives el antivirus globalmente.
 3. En **Sesión en vivo**, acepta o edita **Título de la reunión**. Es un título automático de reunión, no tu nombre; se puede renombrar después en Historial.
 4. En **Perfil local**, confirma **Nombre visible**, ingresa opcionalmente una organización, marca **Confirmo este nombre visible** y **Guardar perfil**. **Tu nombre en esta reunión (opcional)** cambia solo la atribución del micrófono para esta grabación.
@@ -63,9 +63,9 @@ En **Historial**, escribe entre 2 y 120 caracteres en **Buscar en reuniones** y 
 
 La consulta y los resultados no se guardan en SQLite ni en un índice. Se descifran y comparan localmente en memoria; esto no equivale a memoria segura frente a paginación, volcados o software con acceso a la misma cuenta. Esta función está incluida desde beta 8 y continúa en la beta 10 pública.
 
-## Revisar pendientes en el candidato beta 11 — 8.4a no publicada
+## Revisar pendientes — 8.4a publicada en beta 11
 
-Esta función todavía no forma parte de la descarga beta 10. En una compilación de la fuente actual, abre **Historial** y luego **Pendientes de revisión**:
+Esta función forma parte de la descarga beta 11. En **Historial**, abre **Pendientes de revisión**:
 
 1. La bandeja reúne segmentos de sesiones **Completadas** o **Interrumpidas**, con la reunión más reciente primero y el tiempo en orden dentro de cada reunión. Muestra hasta 100 filas y avisa si existen más.
 2. Selecciona una fila para abrir esa sesión, fuente y segmento exactos en **Original · revisión humana**. Esta acción no reproduce audio ni guarda cambios.
@@ -162,7 +162,7 @@ Esto traslada datos para el mismo usuario de Windows. No hace portátiles los da
 
 ## Instalar, reparar o actualizar con Setup
 
-La [versión pública beta 10](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.10) ofrece tanto el ZIP como `Trazio-Asistente-Reunion-v0.2.0-beta.10-Setup.exe`. El instalador es manual, offline y solo para tu usuario de Windows. El Setup mide **60,064,281 bytes**, su SHA-256 es `ce67f9ac2c05fa5718f99ef31339f74961af9de1a23a00c4a31ed56226977f2f` y Authenticode informa `NotSigned`. Su manifiesto mide **488 bytes** y su SHA-256 es `f867fc695aa9de37e266621de825958f8ef9967be989cdfd2829c83d4a197a01`. El recurso remoto coincide con esos valores, pero el Setup con identidad productiva todavía no fue ejecutado; úsalo primero con datos no sensibles y conserva una copia de seguridad.
+La [versión pública beta 11](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.11) ofrece tanto el ZIP como `Trazio-Asistente-Reunion-v0.2.0-beta.11-Setup.exe`. El instalador es manual, offline y solo para tu usuario de Windows. El Setup mide **60,073,131 bytes**, su SHA-256 es `b651727474ad50ea0f817bab8f363533d87c34cb5452510ed175e46857111bc0` y Authenticode informa `NotSigned`. El recurso remoto coincide con esos valores, pero el Setup con identidad productiva todavía no fue ejecutado; úsalo primero con datos no sensibles y conserva una copia de seguridad.
 
 1. Descarga el `.exe`, su `.sha256` y su `.manifest.json` desde la misma versión oficial. Compara nombre, longitud y SHA-256. Como todavía no hay firma Authenticode, esa comprobación detecta diferencias respecto del sidecar pero no autentica por sí sola al editor.
 2. Finaliza la grabación y cierra Trazio normalmente. No fuerces la aplicación ni su proceso de transcripción, y no vuelvas a abrirlos hasta que Setup termine. La primera actualización desde beta 5 no puede detectar infaliblemente una instancia legacy abierta porque esa versión no creaba el nuevo mutex. Además, una App/Worker nueva podría iniciarse después del chequeo inicial del instalador; mantenerla cerrada evita esa carrera conocida.

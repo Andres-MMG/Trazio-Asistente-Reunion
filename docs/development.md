@@ -101,7 +101,7 @@ Prueba el mecanismo únicamente con identificadores desechables:
 
 ## Disciplina de versiones y publicación
 
-Autoridad de versión de fuente: [Directory.Build.props](../Directory.Build.props). La fuente actual declara `VersionPrefix` **0.2.0**, `VersionSuffix` **beta.11** (versión producto `0.2.0-beta.11`), `InstallerReleaseSequence` **12** y versión de ensamblado/archivo **0.2.0.0**. Beta 11/secuencia 12 es un candidato de `main`, todavía no publicado; beta 10/secuencia 11 es la versión pública actual. Beta 9/secuencia 10, beta 8/secuencia 9, beta 7/secuencia 8 y todas las asignaciones anteriores permanecen como antecedentes históricos inmutables. Cada nueva versión instalable debe aumentar `InstallerReleaseSequence`; nunca compares SemVer beta como texto. El script de publicación, la definición del instalador y las [pruebas de versión/instalador](../tests/Trazio.AsistenteReunion.Tests/InstallerPackageContractTests.cs) comprueban el contrato y conservan los mapeos históricos.
+Autoridad de versión de fuente: [Directory.Build.props](../Directory.Build.props). La fuente actual declara `VersionPrefix` **0.2.0**, `VersionSuffix` **beta.11** (versión producto `0.2.0-beta.11`), `InstallerReleaseSequence` **12** y versión de ensamblado/archivo **0.2.0.0**. Beta 11/secuencia 12 es la versión pública actual; beta 10/secuencia 11 y asignaciones anteriores permanecen como antecedentes históricos inmutables.
 
 ### Evidencia publicada de beta 10/secuencia 11
 
