@@ -10,6 +10,7 @@ namespace Trazio.AsistenteReunion.Tests;
 public sealed class VersionMetadataTests
 {
     private const string ExpectedVersion = "0.2.0-beta.5";
+    private const int ExpectedInstallerReleaseSequence = 6;
     private const string ExpectedReleaseArchive = "Trazio-Asistente-Reunion-v0.2.0-beta.5-win-x64.zip";
 
     [Fact]
@@ -46,6 +47,21 @@ public sealed class VersionMetadataTests
 
         Assert.Equal("none", releaseProperties.Element("DebugType")?.Value);
         Assert.Equal("false", releaseProperties.Element("DebugSymbols")?.Value);
+    }
+
+    [Fact]
+    public void InstallerSequence_IsCanonicalAndPositive()
+    {
+        var root = FindRepositoryRoot();
+        var document = XDocument.Load(Path.Combine(root, "Directory.Build.props"));
+        var sharedProperties = document.Root!.Elements("PropertyGroup").First();
+
+        Assert.Equal(ExpectedVersion, sharedProperties.Element("Version")?.Value);
+        Assert.Equal(
+            ExpectedInstallerReleaseSequence,
+            int.Parse(
+                sharedProperties.Element("InstallerReleaseSequence")?.Value ?? "0",
+                System.Globalization.CultureInfo.InvariantCulture));
     }
 
     [Fact]
@@ -101,14 +117,18 @@ public sealed class VersionMetadataTests
         var root = FindRepositoryRoot();
         var script = File.ReadAllText(Path.Combine(root, "installer", "publish.ps1"));
 
-        var versionMatch = Regex.Match(script, "\\$expectedVersion\\s*=\\s*\"([^\"]+)\"");
         var archiveTemplateMatch = Regex.Match(script, "\\$expectedArchiveName\\s*=\\s*\"([^\"]+)\"");
-        Assert.True(versionMatch.Success, "publish.ps1 must declare the expected release version.");
         Assert.True(archiveTemplateMatch.Success, "publish.ps1 must declare the expected archive name.");
-        Assert.Equal(ExpectedVersion, versionMatch.Groups[1].Value);
         Assert.Equal(
             ExpectedReleaseArchive,
-            archiveTemplateMatch.Groups[1].Value.Replace("$expectedVersion", versionMatch.Groups[1].Value, StringComparison.Ordinal));
+            archiveTemplateMatch.Groups[1].Value.Replace("$expectedVersion", ExpectedVersion, StringComparison.Ordinal));
+        Assert.Contains("Directory.Build.props", script, StringComparison.Ordinal);
+        Assert.Contains("InstallerReleaseSequence", script, StringComparison.Ordinal);
+        Assert.Contains("publish-manifest.json", script, StringComparison.Ordinal);
+        Assert.Contains("[Array]::Sort($relativePaths, [System.StringComparer]::Ordinal)", script, StringComparison.Ordinal);
+        Assert.Contains("Get-FileHash -LiteralPath $fullPath -Algorithm SHA256", script, StringComparison.Ordinal);
+        Assert.Contains("path = $relativePath", script, StringComparison.Ordinal);
+        Assert.Contains("length = [long]$file.Length", script, StringComparison.Ordinal);
         Assert.Contains("$expectedChecksumName = \"$expectedArchiveName.sha256\"", script, StringComparison.Ordinal);
         Assert.Contains("consented-ephemeral-window-capture-v1", script, StringComparison.Ordinal);
         Assert.Contains("$capabilities.Count -ne $requiredCapabilities.Count", script, StringComparison.Ordinal);

@@ -1,12 +1,38 @@
-param([string]$Configuration = "Release")
+﻿param([string]$Configuration = "Release")
 
 $ErrorActionPreference = "Stop"
-$expectedVersion = "0.2.0-beta.5"
+$root = Split-Path -Parent $PSScriptRoot
+
+function Read-Utf8Text {
+    param([string]$Path)
+    return [System.IO.File]::ReadAllText(
+        [System.IO.Path]::GetFullPath($Path),
+        [System.Text.UTF8Encoding]::new($false, $true))
+}
+
+[xml]$buildProperties = Read-Utf8Text (Join-Path $root "Directory.Build.props")
+$sharedProperties = @($buildProperties.Project.PropertyGroup)[0]
+$expectedVersion = [string]$sharedProperties.Version
+$expectedReleaseSequence = [int]$sharedProperties.InstallerReleaseSequence
+if ([string]::IsNullOrWhiteSpace($expectedVersion) -or $expectedReleaseSequence -lt 1) {
+    throw "Directory.Build.props must define Version and a positive InstallerReleaseSequence."
+}
 $expectedArchiveName = "Trazio-Asistente-Reunion-v$expectedVersion-win-x64.zip"
 $expectedChecksumName = "$expectedArchiveName.sha256"
-$root = Split-Path -Parent $PSScriptRoot
 $artifacts = Join-Path $root "artifacts"
 $publishOutput = Join-Path $artifacts "publish"
+$publishManifestPath = Join-Path $artifacts "publish-manifest.json"
+
+function Get-NormalizedRelativePath {
+    param([string]$BasePath, [string]$FullPath)
+
+    $baseFullPath = [System.IO.Path]::GetFullPath($BasePath).TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+    $itemFullPath = [System.IO.Path]::GetFullPath($FullPath)
+    if (-not $itemFullPath.StartsWith($baseFullPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "La ruta no pertenece al payload esperado: $itemFullPath"
+    }
+    return $itemFullPath.Substring($baseFullPath.Length).Replace('\', '/')
+}
 
 foreach ($target in @($publishOutput)) {
     $resolvedTarget = [System.IO.Path]::GetFullPath($target)
@@ -17,6 +43,7 @@ foreach ($target in @($publishOutput)) {
     Remove-Item -LiteralPath $resolvedTarget -Recurse -Force -ErrorAction SilentlyContinue
 }
 New-Item -ItemType Directory -Force $publishOutput | Out-Null
+Remove-Item -LiteralPath $publishManifestPath -Force -ErrorAction SilentlyContinue
 dotnet publish (Join-Path $root "src\Trazio.AsistenteReunion.App\Trazio.AsistenteReunion.App.csproj") -c $Configuration -r win-x64 --self-contained true -p:PublishSingleFile=false -o $publishOutput
 if ($LASTEXITCODE -ne 0) { throw "Application publish failed with exit code $LASTEXITCODE" }
 dotnet publish (Join-Path $root "src\Trazio.AsistenteReunion.Worker\Trazio.AsistenteReunion.Worker.csproj") -c $Configuration -r win-x64 --self-contained true -p:PublishSingleFile=false -o $publishOutput
@@ -123,7 +150,7 @@ foreach ($requiredFile in $requiredFiles) {
 
 $capabilityManifestPath = Join-Path $publishOutput "trazio-capabilities.json"
 try {
-    $capabilityManifest = Get-Content -LiteralPath $capabilityManifestPath -Raw | ConvertFrom-Json -ErrorAction Stop
+    $capabilityManifest = Read-Utf8Text $capabilityManifestPath | ConvertFrom-Json -ErrorAction Stop
 }
 catch {
     throw "Published capability manifest is invalid: $($_.Exception.Message)"
@@ -183,6 +210,39 @@ if (-not $appVersion.StartsWith($expectedVersion) -or
 }
 & (Join-Path $PSScriptRoot "smoke-worker.ps1") -WorkerPath (Join-Path $publishOutput "Trazio.AsistenteReunion.Worker.exe")
 
+$relativePaths = [string[]]@(
+    Get-ChildItem -LiteralPath $publishOutput -File -Recurse | ForEach-Object {
+        Get-NormalizedRelativePath -BasePath $publishOutput -FullPath $_.FullName
+    }
+)
+[Array]::Sort($relativePaths, [System.StringComparer]::Ordinal)
+$payloadFiles = @(
+    foreach ($relativePath in $relativePaths) {
+        $fullPath = Join-Path $publishOutput ($relativePath.Replace('/', [System.IO.Path]::DirectorySeparatorChar))
+        $file = Get-Item -LiteralPath $fullPath
+        [ordered]@{
+            path = $relativePath
+            length = [long]$file.Length
+            sha256 = (Get-FileHash -LiteralPath $fullPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        }
+    }
+)
+$payloadManifest = [ordered]@{
+    schemaVersion = 1
+    product = "Trazio Asistente Reunión"
+    version = $expectedVersion
+    releaseSequence = $expectedReleaseSequence
+    files = $payloadFiles
+}
+$manifestJson = ($payloadManifest | ConvertTo-Json -Depth 5).Replace(
+    [Environment]::NewLine,
+    [string][char]10) + [char]10
+[System.IO.File]::WriteAllText(
+    $publishManifestPath,
+    $manifestJson,
+    [System.Text.UTF8Encoding]::new($false))
+
 Write-Host "Published Trazio Asistente Reunión $expectedVersion to $publishOutput"
+Write-Host "Deterministic payload manifest: $publishManifestPath ($($payloadFiles.Count) files)"
 Write-Host "Expected release assets: $expectedArchiveName and $expectedChecksumName"
 
