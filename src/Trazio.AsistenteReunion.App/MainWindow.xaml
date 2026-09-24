@@ -467,11 +467,30 @@
                                         ToolTip="Vuelve a cargar todas las entradas desde el almacenamiento local cifrado."
                                         automation:AutomationProperties.Name="Actualizar diccionario global"/>
                             </DockPanel>
-                            <TextBlock Text="Revisa las palabras guardadas desde las correcciones humanas de todas tus reuniones." Foreground="#556070" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            <TextBlock Text="Revisa las palabras guardadas desde correcciones humanas o archivos JSON importados." Foreground="#556070" TextWrapping="Wrap" Margin="0,4,0,0"/>
                             <Border Background="#FFF4D6" BorderBrush="#E0B543" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,10,0,0">
                                 <TextBlock Text="Las entradas activas quedan preparadas para una aplicación futura. Esta versión no modifica Whisper ni reemplaza texto automáticamente."
                                            TextWrapping="Wrap"/>
                             </Border>
+                            <Expander Header="Importar o exportar" Margin="0,10,0,0"
+                                      automation:AutomationProperties.Name="Importar o exportar diccionario">
+                                <Border Background="#F8FAFC" BorderBrush="#DDE2EA" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,6,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Los archivos JSON exportados no están cifrados. Guarda el archivo solo en una ubicación segura. Trazio no conserva el nombre ni la ruta y no envía el archivo por la red."
+                                                   TextWrapping="Wrap" Foreground="#7A4A00"/>
+                                        <TextBlock Text="La importación muestra una vista previa en memoria. Los duplicados y conflictos se omiten sin fusionar ni eliminar entradas; puedes resolver estados con el control Activa."
+                                                   TextWrapping="Wrap" Foreground="#556070" Margin="0,6,0,0"/>
+                                        <WrapPanel Margin="0,10,0,0">
+                                            <Button x:Name="ImportGlossaryButton" Content="Importar JSON…" Click="ImportGlossary_Click" IsEnabled="False" Margin="0,0,10,0"
+                                                    ToolTip="Selecciona un archivo JSON v1 y revisa cada fila antes de guardar entradas nuevas."
+                                                    automation:AutomationProperties.Name="Importar diccionario desde JSON con vista previa"/>
+                                            <Button x:Name="ExportGlossaryButton" Content="Exportar JSON…" Click="ExportGlossary_Click" IsEnabled="False"
+                                                    ToolTip="Exporta todas las entradas, no solo las visibles, a un archivo JSON sin cifrar."
+                                                    automation:AutomationProperties.Name="Exportar todo el diccionario a JSON sin cifrar"/>
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </Border>
+                            </Expander>
                             <Grid Margin="0,12,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -523,6 +542,7 @@
                                                         <TextBlock Text="{Binding CreatedAtLabel}" Foreground="#556070" Margin="0,0,14,0"/>
                                                         <TextBlock Text="{Binding SourceLabel}" Foreground="#556070"/>
                                                     </WrapPanel>
+                                                    <TextBlock Text="{Binding AttentionLabel}" Foreground="#A12626" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                                 </StackPanel>
                                             </DockPanel>
                                         </Border>

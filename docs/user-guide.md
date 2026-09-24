@@ -81,7 +81,32 @@ La beta 9 pública agrega la pestaña **Diccionario**:
 3. Marca o desmarca **Activa**. El cambio solo prepara esa entrada para una aplicación futura: **no modifica Whisper, no reemplaza texto y no cambia transcripciones existentes**.
 4. Usa **Actualizar** para volver a leer el almacén cifrado. Si una entrada está corrupta, la carga completa se rechaza y no se publica una lista parcial.
 
-Al eliminar una sesión también se eliminan las entradas del diccionario originadas en sus correcciones. Deshacer una corrección, en cambio, conserva sus entradas. Detección/fusión de duplicados, importación, exportación y aplicación del diccionario pertenecen a etapas posteriores.
+Al eliminar una sesión también se eliminan las entradas del diccionario originadas en sus correcciones. Deshacer una corrección, en cambio, conserva sus entradas.
+
+### Importar o exportar en 8.3b (`main`, aún no publicado)
+
+La versión en desarrollo añade el panel **Importar o exportar**. **Exportar JSON…** incluye todas las entradas, no solo las visibles, y advierte antes de crear un archivo sin cifrar. **Importar JSON…** acepta el formato `trazio-glossary` versión 1, muestra cada fila y su motivo, y deja **Cancelar** como acción predeterminada. Solo **Importar N nuevas** escribe; al confirmar vuelve a comprobar el diccionario y guarda todas las nuevas o ninguna.
+
+El archivo usa JSON UTF-8 con esta estructura exacta; los nombres de las propiedades distinguen mayúsculas y minúsculas:
+
+```json
+{
+  "format": "trazio-glossary",
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "mistakenForm": "Need",
+      "preferredTerm": "Meet",
+      "category": "Producto",
+      "isActive": true
+    }
+  ]
+}
+```
+
+Se admiten hasta **5 MiB**, **5.000 entradas** y una profundidad JSON máxima de **8**. `mistakenForm` y `preferredTerm` deben tener entre 1 y 120 caracteres; `category`, entre 1 y 60. Trazio recorta los extremos y normaliza Unicode a NFC, pero rechaza NUL, saltos de línea y otros caracteres de control. Acepta UTF-8 con o sin BOM; la exportación usa UTF-8 sin BOM, saltos LF y orden determinista. Un JSON, encabezado o UTF-8 inválido aborta el archivo completo. Una fila inválida se conserva solo en la vista previa como **Rechazada** y no se escribe.
+
+Las entradas exactamente repetidas, equivalentes al ignorar mayúsculas/diacríticos o en conflicto se omiten sin fusión destructiva. Los grupos existentes quedan señalados para que ajustes **Activa** manualmente. Las entradas importadas sobreviven al borrado de reuniones porque no inventan una corrección de origen. Trazio no guarda la ruta ni el nombre del archivo y no lo envía por red; la vista previa sí existe transitoriamente en RAM, sin promesa de memoria segura. Esta función todavía no está en beta 9 y no aplica términos a Whisper.
 
 ## Retranscribir y comparar versiones
 

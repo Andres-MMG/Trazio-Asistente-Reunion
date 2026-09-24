@@ -23,6 +23,11 @@ public sealed class GlossaryWorkspacePublicationTests
         Assert.Contains("Content=\"Activos\" Tag=\"Active\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"Inactivos\" Tag=\"Inactive\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"Activa\" IsChecked=\"{Binding IsActive, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Header=\"Importar o exportar\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ImportGlossaryButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ExportGlossaryButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("archivos JSON exportados no están cifrados", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding AttentionLabel}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"Guardar como activa\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Esta versión no modifica Whisper ni reemplaza texto automáticamente", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Usar en futuras transcripciones", xaml, StringComparison.Ordinal);
@@ -32,6 +37,8 @@ public sealed class GlossaryWorkspacePublicationTests
 
         Assert.NotNull(typeof(MainWindow).GetMethod("RefreshGlossary_Click", BindingFlags.Instance | BindingFlags.NonPublic));
         Assert.NotNull(typeof(MainWindow).GetMethod("GlossaryEntryActive_Click", BindingFlags.Instance | BindingFlags.NonPublic));
+        Assert.NotNull(typeof(MainWindow).GetMethod("ImportGlossary_Click", BindingFlags.Instance | BindingFlags.NonPublic));
+        Assert.NotNull(typeof(MainWindow).GetMethod("ExportGlossary_Click", BindingFlags.Instance | BindingFlags.NonPublic));
 
         var ids = capabilities.RootElement.GetProperty("capabilities")
             .EnumerateArray()
@@ -40,6 +47,43 @@ public sealed class GlossaryWorkspacePublicationTests
         Assert.Equal(5, ids.Length);
         Assert.DoesNotContain(ids, id => id?.Contains("glossary", StringComparison.OrdinalIgnoreCase) == true);
         Assert.DoesNotContain(ids, id => id?.Contains("dictionary", StringComparison.OrdinalIgnoreCase) == true);
+    }
+
+    [Fact]
+    public void GlossaryExchange_PreviewIsAccessibleSafeByDefaultAndDoesNotPersistPathOrCreateCapability()
+    {
+        var root = FindRepositoryRoot();
+        var previewXaml = File.ReadAllText(Path.Combine(
+            root, "src", "Trazio.AsistenteReunion.App", "GlossaryImportPreviewWindow.xaml"));
+        var code = File.ReadAllText(Path.Combine(
+            root, "src", "Trazio.AsistenteReunion.App", "MainWindow.xaml.cs"));
+        var importStart = code.IndexOf("private async void ImportGlossary_Click", StringComparison.Ordinal);
+        var exportStart = code.IndexOf("private async void ExportGlossary_Click", importStart, StringComparison.Ordinal);
+        var filterStart = code.IndexOf("private void GlossaryFilterBox_TextChanged", exportStart, StringComparison.Ordinal);
+        var importPath = code[importStart..exportStart];
+        var exportPath = code[exportStart..filterStart];
+
+        Assert.Contains("x:Name=\"CountsText\"", previewXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"RowsList\"", previewXaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding ActivityLabel, StringFormat=Estado al importar: {0}}\"", previewXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"CancelButton\" Content=\"Cancelar\" IsCancel=\"True\" IsDefault=\"True\"", previewXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ImportButton\"", previewXaml, StringComparison.Ordinal);
+        Assert.Contains("Motivo: {item.Reason}", File.ReadAllText(Path.Combine(
+            root, "src", "Trazio.AsistenteReunion.App", "GlossaryExchangePresentation.cs")), StringComparison.Ordinal);
+        AssertOrdered(importPath,
+            "_glossaryWorkspaceOperation.TryBegin([_lifetime.Token], out var previewOperation)",
+            "_glossaryWorkspaceOperation.Complete(previewOperation)",
+            "dialog.ShowDialog()",
+            "_glossaryWorkspaceOperation.TryBegin([_lifetime.Token], out var applyOperation)");
+        Assert.Contains("GlossaryImportSnapshotChangedException", importPath, StringComparison.Ordinal);
+        Assert.Contains("Guid.NewGuid().ToString(\"N\")", importPath, StringComparison.Ordinal);
+        Assert.Contains("var allEntries = await _store.ListGlossaryAsync", exportPath, StringComparison.Ordinal);
+        Assert.Contains("GlossaryExchangeSerializer.Serialize(allEntries)", exportPath, StringComparison.Ordinal);
+        Assert.Contains("GlossaryExchangeFileWriter.WriteAtomicallyAsync", exportPath, StringComparison.Ordinal);
+        Assert.DoesNotContain("_settings", importPath, StringComparison.Ordinal);
+        Assert.DoesNotContain("_settings", exportPath, StringComparison.Ordinal);
+        Assert.DoesNotContain("Http", importPath, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Http", exportPath, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

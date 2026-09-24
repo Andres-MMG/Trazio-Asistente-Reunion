@@ -10,6 +10,8 @@ La beta 9 usa la secuencia de instalador **10** y conserva el empaquetador ZIP c
 
 La etapa 8.3a publicada incorpora el espacio global de diccionario sobre el esquema cifrado existente. Lista y filtra términos descifrados en memoria, y permite cambiar únicamente `is_active`; no recifra los blobs ni altera su procedencia. Una entrada activa queda preparada para una aplicación futura, pero beta 9 todavía no la aplica a Whisper ni reemplaza transcripciones.
 
+La etapa 8.3b implementada en `main` mantiene `glossary_entries` y su FK/cascada sin reconstrucción. Las entradas de archivo usan la tabla aditiva `imported_glossary_entries`, con campos semánticos AES-GCM, estado, lote opaco y fecha; no guarda ruta, nombre o hash. El dominio exige exactamente una procedencia: corrección de transcripción o archivo importado. La aplicación combina ambas fuentes al listar, despacha el cambio de estado dentro de una transacción y aborta la carga completa ante corrupción.
+
 ## Mapa de componentes
 
 ```mermaid

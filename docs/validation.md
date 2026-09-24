@@ -14,6 +14,8 @@ Como antecedente de 8.2, el filtro enfocado de beta 8 aprobó **48/48** y el fil
 
 La gestión global 8.3a está publicada en beta 9. Sus pruebas enfocadas **23/23** cubren orden/filtro/conteos, duplicados independientes, activación persistente sin recifrar blobs, Undo, cascada al eliminar, corrupción fail-closed, lifecycle cancelable, copy honesta y conservación de exactamente cinco capacidades. El conjunto Release aprobó **574/574** en serie y en paralelo; los contratos finales aprobaron **22/22** y el harness **14/14**. Activar una entrada todavía no modifica Whisper ni las transcripciones. El instalador continúa `NotSigned`, el Setup productivo no se ha ejecutado y faltan validación visual, de teclado, lector de pantalla y pruebas físicas audibles, WGC/GPU, Meet/Teams y 2/5 horas.
 
+La rebanada 8.3b está implementada en `main` y no está publicada. Su filtro enfocado de cuatro clases aprobó **48/48**, el conjunto Release completo aprobó **599/599** tanto en serie como con paralelismo predeterminado y la solución compiló en Release con **0 advertencias y 0 errores**. El contrato cubre JSON v1 determinista sin metadatos internos, límites de 5 MiB/5.000 filas, clasificación conservadora, vista previa sin escrituras, revalidación transaccional, tabla importada cifrada aditiva, exportación atómica y exactamente cinco capacidades. Esta evidencia automatizada no sustituye una importación/exportación real ni validación visual, por teclado o lector de pantalla.
+
 | Evidencia | Resultado registrado / límite |
 |---|---|
 | `v0.1.1-mvp`, conjunto Release serial | 164/164 aprobadas; evidencia histórica |

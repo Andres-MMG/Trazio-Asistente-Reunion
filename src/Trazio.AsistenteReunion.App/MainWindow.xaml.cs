@@ -1081,6 +1081,163 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     private async void RefreshGlossary_Click(object sender, RoutedEventArgs e) =>
         await LoadGlossaryWorkspaceAsync();
 
+    private async void ImportGlossary_Click(object sender, RoutedEventArgs e)
+    {
+        if (_store is null || _closing || !ReferenceEquals(MainTabs.SelectedItem, GlossaryTabItem)) return;
+        var picker = new OpenFileDialog
+        {
+            Title = "Seleccionar diccionario JSON",
+            Filter = "Diccionario Trazio (*.json)|*.json|Todos los archivos (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (picker.ShowDialog(this) != true) return;
+
+        GlossaryImportPreview? preview = null;
+        if (!_glossaryWorkspaceOperation.TryBegin([_lifetime.Token], out var previewOperation))
+        {
+            GlossaryWorkspaceStatusText.Text = "Espera a que termine la operación actual del diccionario.";
+            return;
+        }
+        UpdateGlossaryWorkspaceControls();
+        try
+        {
+            await using var stream = new FileStream(
+                picker.FileName,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                81_920,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+            var parsed = await GlossaryExchangeSerializer.ParseAsync(stream, previewOperation.CancellationToken);
+            var existing = await _store.ListGlossaryAsync(previewOperation.CancellationToken);
+            if (!CanPublishGlossaryWorkspace(previewOperation)) return;
+            preview = GlossaryExchangePlanner.CreatePreview(existing, parsed);
+        }
+        catch (OperationCanceledException) when (previewOperation.CancellationToken.IsCancellationRequested) { }
+        catch (Exception exception)
+        {
+            if (CanPublishGlossaryWorkspace(previewOperation))
+            {
+                GlossaryWorkspaceStatusText.Text = "No se pudo preparar la vista previa; no se guardó ninguna entrada.";
+                ShowError("No se pudo leer el diccionario", exception.Message);
+            }
+        }
+        finally
+        {
+            _glossaryWorkspaceOperation.Complete(previewOperation);
+            if (ReferenceEquals(MainTabs.SelectedItem, GlossaryTabItem)) UpdateGlossaryWorkspaceControls();
+        }
+
+        if (preview is null || _closing || !ReferenceEquals(MainTabs.SelectedItem, GlossaryTabItem)) return;
+        var dialog = new GlossaryImportPreviewWindow(GlossaryImportPreviewPresenter.Create(preview)) { Owner = this };
+        if (dialog.ShowDialog() != true)
+        {
+            GlossaryWorkspaceStatusText.Text = "Importación cancelada; la vista previa no cambió el diccionario.";
+            return;
+        }
+
+        if (!_glossaryWorkspaceOperation.TryBegin([_lifetime.Token], out var applyOperation))
+        {
+            GlossaryWorkspaceStatusText.Text = "Espera a que termine la operación actual del diccionario y vuelve a revisar el archivo.";
+            return;
+        }
+
+        var importCommitted = false;
+        var reloadAfterSnapshotChange = false;
+        UpdateGlossaryWorkspaceControls();
+        try
+        {
+            var imported = await _store.ImportGlossaryEntriesAsync(
+                preview.NewEntries,
+                preview.ExistingSnapshotToken,
+                Guid.NewGuid().ToString("N"),
+                applyOperation.CancellationToken);
+            importCommitted = true;
+            var refreshed = await _store.ListGlossaryAsync(applyOperation.CancellationToken);
+            if (!CanPublishGlossaryWorkspace(applyOperation)) return;
+            _glossaryWorkspaceEntries = refreshed;
+            ApplyGlossaryWorkspaceFilter($"Se importaron {imported.Count} entradas nuevas; las demás filas se omitieron según la vista previa.");
+            StatusText.Text = $"Diccionario importado: {imported.Count} entradas nuevas";
+        }
+        catch (GlossaryImportSnapshotChangedException exception)
+        {
+            if (!CanPublishGlossaryWorkspace(applyOperation)) return;
+            reloadAfterSnapshotChange = true;
+            GlossaryWorkspaceStatusText.Text = "El diccionario cambió. No se importó nada; crea una vista previa nueva.";
+            ShowError("La vista previa quedó obsoleta", exception.Message);
+        }
+        catch (OperationCanceledException) when (applyOperation.CancellationToken.IsCancellationRequested) { }
+        catch (Exception exception)
+        {
+            if (!CanPublishGlossaryWorkspace(applyOperation)) return;
+            if (importCommitted)
+                FailGlossaryWorkspace("Las entradas se guardaron, pero no se pudo recargar la lista. Pulsa Actualizar.");
+            else
+                GlossaryWorkspaceStatusText.Text = "No se importó ninguna entrada.";
+            ShowError("No se pudo importar el diccionario", exception.Message);
+        }
+        finally
+        {
+            _glossaryWorkspaceOperation.Complete(applyOperation);
+            if (ReferenceEquals(MainTabs.SelectedItem, GlossaryTabItem)) UpdateGlossaryWorkspaceControls();
+        }
+        if (reloadAfterSnapshotChange && ReferenceEquals(MainTabs.SelectedItem, GlossaryTabItem))
+            await LoadGlossaryWorkspaceAsync();
+    }
+
+    private async void ExportGlossary_Click(object sender, RoutedEventArgs e)
+    {
+        if (_store is null || _closing || !ReferenceEquals(MainTabs.SelectedItem, GlossaryTabItem)) return;
+        if (MessageBox.Show(
+                this,
+                "Se exportarán todas las entradas a un archivo JSON sin cifrar. El archivo puede revelar términos privados. ¿Deseas continuar?",
+                "Exportación sin cifrar",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.No) != MessageBoxResult.Yes)
+            return;
+
+        var picker = new SaveFileDialog
+        {
+            Title = "Exportar diccionario JSON",
+            Filter = "Diccionario Trazio (*.json)|*.json",
+            AddExtension = true,
+            DefaultExt = ".json",
+            FileName = $"trazio-diccionario-{DateTimeOffset.Now:yyyyMMdd-HHmm}.json",
+            OverwritePrompt = true
+        };
+        if (picker.ShowDialog(this) != true) return;
+        if (!_glossaryWorkspaceOperation.TryBegin([_lifetime.Token], out var operation))
+        {
+            GlossaryWorkspaceStatusText.Text = "Espera a que termine la operación actual del diccionario.";
+            return;
+        }
+
+        UpdateGlossaryWorkspaceControls();
+        try
+        {
+            var allEntries = await _store.ListGlossaryAsync(operation.CancellationToken);
+            var json = GlossaryExchangeSerializer.Serialize(allEntries);
+            await GlossaryExchangeFileWriter.WriteAtomicallyAsync(picker.FileName, json, operation.CancellationToken);
+            if (!CanPublishGlossaryWorkspace(operation)) return;
+            GlossaryWorkspaceStatusText.Text = $"Se exportaron las {allEntries.Count} entradas del diccionario a la ubicación elegida.";
+            StatusText.Text = "Diccionario JSON exportado sin cifrar";
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested) { }
+        catch (Exception exception)
+        {
+            if (!CanPublishGlossaryWorkspace(operation)) return;
+            GlossaryWorkspaceStatusText.Text = "No se completó la exportación; el destino anterior se conservó.";
+            ShowError("No se pudo exportar el diccionario", exception.Message);
+        }
+        finally
+        {
+            _glossaryWorkspaceOperation.Complete(operation);
+            if (ReferenceEquals(MainTabs.SelectedItem, GlossaryTabItem)) UpdateGlossaryWorkspaceControls();
+        }
+    }
+
     private void GlossaryFilterBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (_settingGlossaryFilters || _glossaryWorkspaceLoadFailed || GlossaryWorkspaceList is null || _glossaryWorkspaceOperation.IsRunning) return;
@@ -1278,6 +1435,8 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
             ReferenceEquals(MainTabs.SelectedItem, GlossaryTabItem) &&
             !_glossaryWorkspaceOperation.IsRunning;
         RefreshGlossaryButton.IsEnabled = canInteract;
+        ImportGlossaryButton.IsEnabled = canInteract;
+        ExportGlossaryButton.IsEnabled = canInteract && !_glossaryWorkspaceLoadFailed;
         var canBrowse = canInteract && !_glossaryWorkspaceLoadFailed;
         GlossaryFilterBox.IsEnabled = canBrowse;
         GlossaryActivityFilter.IsEnabled = canBrowse;

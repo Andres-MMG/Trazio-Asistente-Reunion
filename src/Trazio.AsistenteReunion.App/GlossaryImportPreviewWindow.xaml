@@ -1,0 +1,53 @@
+<Window x:Class="Trazio.AsistenteReunion.App.GlossaryImportPreviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        xmlns:local="clr-namespace:Trazio.AsistenteReunion.App"
+        Title="Vista previa de importación del diccionario"
+        Width="820" Height="620" MinWidth="680" MinHeight="480"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="#F5F7FA">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Text="Revisa antes de importar" FontSize="20" FontWeight="SemiBold"/>
+        <TextBlock x:Name="CountsText" Grid.Row="1" Margin="0,7,0,0" TextWrapping="Wrap" Focusable="True"
+                   automation:AutomationProperties.Name="Conteos de la vista previa de importación"
+                   automation:AutomationProperties.LiveSetting="Polite"/>
+        <Border Grid.Row="2" Background="#FFF4D6" BorderBrush="#E0B543" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,12,0,12">
+            <TextBlock Text="La vista previa está solo en memoria y no escribe el diccionario. Las filas duplicadas, en conflicto o rechazadas se omiten; no se fusiona ni elimina ninguna entrada existente."
+                       TextWrapping="Wrap"/>
+        </Border>
+        <ListBox x:Name="RowsList" Grid.Row="3" HorizontalContentAlignment="Stretch"
+                 automation:AutomationProperties.Name="Filas y motivos de la vista previa">
+            <ListBox.ItemTemplate>
+                <DataTemplate DataType="{x:Type local:GlossaryImportPreviewRow}">
+                    <Border Margin="2,3" Padding="9" BorderBrush="#DDE2EA" BorderThickness="1" CornerRadius="5"
+                            automation:AutomationProperties.Name="{Binding AutomationName}">
+                        <StackPanel>
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Left" Text="{Binding RowNumber, StringFormat=Fila {0}}" Foreground="#246BCE" FontWeight="SemiBold" Margin="0,0,12,0"/>
+                                <TextBlock Text="{Binding ClassificationLabel}" FontWeight="SemiBold"/>
+                            </DockPanel>
+                            <TextBlock Text="{Binding ReplacementLabel}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            <TextBlock Text="{Binding Reason}" TextWrapping="Wrap" Foreground="#556070" Margin="0,3,0,0"/>
+                            <TextBlock Text="{Binding CategoryLabel, StringFormat=Categoría: {0}}" Foreground="#556070"/>
+                            <TextBlock Text="{Binding ActivityLabel, StringFormat=Estado al importar: {0}}" Foreground="#556070"/>
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <DockPanel Grid.Row="4" Margin="0,14,0,0" LastChildFill="False">
+            <Button x:Name="CancelButton" Content="Cancelar" IsCancel="True" IsDefault="True" MinWidth="110" Padding="12,7" Margin="0,0,10,0"
+                    automation:AutomationProperties.Name="Cancelar importación"/>
+            <Button x:Name="ImportButton" Content="Importar" Click="ImportButton_Click" MinWidth="150" Padding="12,7" Visibility="Collapsed"
+                    automation:AutomationProperties.Name="Confirmar importación de entradas nuevas"/>
+        </DockPanel>
+    </Grid>
+</Window>
