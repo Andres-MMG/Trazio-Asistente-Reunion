@@ -2,10 +2,9 @@
 
 - Fecha del estado: 2026-09-23
 - Madurez actual: MVP funcional avanzado / versión preliminar pública
-- Versión publicada actual: [`0.2.0-beta.4`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.4)
-- Candidato de código fuente local: `0.2.0-beta.5` (sin activo final, tag ni release pública)
+- Versión publicada actual: [`0.2.0-beta.5`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.5)
 
-Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funcional implementada; 7.1a, 7.2a y la infraestructura fuente de 7.2b están publicadas en `0.2.0-beta.4`, todavía pendientes de validación física. El candidato local beta 5 incorpora un ensamblado compartido puro y sin paquetes (`VisualAnalysis`) y mantiene el evaluador offline, el corpus sintético agregado y el golden reproducible fuera del paquete. No es una nueva versión publicada ni valida superficies reales. 7.2b falla de forma segura en producción porque los perfiles Meet/Teams permanecen `Unvalidated`: se abstiene y presenta la evidencia como No disponible. Las rebanadas 7.2c–7.2e y el fortalecimiento de la distribución de la etapa 5 siguen pendientes.** No existe identificación de hablantes, no se agrega una capacidad empaquetada y la etapa 7 no está completa. La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md), el [corpus sintético](evaluation/stage-7b/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
+Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funcional implementada; 7.1a, 7.2a y la infraestructura fuente de 7.2b están publicadas en `0.2.0-beta.5`, todavía pendientes de validación física. Beta 5 distribuye el ensamblado compartido puro y sin paquetes `VisualAnalysis`; el evaluador offline, el corpus sintético agregado y el golden reproducible permanecen en el código fuente y fuera del paquete. Esa regresión sintética no valida superficies reales. 7.2b falla de forma segura en producción porque los perfiles Meet/Teams permanecen `Unvalidated`: se abstiene y presenta la evidencia como No disponible. Las rebanadas 7.2c–7.2e y el fortalecimiento de la distribución de la etapa 5 siguen pendientes.** No existe identificación de hablantes, no se agrega una capacidad empaquetada y la etapa 7 no está completa. La identidad local (5.5) está implementada, todavía sin validación física. Consulta la [documentación de ingeniería](docs/README.md), el [corpus sintético](evaluation/stage-7b/README.md) y la [evidencia de validación](docs/validation.md). El alcance futuro indicado a continuación es un objetivo, no una afirmación de que ya se distribuya.
 
 ## Principios del producto
 
@@ -26,7 +25,7 @@ Este es el plan canónico de etapas. **La etapa 6 tiene una línea base funciona
 | 5 | Beta distribuible y mantenible | En curso |
 | 5.5 | Identidad del usuario local y atribución del micrófono | Implementada — validación física de interfaz pendiente |
 | 6 | Revisión, corrección, glosario de procedencia y retranscripción versionada | Línea base funcional implementada — validación física pendiente |
-| 7 | Fuente de reunión y atribución de hablantes | 7.1a/7.2a y la infraestructura fuente de 7.2b implementadas; evaluador/corpus sintético agregados en fuente después de beta 4 — perfiles de producción no validados, sin identificación de hablantes y con validación física pendiente; 7.2c+ planificadas |
+| 7 | Fuente de reunión y atribución de hablantes | 7.1a/7.2a y la infraestructura fuente de 7.2b publicadas en beta 5; evaluador/corpus sintético presentes solo en fuente — perfiles de producción no validados, sin identificación de hablantes y con validación física pendiente; 7.2c+ planificadas |
 | 8 | Búsqueda, revisión por lotes, glosario global y productividad | Planificada — edición y navegación de audio básicas ya entregadas en la etapa 6 |
 | 9 | Inteligencia de reuniones opcional | Planificada |
 | 10 | Integración organizacional/con plataforma opcional | Futura |
@@ -43,20 +42,19 @@ Permitir instalar, actualizar, diagnosticar y recuperar la aplicación existente
 
 ### Base implementada
 
-- Código público en GitHub y ZIP completo para Windows con suma de comprobación; `0.2.0-beta.4` está publicado como prerelease, con tag en `f871f20c3bf9e77b0cf9ad51134febb83c673de7`, recurso remoto y digest verificados, e infraestructura de actividad visual anónima 7.2b incluida.
+- Código público en GitHub y ZIP completo para Windows con suma de comprobación; `0.2.0-beta.5` está publicado como prerelease no borrador. El tag resuelve al commit `5f16631747dd7f7a7f68d49ba0ca9cbd659f2733`; el ZIP de 86,829,207 bytes y SHA-256 `0031cab096013b7bb436221a75d874719cc1d47ed03ac4047000b4e3094ddbdf` coincide con el recurso remoto y el archivo lateral publicado.
 - Script de publicación combinada de aplicación/proceso auxiliar con comprobaciones de paquete y prueba básica de salud por canal con nombre.
-- El contrato del candidato beta 5 exige `VisualAnalysis.dll` con la misma versión de producto que App/Worker y excluye la CLI `VisualEvaluation`, sus archivos de ejecución, el corpus/golden y cualquier directorio `tools` o `evaluation`; el manifiesto conserva exactamente las cinco capacidades existentes.
-- La verificación independiente del candidato aprobó metadatos **4/4**, evaluación visual **74/74**, captura visual **206/206**, Release serial/paralelo **446/446**, compilación sin advertencias/errores, CLI `VE000`, `publish` local y smoke IPC integrado/explícito. El layout preliminar coincidió **495/495** archivos byte a byte, con cinco capacidades y cero hallazgos prohibidos, rutas locales o referencias CodeView.
+- El contrato publicado exige `VisualAnalysis.dll` con la misma versión de producto que App/Worker y excluye la CLI `VisualEvaluation`, sus archivos de ejecución, el corpus/golden y cualquier directorio `tools` o `evaluation`; el manifiesto conserva exactamente las cinco capacidades existentes.
+- La verificación independiente aprobó metadatos **4/4**, evaluación visual **74/74**, captura visual **206/206**, Release serial/paralelo **446/446**, compilación sin advertencias/errores, CLI `VE000`, `publish` y smoke IPC integrado/explícito. El layout final coincidió **495/495** archivos byte a byte, con cinco capacidades y cero hallazgos prohibidos, rutas locales o referencias CodeView.
 - Existe la definición de Inno Setup por usuario; la validación de instalación/actualización/reversión sigue pendiente.
 
 ### Alcance pendiente
 
-- Validar la instalación y actualización de la beta `0.2.0-beta.4` en equipos representativos.
+- Validar la instalación y actualización de la beta `0.2.0-beta.5` en equipos representativos.
 - Producir un instalador por usuario que detecte versiones anteriores y preserve los datos del usuario.
 - Implementar actualizaciones de la aplicación completa con manifiesto firmado, verificación SHA-256, cierre controlado, reemplazo atómico y reversión.
 - Actualizar la aplicación y el modelo Whisper de forma independiente cuando el modelo no haya cambiado.
 - Firmar el ejecutable y el instalador.
-- Después del commit de preparación, reconstruir el ZIP y registrar su tamaño/SHA-256 finales, el SHA de preparación, el tag y la release beta 5. El layout preliminar de 495 archivos no sustituye esa reconstrucción ni convierte el candidato en publicación.
 - Exportar diagnósticos que protejan la privacidad, sin transcripciones, audio conservado, capturas, secretos ni claves de cifrado.
 - Eliminar los bloqueos intermitentes de SQLite en las pruebas antes de considerar que el conjunto de pruebas es completamente determinista.
 
@@ -125,7 +123,7 @@ Esto identifica a la persona que usa el micrófono configurado. No demuestra qui
 
 ## Etapa 7 — Fuente de reunión y atribución de hablantes
 
-**Estado: en curso.** La rebanada 7.1a asocia opcionalmente una ventana superior. La 7.2a agrega consentimiento por sesión y captura WGC efímera. La infraestructura fuente de 7.2b agrega un consentimiento adicional de un solo uso, sondeo agregado WGC/D3D11 acotado, evidencia cifrada de cobertura/actividad y presentación fail-closed en vivo/Historial. Después de beta 4 se agregó en fuente un evaluador no empaquetado con [corpus sintético agregado y golden canónico](evaluation/stage-7b/README.md); es una regresión determinista, no calibración física ni aceptación de producción. Los perfiles de producción Meet/Teams permanecen `Unvalidated`, no tienen política de detección y se abstienen: la evidencia aparece como **No disponible**. No existe identificación de hablantes.
+**Estado: en curso.** La rebanada 7.1a asocia opcionalmente una ventana superior. La 7.2a agrega consentimiento por sesión y captura WGC efímera. La infraestructura fuente de 7.2b agrega un consentimiento adicional de un solo uso, sondeo agregado WGC/D3D11 acotado, evidencia cifrada de cobertura/actividad y presentación fail-closed en vivo/Historial. Beta 5 publica la biblioteca compartida `VisualAnalysis`; el evaluador no empaquetado con [corpus sintético agregado y golden canónico](evaluation/stage-7b/README.md) permanece como herramienta de fuente. Es una regresión determinista, no calibración física ni aceptación de producción. Los perfiles de producción Meet/Teams permanecen `Unvalidated`, no tienen política de detección y se abstienen: la evidencia aparece como **No disponible**. No existe identificación de hablantes.
 
 ### Objetivo
 
@@ -156,7 +154,7 @@ Esta primera rebanada selecciona una **ventana superior**, no una pestaña indiv
 El trabajo se divide en rebanadas verificables:
 
 1. **7.2a:** incluida desde beta 3: HWND/PID revalidado, consentimiento separado, frame pool de dos buffers, ciclo de vida y descarte inmediato; faltan WGC físico, interfaz/lector de pantalla y prueba de dos horas.
-2. **7.2b:** infraestructura publicada en beta 4: consentimiento adicional de un solo uso, sondeo agregado D3D11 acotado, eventos derivados cifrados, correlación exclusiva con `SystemOutput` y presentación fail-closed. El código fuente posterior añade un evaluador de consola no empaquetado, corpus sintético agregado y verificación golden byte a byte, sin promover umbrales. Los perfiles de producción siguen `Unvalidated`; faltan calibración física, WGC/GPU/accesibilidad, Meet/Teams reales y pruebas de 2/5 horas.
+2. **7.2b:** infraestructura publicada en beta 5: consentimiento adicional de un solo uso, sondeo agregado D3D11 acotado, eventos derivados cifrados, correlación exclusiva con `SystemOutput` y presentación fail-closed. El código fuente incluye un evaluador de consola no empaquetado, corpus sintético agregado y verificación golden byte a byte, sin promover umbrales. Los perfiles de producción siguen `Unvalidated`; faltan calibración física, WGC/GPU/accesibilidad, Meet/Teams reales y pruebas de 2/5 horas.
 3. **7.2c:** adaptador versionado de Google Meet web mediante una extensión con permiso mínimo y WGC como respaldo.
 4. **7.2d:** adaptador de Microsoft Teams web/escritorio; extensión para web y WGC para escritorio/respaldo.
 5. **7.2e:** evaluación de precisión, accesibilidad, recursos y duración; aprobar 2 horas antes de intentar 5 horas.

@@ -67,13 +67,17 @@ Después de publicar, con Inno Setup 6 instalado:
 
 ## Disciplina de versiones y publicación
 
-Versión fuente candidata: **0.2.0-beta.5** (`VersionPrefix` 0.2.0 + `VersionSuffix` beta.5); versión de ensamblado/archivo: **0.2.0.0**. [Directory.Build.props](../Directory.Build.props) es la autoridad compartida de versión. El script de publicación, la definición del instalador y las [pruebas de versión](../tests/Trazio.AsistenteReunion.Tests/VersionMetadataTests.cs) también contienen comprobaciones; actualízalos juntos para una nueva versión. Este cambio de fuente no publica por sí solo una release: `v0.2.0-beta.4` continúa siendo la descarga pública vigente.
+Versión fuente publicada: **0.2.0-beta.5** (`VersionPrefix` 0.2.0 + `VersionSuffix` beta.5); versión de ensamblado/archivo: **0.2.0.0**. [Directory.Build.props](../Directory.Build.props) es la autoridad compartida de versión. El script de publicación, la definición del instalador y las [pruebas de versión](../tests/Trazio.AsistenteReunion.Tests/VersionMetadataTests.cs) también contienen comprobaciones; actualízalos juntos para una nueva versión.
 
 La beta 4 publicada completó `VersionMetadataTests` (4/4), `Area=VisualCapture` (132/132), el conjunto Release serial (371/371), el conjunto Release paralelo predeterminado (371/371) y la compilación (0 advertencias, 0 errores). También aprobaron el contrato de publicación, la prueba básica por canal con nombre y la comparación del layout (494/494 archivos byte a byte, 0 hallazgos prohibidos, 0 rutas fuente locales y 0 referencias CodeView). El tag `v0.2.0-beta.4` corresponde al commit `f871f20c3bf9e77b0cf9ad51134febb83c673de7`. El recurso remoto `Trazio-Asistente-Reunion-v0.2.0-beta.4-win-x64.zip` mide 86,823,005 bytes y su digest coincide exactamente con el ZIP local y el archivo lateral publicado: SHA-256 `c08d6d6df3d986d19773c6a0d3723c587c7449a37b3d1d29ef601a936768c0d6`.
 
-La verificación independiente del candidato beta 5 aprobó `VersionMetadataTests` **4/4**, `VisualEvaluation` **74/74**, `Area=VisualCapture` **206/206**, los conjuntos Release serial y paralelo **446/446**, compilación con **0 advertencias y 0 errores**, CLI `VE000 verified`, `publish` local y smoke IPC integrado/explícito. El layout preliminar coincidió **495/495** archivos byte a byte: `VisualAnalysis.dll` estaba presente y versionada; evaluador, corpus/golden y directorios `tools`/`evaluation` estaban ausentes; el manifiesto mantuvo cinco capacidades; hubo **0** hallazgos prohibidos, rutas fuente locales o referencias CodeView.
+La verificación independiente de beta 5 aprobó `VersionMetadataTests` **4/4**, `VisualEvaluation` **74/74**, `Area=VisualCapture` **206/206**, los conjuntos Release serial y paralelo **446/446**, compilación con **0 advertencias y 0 errores**, CLI `VE000 verified`, `publish` y smoke IPC integrado/explícito. El layout final coincidió **495/495** archivos byte a byte: `VisualAnalysis.dll` estaba presente y versionada; evaluador, corpus/golden y directorios `tools`/`evaluation` estaban ausentes; el manifiesto mantuvo cinco capacidades; hubo **0** hallazgos prohibidos, rutas fuente locales o referencias CodeView.
 
-Esta evidencia no es el cierre de publicación. Después del commit de preparación debe reconstruirse `Trazio-Asistente-Reunion-v0.2.0-beta.5-win-x64.zip`; su tamaño y SHA-256 finales, el SHA del commit de preparación, el tag y la release pública siguen pendientes y no deben inferirse desde el paquete preliminar.
+El tag `v0.2.0-beta.5` resuelve al commit de preparación `5f16631747dd7f7a7f68d49ba0ca9cbd659f2733`. La release es prerelease y no borrador. El recurso remoto `Trazio-Asistente-Reunion-v0.2.0-beta.5-win-x64.zip` mide **86,829,207 bytes** y su SHA-256 es `0031cab096013b7bb436221a75d874719cc1d47ed03ac4047000b4e3094ddbdf`; tamaño y digest coinciden con el ZIP verificado y el archivo lateral publicado.
+
+### Lista reutilizable para la próxima versión
+
+Estas casillas son un procedimiento para una versión futura; no representan tareas pendientes de la publicación beta 5 ya verificada.
 
 - [ ] Registrar commit, versión, evidencia de pruebas y límites de validación pendientes.
 - [ ] Publicar ambos ejecutables; verificar inferencia real antes de afirmar que un modelo funciona.
@@ -86,10 +90,10 @@ Esta evidencia no es el cierre de publicación. Después del commit de preparaci
 Ejemplo de suma de comprobación para un ZIP preparado:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\artifacts\Trazio-Asistente-Reunion-v0.2.0-beta.4-win-x64.zip
+Get-FileHash -Algorithm SHA256 .\artifacts\Trazio-Asistente-Reunion-v0.2.0-beta.5-win-x64.zip
 ```
 
-El recurso publicado es `Trazio-Asistente-Reunion-v0.2.0-beta.4-win-x64.zip` junto a `Trazio-Asistente-Reunion-v0.2.0-beta.4-win-x64.zip.sha256`. El ZIP mide 86,823,005 bytes y su SHA-256 es `c08d6d6df3d986d19773c6a0d3723c587c7449a37b3d1d29ef601a936768c0d6`; el tamaño y digest del recurso remoto coinciden exactamente. Este comando solo permite volver a comprobar un archivo local: no crea un ZIP ni una versión publicada. Publicar, firmar y enviar cambios requieren autorización explícita del mantenedor.
+El recurso publicado es `Trazio-Asistente-Reunion-v0.2.0-beta.5-win-x64.zip` junto a `Trazio-Asistente-Reunion-v0.2.0-beta.5-win-x64.zip.sha256`. El ZIP mide **86,829,207 bytes** y su SHA-256 es `0031cab096013b7bb436221a75d874719cc1d47ed03ac4047000b4e3094ddbdf`; el tamaño y digest del recurso remoto coinciden exactamente. Este comando solo permite volver a comprobar un archivo local: no crea un ZIP ni una versión publicada. Publicar, firmar y enviar cambios requieren autorización explícita del mantenedor.
 
 ## Límites de contribución
 

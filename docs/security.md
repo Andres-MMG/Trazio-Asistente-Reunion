@@ -65,7 +65,7 @@ Las futuras conexiones opcionales a LLM/Jev externos, plataforma/calendarios cam
 
 La existencia del código 7.2b no sustituye la validación física de WGC/GPU, accesibilidad, Meet/Teams reales ni las pruebas de 2/5 horas. Hasta completarla, los perfiles de producción permanecen `Unvalidated` y no deben habilitarse mediante configuración documental o de empaquetado.
 
-La versión pública actual continúa siendo `v0.2.0-beta.4`. El candidato local `0.2.0-beta.5` aprobó la verificación automatizada, `publish` local, smoke IPC y un layout preliminar **495/495**: `VisualAnalysis.dll` requerida, evaluador/corpus/golden/directorios de herramientas ausentes, cinco capacidades y cero hallazgos prohibidos, rutas locales o CodeView. Todavía debe reconstruirse el ZIP desde el commit de preparación; tamaño/SHA-256 finales, SHA de preparación, tag, firma y release pública siguen pendientes. Esta evidencia no cambia `Unvalidated`, **No disponible** ni la ausencia de identificación de hablantes.
+La versión pública actual es `v0.2.0-beta.5`. Su layout final **495/495** incluye `VisualAnalysis.dll` requerida/versionada y excluye evaluador, corpus/golden y directorios `tools`/`evaluation`; conserva cinco capacidades y cero hallazgos prohibidos, rutas locales o CodeView. El tag resuelve a `5f16631747dd7f7a7f68d49ba0ca9cbd659f2733`; el ZIP publicado mide **86,829,207 bytes** y su SHA-256 es `0031cab096013b7bb436221a75d874719cc1d47ed03ac4047000b4e3094ddbdf`, coincidente con GitHub y el archivo lateral. La firma sigue pendiente. Esta evidencia no cambia `Unvalidated`, **No disponible** ni la ausencia de identificación de hablantes.
 
 ## Retención, eliminación y límites ante fallos
 
