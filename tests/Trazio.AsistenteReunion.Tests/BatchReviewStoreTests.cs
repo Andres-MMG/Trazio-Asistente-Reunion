@@ -160,6 +160,102 @@ public sealed class BatchReviewStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ApproveOriginalSegments_BatchAppliesEveryDecisionAtomically()
+    {
+        var session = await CreateSessionAsync("Batch review", DateTimeOffset.UtcNow);
+        var first = await CreateSegmentAsync(session, "first original", 0, TimeSpan.Zero);
+        var second = await CreateSegmentAsync(session, "second original", 1, TimeSpan.FromSeconds(1));
+
+        var result = await _store.ApproveOriginalSegmentsAsync(
+            [
+                new(session.Id, first.Id, 0),
+                new(session.Id, second.Id, 0)
+            ],
+            "Private Reviewer");
+
+        Assert.Equal(BatchSegmentReviewWriteStatus.Applied, result.Status);
+        Assert.Equal(2, result.Decisions.Count);
+        Assert.Empty(result.Conflicts);
+        Assert.Empty((await _store.ListPendingSegmentReviewsAsync()).Items);
+        Assert.Single(await _store.GetSegmentReviewDecisionsAsync(first.Id));
+        Assert.Single(await _store.GetSegmentReviewDecisionsAsync(second.Id));
+        var raw = Encoding.UTF8.GetString(await File.ReadAllBytesAsync(DatabasePath));
+        Assert.DoesNotContain("Private Reviewer", raw, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ApproveOriginalSegments_AnyConflictRollsBackEveryDecision()
+    {
+        var session = await CreateSessionAsync("Batch review", DateTimeOffset.UtcNow);
+        var first = await CreateSegmentAsync(session, "first original", 0, TimeSpan.Zero);
+        var stale = await CreateSegmentAsync(session, "stale original", 1, TimeSpan.FromSeconds(1));
+        await _store.ApproveOriginalSegmentAsync(session.Id, stale.Id, 0, "Andrea");
+
+        var result = await _store.ApproveOriginalSegmentsAsync(
+            [
+                new(session.Id, first.Id, 0),
+                new(session.Id, stale.Id, 0)
+            ],
+            "Andrea");
+
+        Assert.Equal(BatchSegmentReviewWriteStatus.Conflict, result.Status);
+        Assert.Empty(result.Decisions);
+        var conflict = Assert.Single(result.Conflicts);
+        Assert.Equal(stale.Id, conflict.Request.SegmentId);
+        Assert.Equal(SegmentReviewWriteStatus.AlreadyCurrent, conflict.Status);
+        Assert.Empty(await _store.GetSegmentReviewDecisionsAsync(first.Id));
+        Assert.Single(await _store.GetSegmentReviewDecisionsAsync(stale.Id));
+        Assert.Contains(
+            (await _store.ListPendingSegmentReviewsAsync()).Items,
+            item => item.SegmentId == first.Id);
+    }
+
+    [Fact]
+    public async Task ApproveOriginalSegments_RejectsEmptyDuplicateAndOversizedSelections()
+    {
+        var session = await CreateSessionAsync("Batch review", DateTimeOffset.UtcNow);
+        var segment = await CreateSegmentAsync(session, "original", 0, TimeSpan.Zero);
+        var request = new SegmentReviewApprovalRequest(session.Id, segment.Id, 0);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            _store.ApproveOriginalSegmentsAsync([], "Andrea"));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            _store.ApproveOriginalSegmentsAsync([request, request], "Andrea"));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            _store.ApproveOriginalSegmentsAsync(
+                Enumerable.Range(0, PendingSegmentReviewLimits.MaximumVisibleItems + 1)
+                    .Select(index => new SegmentReviewApprovalRequest(session.Id, $"segment-{index}", 0))
+                    .ToArray(),
+                "Andrea"));
+    }
+    [Fact]
+    public async Task ConcurrentBatchAndSingleApproval_NeverLeaveAPartialBatch()
+    {
+        var session = await CreateSessionAsync("Concurrent batch", DateTimeOffset.UtcNow);
+        var first = await CreateSegmentAsync(session, "first", 0, TimeSpan.Zero);
+        var second = await CreateSegmentAsync(session, "second", 1, TimeSpan.FromSeconds(1));
+        var secondStore = new SqliteSessionStore(DatabasePath, _protector);
+
+        var batchTask = _store.ApproveOriginalSegmentsAsync(
+            [new(session.Id, first.Id, 0), new(session.Id, second.Id, 0)],
+            "Andrea");
+        var singleTask = secondStore.ApproveOriginalSegmentAsync(
+            session.Id,
+            second.Id,
+            0,
+            "Andrea");
+        await Task.WhenAll(batchTask, singleTask);
+
+        var batch = await batchTask;
+        var firstDecisions = await _store.GetSegmentReviewDecisionsAsync(first.Id);
+        var secondDecisions = await _store.GetSegmentReviewDecisionsAsync(second.Id);
+        Assert.Single(secondDecisions);
+        if (batch.Status == BatchSegmentReviewWriteStatus.Applied)
+            Assert.Single(firstDecisions);
+        else
+            Assert.Empty(firstDecisions);
+    }
+    [Fact]
     public async Task ListPendingReviews_CancellationAndCorruptionFailClosed()
     {
         var session = await CreateSessionAsync("Review", DateTimeOffset.UtcNow);

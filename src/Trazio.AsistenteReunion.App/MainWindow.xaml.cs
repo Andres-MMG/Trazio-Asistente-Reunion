@@ -1586,6 +1586,118 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         UpdatePendingReviewControls();
     }
 
+    private void PendingReviewBatchCheckbox_PreviewMouseLeftButtonDown(
+        object sender,
+        MouseButtonEventArgs e)
+    {
+        if (sender is not CheckBox checkBox || !checkBox.IsEnabled) return;
+        checkBox.IsChecked = checkBox.IsChecked != true;
+        e.Handled = true;
+    }
+
+    private void PendingReviewBatchSelectionChanged(object sender, RoutedEventArgs e) =>
+        UpdatePendingReviewControls();
+
+    private async void ApproveSelectedPendingReviews_Click(object sender, RoutedEventArgs e) =>
+        await ApproveSelectedPendingReviewsAsync();
+
+    private async Task ApproveSelectedPendingReviewsAsync()
+    {
+        if (_store is null || !_initialized || _closing || _historyDeleteInProgress ||
+            _pendingReviewOperation.IsRunning || HasUnsavedCorrectionDraft())
+            return;
+
+        var selectedRows = _pendingReviewRows.Where(item => item.IsBatchSelected).ToArray();
+        var selection = PendingReviewBatchSelectionPresenter.Create(selectedRows, canInteract: true);
+        if (!selection.CanApprove) return;
+
+        var preview = string.Join(
+            Environment.NewLine,
+            selectedRows.Take(5).Select(item => $"• {item.MeetingTitle} · {item.Details}{Environment.NewLine}  {item.Snippet}"));
+        if (selectedRows.Length > 5)
+            preview += $"{Environment.NewLine}• … y {selectedRows.Length - 5} segmento(s) más";
+        var confirmation = MessageBox.Show(
+            this,
+            $"Se marcarán {selection.SelectedCount} texto(s) original(es) como revisado(s):{Environment.NewLine}{Environment.NewLine}" +
+            preview +
+            $"{Environment.NewLine}{Environment.NewLine}Esta acción no corrige texto ni modifica audio. " +
+            "La operación es atómica: si un segmento cambió, no se aprobará ninguno. " +
+            "Después puedes reabrir cada segmento individualmente.",
+            "Confirmar aprobación múltiple",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (confirmation != MessageBoxResult.Yes) return;
+
+        var reviewer = string.IsNullOrWhiteSpace(_settings.LocalDisplayName)
+            ? Environment.UserName
+            : _settings.LocalDisplayName;
+        if (string.IsNullOrWhiteSpace(reviewer)) reviewer = "Usuario local";
+
+        OwnedCancellationOperationCoordinator.Operation operation;
+        await _pendingReviewTransition.WaitAsync(_lifetime.Token);
+        try
+        {
+            _pendingReviewLoads.Invalidate();
+            await _pendingReviewOperation.CancelAndWaitAsync();
+            if (_closing || _historyDeleteInProgress) return;
+            if (!_pendingReviewOperation.TryBegin([_lifetime.Token], out operation)) return;
+        }
+        finally
+        {
+            _pendingReviewTransition.Release();
+        }
+
+        PendingReviewStatusText.Text =
+            $"Guardando la revisión de {selection.SelectedCount} segmento(s)…";
+        UpdatePendingReviewControls();
+
+        BatchSegmentReviewWriteResult? result = null;
+        var canPublish = false;
+        try
+        {
+            result = await PendingReviewQueryDispatcher.RunAsync(
+                cancellationToken => _store.ApproveOriginalSegmentsAsync(
+                    selection.Requests,
+                    reviewer,
+                    cancellationToken),
+                operation.CancellationToken);
+            canPublish = _pendingReviewOperation.IsCurrent(operation) &&
+                !_closing &&
+                !_historyDeleteInProgress;
+        }
+        catch (OperationCanceledException) when (!_pendingReviewOperation.IsCurrent(operation)) { }
+        catch (Exception ex)
+        {
+            if (_pendingReviewOperation.IsCurrent(operation))
+            {
+                PendingReviewStatusText.Text =
+                    "No se pudo guardar la aprobación múltiple. No se modificó ningún segmento.";
+                ShowError("No se pudo guardar la revisión múltiple", ex.Message);
+            }
+        }
+        finally
+        {
+            _pendingReviewOperation.Complete(operation);
+            UpdatePendingReviewControls();
+        }
+
+        if (!canPublish || result is null) return;
+        await LoadPendingReviewsAsync();
+        if (result.Status == BatchSegmentReviewWriteStatus.Applied)
+        {
+            var message =
+                $"{result.Decisions.Count} texto(s) original(es) marcado(s) como revisado(s); no se creó ninguna corrección.";
+            PendingReviewStatusText.Text = message;
+            StatusText.Text = message;
+        }
+        else
+        {
+            var message =
+                $"{result.Conflicts.Count} segmento(s) cambiaron antes de confirmar. No se aprobó ninguno; la lista se actualizó.";
+            PendingReviewStatusText.Text = message;
+            StatusText.Text = message;
+        }
+    }
     private async void PendingReviewList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressPendingReviewSelectionChanged ||
@@ -3981,11 +4093,19 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
 
     private void UpdatePendingReviewControls()
     {
-        if (RefreshPendingReviewsButton is null || PendingReviewList is null) return;
+        if (RefreshPendingReviewsButton is null ||
+            ApproveSelectedPendingReviewsButton is null ||
+            PendingReviewList is null)
+            return;
         var canInteract = _initialized && !_closing && !_historyDeleteInProgress &&
                           !_pendingReviewOperation.IsRunning && !HasUnsavedCorrectionDraft();
+        var selection = PendingReviewBatchSelectionPresenter.Create(
+            _pendingReviewRows,
+            canInteract);
         RefreshPendingReviewsButton.IsEnabled = canInteract;
         PendingReviewList.IsEnabled = canInteract;
+        ApproveSelectedPendingReviewsButton.Content = selection.ButtonLabel;
+        ApproveSelectedPendingReviewsButton.IsEnabled = selection.CanApprove;
     }
     private async void Window_Closing(object? sender, CancelEventArgs e)
     {

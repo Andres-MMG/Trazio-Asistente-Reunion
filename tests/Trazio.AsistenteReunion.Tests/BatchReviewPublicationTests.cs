@@ -84,6 +84,59 @@ public sealed class BatchReviewPublicationTests
     }
 
     [Fact]
+    public void BatchApproval_IsIndependentConfirmedAtomicAndNeverCreatesCorrections()
+    {
+        var root = FindRepositoryRoot();
+        var xaml = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "Trazio.AsistenteReunion.App",
+            "MainWindow.xaml"));
+        var code = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "Trazio.AsistenteReunion.App",
+            "MainWindow.xaml.cs"));
+        var store = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "Trazio.AsistenteReunion.Core",
+            "SqliteBatchReviewStore.cs"));
+
+        Assert.Contains("x:Name=\"ApproveSelectedPendingReviewsButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsChecked=\"{Binding IsBatchSelected, Mode=TwoWay", xaml, StringComparison.Ordinal);
+        Assert.Contains("PreviewMouseLeftButtonDown=\"PendingReviewBatchCheckbox_PreviewMouseLeftButtonDown\"", xaml, StringComparison.Ordinal);
+
+        var action = Slice(
+            code,
+            "private async Task ApproveSelectedPendingReviewsAsync",
+            "private async void PendingReviewList_SelectionChanged");
+        AssertOrdered(
+            action,
+            "MessageBox.Show(",
+            "if (confirmation != MessageBoxResult.Yes) return;",
+            "ApproveOriginalSegmentsAsync(",
+            "_pendingReviewOperation.Complete(operation);",
+            "await LoadPendingReviewsAsync();");
+        Assert.Contains("La operación es atómica", action, StringComparison.Ordinal);
+        Assert.DoesNotContain("SaveCorrectionAsync", action, StringComparison.Ordinal);
+        Assert.DoesNotContain("AddGlossary", action, StringComparison.Ordinal);
+
+        var storage = Slice(
+            store,
+            "public async Task<BatchSegmentReviewWriteResult> ApproveOriginalSegmentsAsync",
+            "public async Task<IReadOnlyList<SegmentReviewDecision>> GetSegmentReviewDecisionsAsync");
+        AssertOrdered(
+            storage,
+            "BeginTransaction(deferred: false)",
+            "if (conflicts.Count > 0)",
+            "RollbackAsync",
+            "var decisions = new List<SegmentReviewDecision>",
+            "CommitAsync");
+        Assert.Contains("SegmentReviewDecisionAction.ApproveOriginal", storage, StringComparison.Ordinal);
+        Assert.DoesNotContain("transcript_corrections(", storage, StringComparison.Ordinal);
+    }
+    [Fact]
     public void PendingReview_IsLocalBoundedAndDoesNotAddCapabilityOrAutomaticIntelligence()
     {
         var root = FindRepositoryRoot();

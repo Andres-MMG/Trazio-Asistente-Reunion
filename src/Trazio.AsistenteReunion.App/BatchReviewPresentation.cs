@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using Trazio.AsistenteReunion.Core;
 
 namespace Trazio.AsistenteReunion.App;
@@ -8,8 +10,23 @@ public sealed record PendingReviewItem(
     string Details,
     string Snippet,
     string StateLabel,
-    string AutomationName)
+    string AutomationName) : INotifyPropertyChanged
 {
+    private bool _isBatchSelected;
+
+    public bool IsBatchSelected
+    {
+        get => _isBatchSelected;
+        set
+        {
+            if (_isBatchSelected == value) return;
+            _isBatchSelected = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
     public static PendingReviewItem From(
         PendingSegmentReview pending,
         TimeZoneInfo? timeZone = null)
@@ -33,6 +50,45 @@ public sealed record PendingReviewItem(
             snippet,
             state,
             $"{pending.SessionTitle}. {details}. {state}. {pending.Text}");
+    }
+
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+}
+
+public sealed record PendingReviewBatchSelectionState(
+    int SelectedCount,
+    bool CanApprove,
+    string ButtonLabel,
+    IReadOnlyList<SegmentReviewApprovalRequest> Requests);
+
+public static class PendingReviewBatchSelectionPresenter
+{
+    public const string DefaultButtonLabel = "Marcar seleccionados como revisados";
+
+    public static PendingReviewBatchSelectionState Create(
+        IEnumerable<PendingReviewItem> items,
+        bool canInteract)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        var selected = items.Where(item => item.IsBatchSelected).ToArray();
+        var requests = selected
+            .Select(item => new SegmentReviewApprovalRequest(
+                item.Pending.SessionId,
+                item.Pending.SegmentId,
+                item.Pending.ExpectedDecisionRevision))
+            .ToArray();
+        var label = requests.Length switch
+        {
+            0 => DefaultButtonLabel,
+            1 => "Marcar 1 original como revisado",
+            _ => $"Marcar {requests.Length} originales como revisados"
+        };
+        return new(
+            requests.Length,
+            canInteract && requests.Length > 0,
+            label,
+            requests);
     }
 }
 

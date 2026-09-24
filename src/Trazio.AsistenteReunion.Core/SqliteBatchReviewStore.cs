@@ -143,6 +143,138 @@ public sealed partial class SqliteSessionStore
             SegmentReviewDecisionAction.Reopen,
             cancellationToken);
 
+    public async Task<BatchSegmentReviewWriteResult> ApproveOriginalSegmentsAsync(
+        IReadOnlyList<SegmentReviewApprovalRequest> requests,
+        string reviewerName,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(requests);
+        if (requests.Count == 0)
+            throw new ArgumentException("Selecciona al menos un segmento.", nameof(requests));
+        if (requests.Count > PendingSegmentReviewLimits.MaximumVisibleItems)
+            throw new ArgumentOutOfRangeException(
+                nameof(requests),
+                $"No se pueden aprobar más de {PendingSegmentReviewLimits.MaximumVisibleItems} segmentos a la vez.");
+        if (string.IsNullOrWhiteSpace(reviewerName))
+            throw new ArgumentException("Se requiere el nombre del revisor local.", nameof(reviewerName));
+
+        foreach (var request in requests)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(request.SessionId);
+            ArgumentException.ThrowIfNullOrWhiteSpace(request.SegmentId);
+            if (request.ExpectedDecisionRevision < 0)
+                throw new ArgumentOutOfRangeException(nameof(requests));
+        }
+        if (requests.Select(request => request.SegmentId).Distinct(StringComparer.Ordinal).Count() != requests.Count)
+            throw new ArgumentException("La selección contiene segmentos duplicados.", nameof(requests));
+
+        var normalizedReviewer = reviewerName.Trim();
+        var conflicts = new List<BatchSegmentReviewConflict>();
+        var states = new List<(SegmentReviewApprovalRequest Request, string SessionId, int Revision)>();
+
+        await using var connection = await OpenAsync(cancellationToken);
+        await using var transaction = connection.BeginTransaction(deferred: false);
+        foreach (var request in requests)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await using var lookup = connection.CreateCommand();
+            lookup.Transaction = transaction;
+            lookup.CommandText = """
+                SELECT segment.session_id,session.state,
+                       EXISTS(SELECT 1 FROM transcript_corrections correction WHERE correction.segment_id=segment.id),
+                       COALESCE((
+                           SELECT decision.revision
+                           FROM segment_review_decisions decision
+                           WHERE decision.segment_id=segment.id
+                           ORDER BY decision.revision DESC
+                           LIMIT 1
+                       ),0),
+                       (
+                           SELECT decision.action
+                           FROM segment_review_decisions decision
+                           WHERE decision.segment_id=segment.id
+                           ORDER BY decision.revision DESC
+                           LIMIT 1
+                       )
+                FROM segments segment
+                INNER JOIN sessions session ON session.id=segment.session_id
+                WHERE segment.id=$segment AND segment.session_id=$session
+                """;
+            lookup.Parameters.AddWithValue("$segment", request.SegmentId);
+            lookup.Parameters.AddWithValue("$session", request.SessionId);
+            await using var reader = await lookup.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                conflicts.Add(new(request, SegmentReviewWriteStatus.Missing, 0));
+                continue;
+            }
+
+            var storedSessionId = reader.GetString(0);
+            var sessionState = (SessionState)reader.GetInt32(1);
+            var hasCorrections = reader.GetInt32(2) != 0;
+            var currentRevision = reader.GetInt32(3);
+            var currentAction = reader.IsDBNull(4)
+                ? null
+                : (SegmentReviewDecisionAction?)ReadSegmentReviewAction(reader.GetInt32(4));
+
+            var status = sessionState is not (SessionState.Completed or SessionState.Interrupted) || hasCorrections
+                ? SegmentReviewWriteStatus.StateChanged
+                : currentAction == SegmentReviewDecisionAction.ApproveOriginal
+                    ? SegmentReviewWriteStatus.AlreadyCurrent
+                    : currentRevision != request.ExpectedDecisionRevision
+                        ? SegmentReviewWriteStatus.StateChanged
+                        : SegmentReviewWriteStatus.Applied;
+            if (status != SegmentReviewWriteStatus.Applied)
+                conflicts.Add(new(request, status, currentRevision));
+            else
+                states.Add((request, storedSessionId, currentRevision));
+        }
+
+        if (conflicts.Count > 0)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return new(BatchSegmentReviewWriteStatus.Conflict, [], conflicts);
+        }
+
+        var decisions = new List<SegmentReviewDecision>(states.Count);
+        foreach (var state in states)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var decision = new SegmentReviewDecision(
+                Guid.NewGuid().ToString("N"),
+                state.Request.SegmentId,
+                state.SessionId,
+                state.Revision + 1,
+                SegmentReviewDecisionAction.ApproveOriginal,
+                normalizedReviewer,
+                DateTimeOffset.UtcNow);
+            var reviewer = protector.Protect(
+                Encoding.UTF8.GetBytes(decision.ReviewerName),
+                $"segment-review:{decision.Id}:reviewer");
+            await using var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText = """
+                INSERT INTO segment_review_decisions(
+                  id,segment_id,session_id,revision,action,
+                  reviewer_nonce,reviewer_cipher,reviewer_tag,created_at)
+                VALUES($id,$segment,$session,$revision,$action,$rn,$rc,$rt,$created)
+                """;
+            insert.Parameters.AddWithValue("$id", decision.Id);
+            insert.Parameters.AddWithValue("$segment", decision.SegmentId);
+            insert.Parameters.AddWithValue("$session", decision.SessionId);
+            insert.Parameters.AddWithValue("$revision", decision.Revision);
+            insert.Parameters.AddWithValue("$action", (int)decision.Action);
+            insert.Parameters.AddWithValue("$rn", reviewer.Nonce);
+            insert.Parameters.AddWithValue("$rc", reviewer.Ciphertext);
+            insert.Parameters.AddWithValue("$rt", reviewer.Tag);
+            insert.Parameters.AddWithValue("$created", decision.CreatedAt.ToString("O"));
+            await insert.ExecuteNonQueryAsync(cancellationToken);
+            decisions.Add(decision);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return new(BatchSegmentReviewWriteStatus.Applied, decisions, []);
+    }
     public async Task<IReadOnlyList<SegmentReviewDecision>> GetSegmentReviewDecisionsAsync(
         string segmentId,
         CancellationToken cancellationToken = default)

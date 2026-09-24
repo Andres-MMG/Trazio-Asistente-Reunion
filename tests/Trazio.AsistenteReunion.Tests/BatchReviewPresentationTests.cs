@@ -99,6 +99,38 @@ public sealed class BatchReviewPresentationTests
     }
 
     [Fact]
+    public void BatchSelection_UsesIndependentChecksAndCreatesStableRequests()
+    {
+        var first = PendingReviewItem.From(Pending("first", 0), TimeZoneInfo.Utc);
+        var second = PendingReviewItem.From(Pending("second", 3), TimeZoneInfo.Utc);
+        first.IsBatchSelected = true;
+
+        var state = PendingReviewBatchSelectionPresenter.Create([first, second], canInteract: true);
+
+        Assert.Equal(1, state.SelectedCount);
+        Assert.True(state.CanApprove);
+        Assert.Equal("Marcar 1 original como revisado", state.ButtonLabel);
+        var request = Assert.Single(state.Requests);
+        Assert.Equal("first", request.SegmentId);
+        Assert.Equal(0, request.ExpectedDecisionRevision);
+        Assert.False(second.IsBatchSelected);
+    }
+
+    [Fact]
+    public void BatchSelection_DisablesWriteWhenBusyOrNoRowsAreChecked()
+    {
+        var item = PendingReviewItem.From(Pending("segment", 0), TimeZoneInfo.Utc);
+
+        var empty = PendingReviewBatchSelectionPresenter.Create([item], canInteract: true);
+        item.IsBatchSelected = true;
+        var busy = PendingReviewBatchSelectionPresenter.Create([item], canInteract: false);
+
+        Assert.False(empty.CanApprove);
+        Assert.Equal("Marcar seleccionados como revisados", empty.ButtonLabel);
+        Assert.False(busy.CanApprove);
+        Assert.Equal(1, busy.SelectedCount);
+    }
+    [Fact]
     public void ReviewActions_OnlyAllowOriginalApprovalOrReopeningWithoutCorrectionHistory()
     {
         var segment = Segment();
@@ -367,4 +399,16 @@ public sealed class BatchReviewPresentationTests
         TimeSpan.FromSeconds(1),
         "original",
         StartedAt);
-}
+
+    private static PendingSegmentReview Pending(string segmentId, int revision) => new(
+        "session",
+        segmentId,
+        "Meeting",
+        StartedAt,
+        AudioSourceKind.SystemOutput,
+        0,
+        TimeSpan.Zero,
+        TimeSpan.FromSeconds(1),
+        "texto",
+        null,
+        revision);}

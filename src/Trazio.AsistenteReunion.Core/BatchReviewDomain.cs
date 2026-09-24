@@ -28,6 +28,26 @@ public sealed record SegmentReviewWriteResult(
     int CurrentRevision,
     SegmentReviewDecision? Decision = null);
 
+public enum BatchSegmentReviewWriteStatus
+{
+    Applied,
+    Conflict
+}
+
+public sealed record SegmentReviewApprovalRequest(
+    string SessionId,
+    string SegmentId,
+    int ExpectedDecisionRevision);
+
+public sealed record BatchSegmentReviewConflict(
+    SegmentReviewApprovalRequest Request,
+    SegmentReviewWriteStatus Status,
+    int CurrentRevision);
+
+public sealed record BatchSegmentReviewWriteResult(
+    BatchSegmentReviewWriteStatus Status,
+    IReadOnlyList<SegmentReviewDecision> Decisions,
+    IReadOnlyList<BatchSegmentReviewConflict> Conflicts);
 public sealed record PendingSegmentReview(
     string SessionId,
     string SegmentId,
