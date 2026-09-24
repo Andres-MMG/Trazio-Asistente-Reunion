@@ -195,6 +195,22 @@ public sealed partial class SqliteSessionStore
         return result;
     }
 
+    public async Task<bool> SetGlossaryEntryActiveAsync(
+        string id,
+        bool isActive,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            throw new ArgumentException("Se requiere el identificador de la entrada del diccionario.", nameof(id));
+
+        await using var connection = await OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE glossary_entries SET is_active=$active WHERE id=$id";
+        command.Parameters.AddWithValue("$active", isActive ? 1 : 0);
+        command.Parameters.AddWithValue("$id", id);
+        return await command.ExecuteNonQueryAsync(cancellationToken) == 1;
+    }
+
     private async Task<TranscriptCorrection> AppendCorrectionAsync(
         string segmentId,
         CorrectionAction action,

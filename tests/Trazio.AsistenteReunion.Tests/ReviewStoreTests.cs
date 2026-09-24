@@ -65,6 +65,97 @@ public sealed class ReviewStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SetGlossaryEntryActive_ExistingEntryPersistsAcrossReopenAndOnlyChangesActivity()
+    {
+        var segment = await CreateSegmentAsync("Need original");
+        var correction = await _store.SaveCorrectionAsync(segment.Id, "Meet corrected", "Andrea");
+        var entry = await _store.AddGlossaryEntryAsync("Meet", "Need", "Producto", true, correction.Id);
+        var before = await ReadRawGlossaryAsync(entry.Id);
+
+        Assert.True(await _store.SetGlossaryEntryActiveAsync(entry.Id, false));
+        var reopened = new SqliteSessionStore(DatabasePath, _protector);
+        var inactive = Assert.Single(await reopened.ListGlossaryAsync());
+        var after = await ReadRawGlossaryAsync(entry.Id);
+
+        Assert.False(inactive.IsActive);
+        Assert.Equal(entry with { IsActive = false }, inactive);
+        Assert.Equal(before.Payload, after.Payload);
+        Assert.Equal(before.SourceCorrectionId, after.SourceCorrectionId);
+        Assert.Equal(before.CreatedAt, after.CreatedAt);
+
+        Assert.True(await reopened.SetGlossaryEntryActiveAsync(entry.Id, true));
+        Assert.True(Assert.Single(await _store.ListGlossaryAsync()).IsActive);
+    }
+
+    [Fact]
+    public async Task SetGlossaryEntryActive_MissingEntryReturnsFalseWithoutChangingExistingEntry()
+    {
+        var segment = await CreateSegmentAsync("Need original");
+        var correction = await _store.SaveCorrectionAsync(segment.Id, "Meet corrected", "Andrea");
+        var entry = await _store.AddGlossaryEntryAsync("Meet", "Need", "Producto", true, correction.Id);
+
+        var changed = await _store.SetGlossaryEntryActiveAsync("missing-entry", false);
+
+        Assert.False(changed);
+        Assert.True(Assert.Single(await _store.ListGlossaryAsync()).IsActive);
+        await Assert.ThrowsAsync<ArgumentException>(() => _store.SetGlossaryEntryActiveAsync(" ", false));
+        Assert.Equal(entry, Assert.Single(await _store.ListGlossaryAsync()));
+    }
+
+    [Fact]
+    public async Task SetGlossaryEntryActive_LegacyDuplicatesRemainIndependent()
+    {
+        var firstSegment = await CreateSegmentAsync("Need first");
+        var firstCorrection = await _store.SaveCorrectionAsync(firstSegment.Id, "Meet first", "Andrea");
+        var first = await _store.AddGlossaryEntryAsync("Meet", "Need", "Producto", true, firstCorrection.Id);
+        var secondSegment = await CreateSegmentAsync("Need second");
+        var secondCorrection = await _store.SaveCorrectionAsync(secondSegment.Id, "Meet second", "Andrea");
+        var second = await _store.AddGlossaryEntryAsync("Meet", "Need", "Producto", true, secondCorrection.Id);
+
+        Assert.True(await _store.SetGlossaryEntryActiveAsync(first.Id, false));
+        var entries = await _store.ListGlossaryAsync();
+
+        Assert.False(entries.Single(item => item.Id == first.Id).IsActive);
+        Assert.True(entries.Single(item => item.Id == second.Id).IsActive);
+    }
+
+    [Fact]
+    public async Task GlossaryEntry_UndoPreservesEntryAndDeletingSourceSessionCascadesIt()
+    {
+        var segment = await CreateSegmentAsync("Need original");
+        var correction = await _store.SaveCorrectionAsync(segment.Id, "Meet corrected", "Andrea");
+        var entry = await _store.AddGlossaryEntryAsync("Meet", "Need", "Producto", true, correction.Id);
+
+        await _store.UndoCorrectionAsync(segment.Id, "Andrea");
+        Assert.Equal(entry, Assert.Single(await _store.ListGlossaryAsync()));
+
+        await _store.DeleteSessionAsync(segment.SessionId);
+        Assert.Empty(await _store.ListGlossaryAsync());
+    }
+
+    [Fact]
+    public async Task ListGlossary_CorruptedEntryAbortsCompleteLoad()
+    {
+        var firstSegment = await CreateSegmentAsync("Need first");
+        var firstCorrection = await _store.SaveCorrectionAsync(firstSegment.Id, "Meet first", "Andrea");
+        await _store.AddGlossaryEntryAsync("Meet", "Need", "Producto", true, firstCorrection.Id);
+        var secondSegment = await CreateSegmentAsync("Need second");
+        var secondCorrection = await _store.SaveCorrectionAsync(secondSegment.Id, "Meet second", "Andrea");
+        var second = await _store.AddGlossaryEntryAsync("Meet", "Need", "Producto", false, secondCorrection.Id);
+
+        await using (var connection = new SqliteConnection($"Data Source={DatabasePath};Pooling=False"))
+        {
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = "UPDATE glossary_entries SET preferred_cipher=zeroblob(length(preferred_cipher)) WHERE id=$id";
+            command.Parameters.AddWithValue("$id", second.Id);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        await Assert.ThrowsAnyAsync<CryptographicException>(() => _store.ListGlossaryAsync());
+    }
+
+    [Fact]
     public async Task ReviewedOldRecord_WithoutCorrections_UsesOriginalTextAndSpeaker()
     {
         var segment = await CreateSegmentAsync("legacy", "Andrea");
@@ -148,4 +239,30 @@ public sealed class ReviewStoreTests : IAsyncLifetime
         await _store.SaveSegmentAsync(segment);
         return segment;
     }
+
+    private async Task<RawGlossaryRow> ReadRawGlossaryAsync(string id)
+    {
+        await using var connection = new SqliteConnection($"Data Source={DatabasePath};Pooling=False");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT preferred_nonce,preferred_cipher,preferred_tag,
+                   mistaken_nonce,mistaken_cipher,mistaken_tag,
+                   category_nonce,category_cipher,category_tag,
+                   source_correction_id,created_at
+            FROM glossary_entries WHERE id=$id
+            """;
+        command.Parameters.AddWithValue("$id", id);
+        await using var reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        var payload = Enumerable.Range(0, 9)
+            .Select(index => Convert.ToHexString((byte[])reader.GetValue(index)))
+            .ToArray();
+        return new(payload, reader.GetString(9), reader.GetString(10));
+    }
+
+    private sealed record RawGlossaryRow(
+        IReadOnlyList<string> Payload,
+        string SourceCorrectionId,
+        string CreatedAt);
 }
