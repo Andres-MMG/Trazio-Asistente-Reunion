@@ -455,6 +455,7 @@
                                                                    automation:AutomationProperties.Name="{Binding VisualEvidence.AutomationName}"
                                                                    automation:AutomationProperties.HelpText="{Binding VisualEvidence.HelpText}"/>
                                                         <TextBlock Text="{Binding RevisionLabel}" Foreground="#6B7280" FontSize="11"/>
+                                                        <TextBlock Text="{Binding AnnotationSummary}" Foreground="#7A4A00" FontSize="11" FontWeight="SemiBold"/>
                                                     </StackPanel>
                                                     </DockPanel>
                                                 </Border>
@@ -495,6 +496,56 @@
                                                 <Button x:Name="UndoCorrectionButton" Content="Deshacer corrección" Click="UndoCorrection_Click" IsEnabled="False"
                                                         automation:AutomationProperties.Name="Deshacer la corrección activa"/>
                                             </WrapPanel>
+                                        </Expander>
+                                        <Expander Header="Notas y seguimiento" IsExpanded="True" Margin="0,8,0,0"
+                                                  automation:AutomationProperties.Name="Anotaciones del segmento seleccionado">
+                                            <Border Background="#F8FAFC" BorderBrush="#DDE2EA" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,5,0,0">
+                                                <StackPanel>
+                                                    <DockPanel LastChildFill="False">
+                                                        <StackPanel DockPanel.Dock="Left">
+                                                            <TextBlock Text="Anotaciones vinculadas a este fragmento" FontWeight="SemiBold"/>
+                                                            <TextBlock x:Name="SegmentAnnotationsStatusText" Text="Selecciona un segmento." Foreground="#556070" TextWrapping="Wrap" Margin="0,2,10,0"
+                                                                       automation:AutomationProperties.LiveSetting="Polite"/>
+                                                        </StackPanel>
+                                                        <Button x:Name="AddSegmentAnnotationButton" DockPanel.Dock="Right" Content="Agregar nota o seguimiento…"
+                                                                Click="AddSegmentAnnotation_Click" IsEnabled="False" VerticalAlignment="Top"
+                                                                automation:AutomationProperties.Name="Agregar una anotación al segmento seleccionado"/>
+                                                    </DockPanel>
+                                                    <ItemsControl x:Name="SegmentAnnotationsList" Margin="0,8,0,0"
+                                                                  automation:AutomationProperties.Name="Anotaciones del segmento seleccionado">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate DataType="{x:Type local:SegmentAnnotationItem}">
+                                                                <Border BorderBrush="#DDE2EA" BorderThickness="1" CornerRadius="4" Padding="8" Margin="0,0,0,6"
+                                                                        automation:AutomationProperties.Name="{Binding AutomationName}">
+                                                                    <DockPanel>
+                                                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="12,0,0,0">
+                                                                            <Button Content="{Binding ToggleStatusLabel}" Click="ToggleSegmentAnnotationStatus_Click" Margin="0,0,6,0">
+                                                                                <Button.Style>
+                                                                                    <Style TargetType="Button">
+                                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding CanToggleStatus}" Value="False"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </Button.Style>
+                                                                            </Button>
+                                                                            <Button Content="Eliminar" Click="DeleteSegmentAnnotation_Click" Foreground="#A12626"/>
+                                                                        </StackPanel>
+                                                                        <StackPanel>
+                                                                            <WrapPanel>
+                                                                                <TextBlock Text="{Binding KindLabel}" Foreground="#246BCE" FontWeight="SemiBold" Margin="0,0,10,0"/>
+                                                                                <TextBlock Text="{Binding StatusLabel}" Foreground="#556070" Margin="0,0,10,0"/>
+                                                                                <TextBlock Text="{Binding TimestampLabel}" Foreground="#6B7280"/>
+                                                                            </WrapPanel>
+                                                                            <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                                                        </StackPanel>
+                                                                    </DockPanel>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </Border>
                                         </Expander>
                                         <Border x:Name="GlossarySuggestionsPanel" Visibility="Collapsed" Background="#F8FAFC" BorderBrush="#DDE2EA" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,10,0,0">
                                             <StackPanel>

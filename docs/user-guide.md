@@ -76,6 +76,17 @@ En **Historial**, abre **Pendientes de revisión**:
 
 La aprobación múltiple no corrige texto, no agrega términos al diccionario, no modifica audio, no entrena modelos y no autoriza exportación o inteligencia externa.
 
+## Agregar notas, decisiones y seguimientos — 8.6
+
+En **Historial**, selecciona la revisión original y un fragmento:
+
+1. Abre **Notas y seguimiento** y pulsa **Agregar nota o seguimiento…**.
+2. Elige **Nota** para contexto, **Decisión** para un acuerdo o **Seguimiento** para una acción pendiente. Escribe hasta 2.000 caracteres y guarda.
+3. Un seguimiento puede marcarse **Completar** y luego **Reabrir**. Notas y decisiones permanecen como información guardada.
+4. **Eliminar** pide confirmación y borra solo esa anotación; no cambia la transcripción ni el audio.
+
+El contenido queda cifrado y vinculado al tiempo del fragmento. Hay un límite de 200 anotaciones por reunión y se muestran hasta 50 por segmento. Las anotaciones no usan IA, no entrenan modelos y no se incluyen automáticamente en TXT, Markdown/Obsidian o servicios externos.
+
 ## Corregir texto y recopilar terminología
 
 1. Selecciona **Original · revisión humana**, luego un segmento, y compara **Texto original del modelo** con **Texto corregido**. Las revisiones de salida del modelo son de solo lectura en esta versión.

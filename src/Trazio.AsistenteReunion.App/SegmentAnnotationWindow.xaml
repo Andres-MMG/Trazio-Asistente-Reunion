@@ -1,0 +1,41 @@
+<Window x:Class="Trazio.AsistenteReunion.App.SegmentAnnotationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        Title="Agregar anotación" Height="360" Width="560"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Text="Agregar nota o seguimiento" FontSize="18" FontWeight="SemiBold"/>
+        <TextBlock Grid.Row="1" Margin="0,5,0,14" Foreground="#556070" TextWrapping="Wrap"
+                   Text="La anotación queda vinculada a este fragmento y se guarda cifrada en este equipo."/>
+        <StackPanel Grid.Row="2">
+            <TextBlock Text="Tipo" FontWeight="SemiBold"/>
+            <ComboBox x:Name="KindSelector" SelectedIndex="0" Margin="0,4,0,10"
+                      automation:AutomationProperties.Name="Tipo de anotación">
+                <ComboBoxItem Content="Nota" Tag="Note"/>
+                <ComboBoxItem Content="Decisión" Tag="Decision"/>
+                <ComboBoxItem Content="Seguimiento" Tag="FollowUp"/>
+            </ComboBox>
+            <DockPanel LastChildFill="False">
+                <TextBlock Text="Contenido" FontWeight="SemiBold" DockPanel.Dock="Left"/>
+                <TextBlock x:Name="CharacterCountText" Text="0 / 2.000" Foreground="#556070" DockPanel.Dock="Right"/>
+            </DockPanel>
+        </StackPanel>
+        <TextBox x:Name="AnnotationText" Grid.Row="3" Margin="0,4,0,12" AcceptsReturn="True"
+                 TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxLength="2000"
+                 TextChanged="AnnotationText_TextChanged"
+                 automation:AutomationProperties.Name="Contenido de la anotación"/>
+        <DockPanel Grid.Row="4" LastChildFill="False">
+            <Button Content="Cancelar" IsCancel="True" DockPanel.Dock="Right" MinWidth="90"/>
+            <Button x:Name="SaveButton" Content="Guardar" IsDefault="True" Click="Save_Click"
+                    IsEnabled="False" DockPanel.Dock="Right" MinWidth="90" Margin="0,0,8,0"/>
+        </DockPanel>
+    </Grid>
+</Window>

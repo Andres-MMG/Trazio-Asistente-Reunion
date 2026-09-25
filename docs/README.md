@@ -10,6 +10,8 @@ La etapa 8.3a agrega una pestaña global de diccionario con filtro local y activ
 
 La etapa 8.3b está publicada en `0.2.0-beta.10`, secuencia **11**: intercambio JSON v1, vista previa en memoria, importación cifrada atómica y exportación explícita sin cifrar. Conserva duplicados históricos, señala conflictos y no fusiona ni elimina entradas automáticamente.
 
+La etapa 8.6 implementa notas, decisiones y seguimientos manuales vinculados a un segmento. El contenido queda cifrado, los cambios de estado son explícitos y las anotaciones no se exportan ni alimentan IA automáticamente.
+
 Las etapas 8.4a/8.4b permanecen publicadas desde 0.2.0-beta.12. La etapa 8.5 está publicada en 0.2.0-beta.13, secuencia **14**: utiliza solo términos preferidos confirmados como prompt inicial local de Whisper, conserva el original y crea una revisión separada.
 
 El tag de beta 13 resuelve a `512d6cccc631f22505d52f62cfbb0443db42394a`. El ZIP publicado mide **86,940,830 bytes** y su SHA-256 es `a5d8d83d048167e2d9ccfa1ad21ed676278af49bd00253c206bf7bdda8ec5220`; el Setup mide **60,084,574 bytes**, su SHA-256 es `405c4292294933628736b060009bd4a321139fec31adc6622540530f8c2d4eec` y Authenticode informa `NotSigned`. El manifiesto de publicación mide **84,445 bytes**, SHA-256 `29f22b3d9622ab0dba9310dc001801b368ff0e5a4be8b4e5b06229fa28b71a9d`; el manifiesto del Setup mide **458 bytes**, SHA-256 `4a9bedff74f77b2ceeb7128cdc9763fe8ccb3c81f14b0f7fda2f2cf3bfc9e97b`. Los seis recursos remotos coinciden con los artefactos verificados. El Setup productivo no se ejecutó.

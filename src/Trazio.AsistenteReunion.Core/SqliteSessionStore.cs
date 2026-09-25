@@ -48,6 +48,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
         await InitializeBatchReviewSchemaAsync(connection, cancellationToken);
         await InitializeModelRevisionSchemaAsync(connection, cancellationToken);
         await InitializeAnonymousVisualEvidenceSchemaAsync(connection, cancellationToken);
+        await InitializeSegmentAnnotationSchemaAsync(connection, cancellationToken);
     }
 
     public async Task CreateSessionAsync(MeetingSession session, CancellationToken cancellationToken = default)

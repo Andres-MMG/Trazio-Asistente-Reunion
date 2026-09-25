@@ -26,6 +26,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     private readonly ObservableCollection<PendingReviewItem> _pendingReviewRows = [];
     private readonly ObservableCollection<TranscriptComparisonRow> _comparisonRows = [];
     private readonly ObservableCollection<GlossaryWorkspaceItem> _glossaryWorkspaceRows = [];
+    private readonly ObservableCollection<SegmentAnnotationItem> _segmentAnnotationRows = [];
     private IReadOnlyList<GlossaryEntry> _glossaryWorkspaceEntries = [];
     private bool _settingGlossaryFilters;
     private bool _glossaryWorkspaceLoadFailed;
@@ -131,6 +132,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         ComparisonRows.ItemsSource = _comparisonRows;
         GlossarySuggestionsList.ItemsSource = _glossarySuggestions;
         GlossaryWorkspaceList.ItemsSource = _glossaryWorkspaceRows;
+        SegmentAnnotationsList.ItemsSource = _segmentAnnotationRows;
         AudioWaveformItems.ItemsSource = _waveformBars;
         _playbackTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _playbackTimer.Tick += PlaybackTimer_Tick;
@@ -2174,6 +2176,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         if (_store is null) return false;
         var selectedSource = SelectedHistorySource();
         var reviewed = await _store.GetReviewedSegmentsAsync(session.Id, ticket.CancellationToken);
+        var annotations = await _store.ListSegmentAnnotationsAsync(session.Id, ticket.CancellationToken);
         var audio = await _store.GetAudioArchiveSummaryAsync(session.Id, ticket.CancellationToken);
         var revisions = await _store.ListModelRevisionsAsync(
             session.Id,
@@ -2235,11 +2238,15 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         try
         {
             _historyRows.Clear();
+            var annotationsBySegment = annotations
+                .GroupBy(annotation => annotation.SegmentId, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => (IReadOnlyList<SegmentAnnotation>)group.ToArray(), StringComparer.Ordinal);
             foreach (var item in reviewed)
                 _historyRows.Add(new(
                     item,
                     visualEvidence: visualProjection?.For(item.Segment),
-                    reviewEligible: SegmentReviewActionsPresenter.IsSessionEligible(session.State)));
+                    reviewEligible: SegmentReviewActionsPresenter.IsSessionEligible(session.State),
+                    annotations: annotationsBySegment.GetValueOrDefault(item.Segment.Id) ?? []));
             HistorySegments.SelectedItem = _historyRows.FirstOrDefault(item => item.Segment.Id == selectedSegmentId);
         }
         finally { _suppressHistorySegmentPlayback = false; }
@@ -2368,6 +2375,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
             }
             finally { _settingCorrectionEditor = false; }
             SelectedSegmentAudioText.Text = "Selecciona un fragmento de la transcripción para ubicar su audio exacto.";
+            UpdateSelectedSegmentAnnotations(null);
             UpdateSegmentReviewStatus();
             UpdateHistoryControls();
             return;
@@ -2397,10 +2405,120 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
             GlossarySuggestionsPanel.Visibility = _glossarySuggestions.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             GlossaryNoSuggestionsText.Visibility = _glossarySuggestions.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         }
+        UpdateSelectedSegmentAnnotations(selected);
         UpdateSegmentReviewStatus();
         UpdateHistoryControls();
     }
 
+    private void UpdateSelectedSegmentAnnotations(HistorySegmentItem? selected)
+    {
+        var state = SegmentAnnotationPresenter.Create(selected?.Annotations ?? []);
+        _segmentAnnotationRows.Clear();
+        foreach (var item in state.Items) _segmentAnnotationRows.Add(item);
+        SegmentAnnotationsStatusText.Text = selected is null ? "Selecciona un segmento para ver sus anotaciones." : state.Status;
+        SegmentAnnotationsList.Visibility = state.Items.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private async Task RefreshSelectedSegmentAnnotationsAsync(
+        string sessionId,
+        string segmentId,
+        CancellationToken cancellationToken)
+    {
+        if (_store is null) return;
+        var annotations = await _store.ListSegmentAnnotationsAsync(sessionId, cancellationToken);
+        var selected = SelectedHistorySegment();
+        if (selected is null ||
+            !string.Equals(selected.Segment.SessionId, sessionId, StringComparison.Ordinal) ||
+            !string.Equals(selected.Segment.Id, segmentId, StringComparison.Ordinal))
+            return;
+        selected.SetAnnotations(annotations
+            .Where(item => string.Equals(item.SegmentId, segmentId, StringComparison.Ordinal))
+            .ToArray());
+        UpdateSelectedSegmentAnnotations(selected);
+    }
+
+    private async void AddSegmentAnnotation_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = SelectedHistorySegment();
+        var session = SelectedHistorySession();
+        if (selected is null || session is null || _store is null ||
+            selected.Segment.SessionId != session.Id ||
+            HistoryRevisionSelector.SelectedItem is HistoryRevisionItem)
+            return;
+
+        var dialog = new SegmentAnnotationWindow { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+        try
+        {
+            await _store.AddSegmentAnnotationAsync(
+                selected.Segment.Id,
+                dialog.SelectedKind,
+                dialog.Annotation,
+                _lifetime.Token);
+            await RefreshSelectedSegmentAnnotationsAsync(session.Id, selected.Segment.Id, _lifetime.Token);
+            StatusText.Text = "Anotación guardada de forma cifrada en este equipo.";
+        }
+        catch (Exception ex) { ShowError("No se pudo guardar la anotación", ex.Message); }
+    }
+
+    private async void ToggleSegmentAnnotationStatus_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not SegmentAnnotationItem item || _store is null) return;
+        var selected = SelectedHistorySegment();
+        var session = SelectedHistorySession();
+        if (selected is null || session is null ||
+            item.Annotation.SegmentId != selected.Segment.Id ||
+            item.Annotation.SessionId != session.Id)
+            return;
+        var target = item.Annotation.Status is SegmentAnnotationStatus.Completed
+            ? SegmentAnnotationStatus.Open
+            : SegmentAnnotationStatus.Completed;
+        try
+        {
+            var result = await _store.SetSegmentAnnotationStatusAsync(
+                item.Annotation.Id,
+                item.Annotation.Status,
+                target,
+                _lifetime.Token);
+            await RefreshSelectedSegmentAnnotationsAsync(session.Id, selected.Segment.Id, _lifetime.Token);
+            StatusText.Text = result switch
+            {
+                SegmentAnnotationWriteStatus.Applied when target is SegmentAnnotationStatus.Completed =>
+                    "Seguimiento marcado como completado.",
+                SegmentAnnotationWriteStatus.Applied => "Seguimiento reabierto.",
+                SegmentAnnotationWriteStatus.Missing => "La anotación ya no existe; se actualizó la lista.",
+                SegmentAnnotationWriteStatus.StateChanged => "La anotación cambió antes de guardar; se actualizó la lista.",
+                _ => "La anotación ya tenía ese estado."
+            };
+        }
+        catch (Exception ex) { ShowError("No se pudo cambiar el seguimiento", ex.Message); }
+    }
+
+    private async void DeleteSegmentAnnotation_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not SegmentAnnotationItem item || _store is null) return;
+        var selected = SelectedHistorySegment();
+        var session = SelectedHistorySession();
+        if (selected is null || session is null ||
+            item.Annotation.SegmentId != selected.Segment.Id ||
+            item.Annotation.SessionId != session.Id)
+            return;
+        if (MessageBox.Show(
+                this,
+                "Esta anotación se eliminará definitivamente. La transcripción y el audio no cambiarán.",
+                "Eliminar anotación",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.No) != MessageBoxResult.Yes)
+            return;
+        try
+        {
+            var deleted = await _store.DeleteSegmentAnnotationAsync(item.Annotation.Id, _lifetime.Token);
+            await RefreshSelectedSegmentAnnotationsAsync(session.Id, selected.Segment.Id, _lifetime.Token);
+            StatusText.Text = deleted ? "Anotación eliminada." : "La anotación ya no existía; se actualizó la lista.";
+        }
+        catch (Exception ex) { ShowError("No se pudo eliminar la anotación", ex.Message); }
+    }
     private void CorrectedSegmentText_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (_settingCorrectionEditor) return;
@@ -4144,6 +4262,8 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         ReopenSegmentReviewButton.IsEnabled = !playbackBlocked && reviewActions.CanReopen;
         UndoCorrectionButton.IsEnabled = !playbackBlocked && !hasUnsavedDraft && selected?.Review.IsCorrected == true && !viewingModelRevision;
         AddGlossaryButton.IsEnabled = !playbackBlocked && _glossarySuggestions.Count > 0 && !viewingModelRevision;
+        AddSegmentAnnotationButton.IsEnabled = !playbackBlocked && selected is not null && !viewingModelRevision;
+        SegmentAnnotationsList.IsEnabled = !playbackBlocked && selected is not null && !viewingModelRevision;
         var retranscription = HistoryRetranscriptionPresenter.Create(
             SelectedHistorySession()?.State,
             _historyState.HasSelectedSourceAudio && _historySelectedSourceAudioComplete,

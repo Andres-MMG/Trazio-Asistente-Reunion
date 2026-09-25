@@ -25,17 +25,20 @@ public static class TranscriptPresentation
 public sealed class HistorySegmentItem : INotifyPropertyChanged
 {
     private AnonymousVisualEvidenceViewModel _visualEvidence;
+    private IReadOnlyList<SegmentAnnotation> _annotations;
     private bool _isPlaybackActive;
 
     public HistorySegmentItem(
         ReviewedTranscriptSegment review,
         string? modelRevisionLabel = null,
         AnonymousVisualEvidenceViewModel? visualEvidence = null,
-        bool reviewEligible = true)
+        bool reviewEligible = true,
+        IReadOnlyList<SegmentAnnotation>? annotations = null)
     {
         Review = review ?? throw new ArgumentNullException(nameof(review));
         ModelRevisionLabel = modelRevisionLabel;
         ReviewEligible = reviewEligible;
+        _annotations = annotations ?? [];
         _visualEvidence = visualEvidence ??
             (review.Segment.Source == AudioSourceKind.Microphone
                 ? AnonymousVisualEvidenceViewModel.Hidden
@@ -56,6 +59,8 @@ public sealed class HistorySegmentItem : INotifyPropertyChanged
         _ => ReviewEligible ? "Pendiente de revisión" : "Transcripción original"
     };
     public AnonymousVisualEvidenceViewModel VisualEvidence => _visualEvidence;
+    public IReadOnlyList<SegmentAnnotation> Annotations => _annotations;
+    public string AnnotationSummary => SegmentAnnotationPresenter.Summary(_annotations);
     public bool IsPlaybackActive => _isPlaybackActive;
     public string PlaybackAnnouncement => _isPlaybackActive
         ? $"Reproduciendo este fragmento: {Header}"
@@ -71,6 +76,13 @@ public sealed class HistorySegmentItem : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(VisualEvidence)));
     }
 
+    public void SetAnnotations(IReadOnlyList<SegmentAnnotation> annotations)
+    {
+        ArgumentNullException.ThrowIfNull(annotations);
+        _annotations = annotations;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Annotations)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(AnnotationSummary)));
+    }
     public void SetPlaybackActive(bool active)
     {
         if (_isPlaybackActive == active) return;

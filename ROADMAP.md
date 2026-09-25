@@ -212,7 +212,7 @@ La diarización de audio separa voces, pero no revela nombres reales. Asociar un
 - **8.3b publicada en beta 10; validación física pendiente:** exporta todas las entradas en JSON v1 UTF-8 sin BOM y sin metadatos internos; importa con límites, filas rechazadas visibles, vista previa cancelable y revalidación transaccional. Las importaciones se guardan cifradas en una tabla aditiva con procedencia de lote opaca y sobreviven al borrado de reuniones. Los duplicados exactos/normalizados y conflictos se omiten y se señalan; no existe fusión ni eliminación automática.
 - **Futura, fuera de 8.3b:** cualquier fusión o eliminación destructiva de duplicados deberá tener selección explícita, vista previa, procedencia y deshacer; por ahora la resolución segura es activar o desactivar cada fila.
 - Validar físicamente 8.5 con un modelo real y medir su utilidad sin presentar el prompt como garantía de precisión; cualquier posprocesamiento determinista futuro exigirá vista previa, procedencia y deshacer.
-- Marcadores, notas, etiquetas e indicadores de seguimiento.
+- **8.6 implementada para beta 14; validación física pendiente:** cada segmento de la revisión original admite anotaciones manuales cifradas de tipo Nota, Decisión o Seguimiento. Los seguimientos se completan o reabren con control de estado esperado; la eliminación es explícita y confirmada. La reunión admite hasta 200 anotaciones y la vista muestra hasta 50 por segmento. No usa IA, no altera transcripción/audio y no exporta anotaciones automáticamente.
 - Ampliar los formatos estructurados más allá de la nota Markdown/Obsidian ya entregada y evaluar integración directa solo si conserva el control explícito del usuario.
 - Evaluar Opus para archivos de audio cifrados más pequeños, preservando navegación y exportación fiables.
 
@@ -225,6 +225,8 @@ La evidencia automatizada de 8.1a cubre límites de navegación, listas reemplaz
 8.3b conserva esa tabla original y añade `imported_glossary_entries`; así no inventa reuniones/correcciones ni rompe la cascada histórica. Los campos semánticos importados se cifran con AES-GCM. Ruta, nombre y hash del archivo no se guardan. La vista previa existe transitoriamente en RAM y no implica memoria segura. La exportación es deliberadamente texto plano, se advierte antes de elegir destino y usa un temporal hermano antes de reemplazar el archivo final.
 
 8.4a añade decisiones anexadas ApproveOriginal/Reopen; 8.4b agrupa solo ApproveOriginal en una transacción inmediata. Cada segmento mantiene revisión monotónica y revisor local cifrado. El lote valida sesión, estado, ausencia de correcciones y revisión esperada para todos antes de insertar; un conflicto revierte todo, se informa y no se reintenta silenciosamente. La consulta no usa FTS, índices de texto ni caché persistente.
+
+8.6 añade segment_annotations, enlazada por claves foráneas a sesión y segmento. El texto usa AES-256-GCM y falla cerrado ante corrupción; tipo, estado, relaciones e instantes permanecen como metadatos estructurales. Las operaciones no navegan, reproducen, corrigen, retranscriben ni exportan. Borrar la reunión elimina sus anotaciones por cascada.
 
 ## Etapa 9 — Inteligencia de reuniones opcional
 
