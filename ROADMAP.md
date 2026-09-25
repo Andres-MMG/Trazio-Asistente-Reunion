@@ -2,12 +2,12 @@
 
 - Fecha del estado: 2026-09-24
 - Madurez actual: MVP funcional avanzado / versión preliminar pública
-- Versión publicada actual: [0.2.0-beta.14](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.14), secuencia de instalador **15**
-- Versión anterior: `0.2.0-beta.13`, secuencia de instalador **14**; se conserva como evidencia histórica
+- Versión publicada actual: [0.2.0-beta.15](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.15), secuencia de instalador **16**
+- Versión anterior: `0.2.0-beta.14`, secuencia de instalador **15**; se conserva como evidencia histórica
 - Versión anterior adicional: `0.2.0-beta.9`, secuencia de instalador **10**; se conserva como evidencia histórica
 - Antecedente adicional: `0.2.0-beta.8`, secuencia de instalador **9**
 
-Este es el plan canónico de etapas. **La beta 14/secuencia 15 publica las anotaciones manuales cifradas 8.6 por segmento.** El ZIP y el Setup están verificados; el Setup permanece sin firma y no se ejecutó con identidad productiva. El paquete conserva exactamente cinco capacidades. Siguen pendientes cancelación humana, validación física audible y de accesibilidad, WGC/GPU, Meet/Teams reales, 2/5 horas, otra máquina o cuenta y autoactualización. La etapa 6 tiene una línea base funcional; 7.1a, 7.2a y la infraestructura de 7.2b están publicadas, todavía pendientes de validación física. No existe identificación de hablantes.
+Este es el plan canónico de etapas. **La beta 15/secuencia 16 publica la configuración segura 9.1 del proveedor externo, todavía sin llamadas de red ni envío de transcripciones.** El ZIP y el Setup están verificados; el Setup permanece sin firma y no se ejecutó con identidad productiva. El paquete conserva exactamente cinco capacidades. Siguen pendientes cancelación humana, validación física audible y de accesibilidad, WGC/GPU, Meet/Teams reales, 2/5 horas, otra máquina o cuenta y autoactualización. La etapa 6 tiene una línea base funcional; 7.1a, 7.2a y la infraestructura de 7.2b están publicadas, todavía pendientes de validación física. No existe identificación de hablantes.
 
 ## Principios del producto
 
@@ -25,12 +25,12 @@ Este es el plan canónico de etapas. **La beta 14/secuencia 15 publica las anota
 | 2 | Captura de audio de dos fuentes y transcripción local | Implementada — validación de producción pendiente |
 | 3 | Transcripción cifrada e historial de audio cifrado obligatorio | Implementada — validación de producción pendiente |
 | 4 | Historial utilizable y almacenamiento configurable | Implementada — validación de producción pendiente |
-| 5 | Beta distribuible y mantenible | Etapa 5.1 vigente en beta 14/secuencia 15 — firma, ejecución productiva del Setup, validación física y cancelación humana pendientes |
+| 5 | Beta distribuible y mantenible | Etapa 5.1 vigente en beta 15/secuencia 16 — firma, ejecución productiva del Setup, validación física y cancelación humana pendientes |
 | 5.5 | Identidad del usuario local y atribución del micrófono | Implementada — validación física de interfaz pendiente |
 | 6 | Revisión, corrección, glosario de procedencia y retranscripción versionada | Línea base funcional implementada — validación física pendiente |
 | 7 | Fuente de reunión y atribución de hablantes | 7.1a/7.2a y la infraestructura de 7.2b publicadas desde beta 6 y vigentes en beta 12; evaluador/corpus sintético presentes solo en fuente — perfiles de producción no validados, sin identificación de hablantes y con validación física pendiente; 7.2c+ planificadas |
 | 8 | Búsqueda, revisión por lotes, glosario global y productividad | En curso — 8.1 a 8.6 están publicadas; 8.6 agrega notas, decisiones y seguimientos cifrados por segmento. La validación física y la revisión avanzada de hablantes siguen pendientes |
-| 9 | Inteligencia de reuniones opcional | En curso — 9.1 configura de forma segura un proveedor externo; todavía no envía transcripciones ni genera resúmenes |
+| 9 | Inteligencia de reuniones opcional | En curso — 9.1 está publicada en beta 15 con configuración segura; todavía no envía transcripciones ni genera resúmenes |
 | 10 | Integración organizacional/con plataforma opcional | Futura |
 | 11 | Cuentas conectadas, calendarios y automatización de reuniones | Futura |
 | 12 | Entrenamiento opcional de modelos con correcciones aprobadas | Futura — etapa final |
@@ -45,7 +45,7 @@ Permitir instalar, actualizar, diagnosticar y recuperar la aplicación existente
 
 ### Base implementada
 
-- Código público en GitHub, ZIP completo y Setup manual para Windows con sumas de comprobación; [`0.2.0-beta.14`](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.14) está publicado como prerelease. El tag resuelve al commit `5acd1def87056941e1678247deea53b0d741919b`. El ZIP de **86,955,605 bytes**, SHA-256 `c00c220d57ddc2bcbc52c555b18a6acc4248477536fbf9abf61b94f264de8740`, y el Setup de **60,102,067 bytes**, SHA-256 `1ae861dd1d0b25c0adf5a7a898227bcc46d6f21a11d485d6982514bfdf459841`, coinciden con los recursos remotos y sus archivos laterales.
+- Código público en GitHub, ZIP completo y Setup manual para Windows con sumas de comprobación; [0.2.0-beta.15](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.15) está publicado como prerelease. El tag resuelve al commit 9a5c4af367e805fe1a8d0cd0a86722e03b1c1812. El ZIP de **86,959,816 bytes**, SHA-256 0010af9e97d162835d0b109823fec00035a2013d2cd0ab8ee21fb9d75d7e4e7c, y el Setup de **60,104,288 bytes**, SHA-256 6fc40804fa7a3add3a2e823cb5e4c818f8fd07a39853612606e559f2aa883c8d, coinciden con los recursos remotos y sus archivos laterales.
 - Script de publicación combinada de aplicación/proceso auxiliar con comprobaciones de paquete y prueba básica de salud por canal con nombre.
 - El contrato publicado exige `VisualAnalysis.dll` con la misma versión de producto que App/Worker y excluye la CLI `VisualEvaluation`, sus archivos de ejecución, el corpus/golden y cualquier directorio `tools` o `evaluation`; el manifiesto conserva exactamente las cinco capacidades existentes.
 - La verificación independiente aprobó metadatos **4/4**, evaluación visual **74/74**, captura visual **206/206**, Release serial/paralelo **446/446**, compilación sin advertencias/errores, CLI `VE000`, `publish` y smoke IPC integrado/explícito. El layout final coincidió **495/495** archivos byte a byte, con cinco capacidades y cero hallazgos prohibidos, rutas locales o referencias CodeView.
@@ -133,7 +133,7 @@ Esto identifica a la persona que usa el micrófono configurado. No demuestra qui
 
 ## Etapa 7 — Fuente de reunión y atribución de hablantes
 
-**Estado: en curso.** La rebanada 7.1a asocia opcionalmente una ventana superior. La 7.2a agrega consentimiento por sesión y captura WGC efímera. La infraestructura fuente de 7.2b agrega un consentimiento adicional de un solo uso, sondeo agregado WGC/D3D11 acotado, evidencia cifrada de cobertura/actividad y presentación fail-closed en vivo/Historial. La biblioteca compartida `VisualAnalysis`, publicada desde beta 5, continúa vigente en beta 14; el evaluador no empaquetado con [corpus sintético agregado y golden canónico](evaluation/stage-7b/README.md) permanece como herramienta de fuente. Es una regresión determinista, no calibración física ni aceptación de producción. Los perfiles de producción Meet/Teams permanecen `Unvalidated`, no tienen política de detección y se abstienen: la evidencia aparece como **No disponible**. No existe identificación de hablantes.
+**Estado: en curso.** La rebanada 7.1a asocia opcionalmente una ventana superior. La 7.2a agrega consentimiento por sesión y captura WGC efímera. La infraestructura fuente de 7.2b agrega un consentimiento adicional de un solo uso, sondeo agregado WGC/D3D11 acotado, evidencia cifrada de cobertura/actividad y presentación fail-closed en vivo/Historial. La biblioteca compartida `VisualAnalysis`, publicada desde beta 5, continúa vigente en beta 15; el evaluador no empaquetado con [corpus sintético agregado y golden canónico](evaluation/stage-7b/README.md) permanece como herramienta de fuente. Es una regresión determinista, no calibración física ni aceptación de producción. Los perfiles de producción Meet/Teams permanecen `Unvalidated`, no tienen política de detección y se abstienen: la evidencia aparece como **No disponible**. No existe identificación de hablantes.
 
 ### Objetivo
 
@@ -164,7 +164,7 @@ Esta primera rebanada selecciona una **ventana superior**, no una pestaña indiv
 El trabajo se divide en rebanadas verificables:
 
 1. **7.2a:** incluida desde beta 3: HWND/PID revalidado, consentimiento separado, frame pool de dos buffers, ciclo de vida y descarte inmediato; faltan WGC físico, interfaz/lector de pantalla y prueba de dos horas.
-2. **7.2b:** infraestructura publicada desde beta 6 y vigente en beta 14: consentimiento adicional de un solo uso, sondeo agregado D3D11 acotado, eventos derivados cifrados, correlación exclusiva con `SystemOutput` y presentación fail-closed. El código fuente incluye un evaluador de consola no empaquetado, corpus sintético agregado y verificación golden byte a byte, sin promover umbrales. Los perfiles de producción siguen `Unvalidated`; faltan calibración física, WGC/GPU/accesibilidad, Meet/Teams reales y pruebas de 2/5 horas.
+2. **7.2b:** infraestructura publicada desde beta 6 y vigente en beta 15: consentimiento adicional de un solo uso, sondeo agregado D3D11 acotado, eventos derivados cifrados, correlación exclusiva con `SystemOutput` y presentación fail-closed. El código fuente incluye un evaluador de consola no empaquetado, corpus sintético agregado y verificación golden byte a byte, sin promover umbrales. Los perfiles de producción siguen `Unvalidated`; faltan calibración física, WGC/GPU/accesibilidad, Meet/Teams reales y pruebas de 2/5 horas.
 3. **7.2c:** adaptador versionado de Google Meet web mediante una extensión con permiso mínimo y WGC como respaldo.
 4. **7.2d:** adaptador de Microsoft Teams web/escritorio; extensión para web y WGC para escritorio/respaldo.
 5. **7.2e:** evaluación de precisión, accesibilidad, recursos y duración; aprobar 2 horas antes de intentar 5 horas.
@@ -202,10 +202,10 @@ La diarización de audio separa voces, pero no revela nombres reales. Asociar un
 
 ## Etapa 8 — Historial y productividad
 
-- **8.2 publicada desde beta 8 y vigente en beta 14; validación física pendiente:** búsqueda local explícita entre reuniones por título y texto efectivo de la transcripción original. Ignora mayúsculas y diacríticos, pero es literal: no usa coincidencia difusa ni semántica. Una corrección humana activa reemplaza el original para buscar; deshacer la corrección restaura el original. Las revisiones alternativas del modelo quedan fuera de esta rebanada.
-- **8.3a publicada desde beta 9 y vigente en beta 14; validación física pendiente:** tercera pestaña **Diccionario** con lista global más reciente primero, ordinal público, filtro en memoria por términos/categoría y selector Todos/Activos/Inactivos. Permite activar o desactivar cada entrada por su ID interno sin mostrarlo; los duplicados históricos siguen separados. La carga falla cerrada ante corrupción y conserva un máximo de 120 filas visibles. Una entrada activa solo se usa al confirmar el flujo 8.5; no reemplaza texto ni modifica la revisión original.
-- **8.1a publicada desde beta 7 y vigente en beta 14; validación física pendiente:** segmento anterior/siguiente sobre las filas cargadas sin reproducción automática, línea de tiempo que conserva los huecos reales del audio y resaltado continuo separado de la selección de edición. Cambiar sesión, fuente o revisión y detener limpia la operación anterior.
-- **8.1b publicada desde beta 7 y vigente en beta 14; validación audible pendiente:** selector temporal de `0,75×`, `1×`, `1,25×`, `1,5×` y `2×` para pista, fragmento e intervalo comparado. El cambio reinicia desde la posición fuente calculada a partir de los bytes informados por el dispositivo, conserva pausa y límite final, y no altera las marcas lógicas. Usa WDL de NAudio sin dependencia nueva; deliberadamente cambia el tono y no pretende hacer *time-stretch* natural. La velocidad no se persiste y vuelve a `1×` al reiniciar.
+- **8.2 publicada desde beta 8 y vigente en beta 15; validación física pendiente:** búsqueda local explícita entre reuniones por título y texto efectivo de la transcripción original. Ignora mayúsculas y diacríticos, pero es literal: no usa coincidencia difusa ni semántica. Una corrección humana activa reemplaza el original para buscar; deshacer la corrección restaura el original. Las revisiones alternativas del modelo quedan fuera de esta rebanada.
+- **8.3a publicada desde beta 9 y vigente en beta 15; validación física pendiente:** tercera pestaña **Diccionario** con lista global más reciente primero, ordinal público, filtro en memoria por términos/categoría y selector Todos/Activos/Inactivos. Permite activar o desactivar cada entrada por su ID interno sin mostrarlo; los duplicados históricos siguen separados. La carga falla cerrada ante corrupción y conserva un máximo de 120 filas visibles. Una entrada activa solo se usa al confirmar el flujo 8.5; no reemplaza texto ni modifica la revisión original.
+- **8.1a publicada desde beta 7 y vigente en beta 15; validación física pendiente:** segmento anterior/siguiente sobre las filas cargadas sin reproducción automática, línea de tiempo que conserva los huecos reales del audio y resaltado continuo separado de la selección de edición. Cambiar sesión, fuente o revisión y detener limpia la operación anterior.
+- **8.1b publicada desde beta 7 y vigente en beta 15; validación audible pendiente:** selector temporal de `0,75×`, `1×`, `1,25×`, `1,5×` y `2×` para pista, fragmento e intervalo comparado. El cambio reinicia desde la posición fuente calculada a partir de los bytes informados por el dispositivo, conserva pausa y límite final, y no altera las marcas lógicas. Usa WDL de NAudio sin dependencia nueva; deliberadamente cambia el tono y no pretende hacer *time-stretch* natural. La velocidad no se persiste y vuelve a `1×` al reiniciar.
 - **8.4a y 8.4b publicadas en beta 12; validación física pendiente:** la bandeja muestra hasta 100 pendientes. Abrir una fila conserva revisión individual y no reproduce audio. Las casillas independientes forman un lote; antes de guardar se muestra un resumen y se solicita confirmación. La escritura revalida todos los segmentos y aprueba los originales en una transacción: cualquier conflicto revierte el lote completo. Correcciones y Undo excluyen el segmento; la reapertura sigue siendo individual.
 - **8.5 publicada en beta 13; validación física pendiente:** al retranscribir audio conservado, se construye localmente un prompt determinista con hasta 64 términos preferidos y 1.024 caracteres. Las claves ambiguas se excluyen; el usuario decide **Sí**, **No** o **Cancelar**. Whisper recibe el prompt solo al iniciar esa revisión. No hay sustitución automática, el original no cambia y la versión del prompt se cifra junto con la revisión.
 - **Futuro:** revisión avanzada de etiquetas de hablantes. La bandeja no entrena modelos y no implica consentimiento de exportación o inteligencia.
@@ -230,7 +230,7 @@ La evidencia automatizada de 8.1a cubre límites de navegación, listas reemplaz
 
 ## Etapa 9 — Inteligencia de reuniones opcional
 
-### 9.1 — Configuración segura del proveedor (implementada en fuente)
+### 9.1 — Configuración segura del proveedor (publicada en beta 15)
 
 - Pestaña **Inteligencia** para guardar la URL exacta de chat completions, el modelo y una clave API sin volver a mostrarla.
 - La configuración completa queda protegida por Windows DPAPI para el usuario actual. Una API remota exige HTTPS; HTTP solo se acepta para `localhost` o loopback.
