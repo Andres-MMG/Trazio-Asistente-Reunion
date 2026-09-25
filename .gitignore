@@ -23,3 +23,7 @@ TestResults/
 *.flac
 *.gguf
 *.log
+
+# Private Stage 9 consent, transcripts, hypotheses, and reports.
+*.evaluation.private.json
+evaluation/stage-9/private/

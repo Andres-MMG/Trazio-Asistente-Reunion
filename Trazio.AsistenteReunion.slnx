@@ -7,6 +7,7 @@
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/Trazio.AsistenteReunion.VisualEvaluation/Trazio.AsistenteReunion.VisualEvaluation.csproj" />
+    <Project Path="tools/Trazio.AsistenteReunion.TranscriptEvaluation/Trazio.AsistenteReunion.TranscriptEvaluation.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Trazio.AsistenteReunion.Tests/Trazio.AsistenteReunion.Tests.csproj" />

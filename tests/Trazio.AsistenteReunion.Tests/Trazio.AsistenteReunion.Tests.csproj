@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\src\Trazio.AsistenteReunion.App\Trazio.AsistenteReunion.App.csproj" />
     <ProjectReference Include="..\..\src\Trazio.AsistenteReunion.VisualAnalysis\Trazio.AsistenteReunion.VisualAnalysis.csproj" />
     <ProjectReference Include="..\..\tools\Trazio.AsistenteReunion.VisualEvaluation\Trazio.AsistenteReunion.VisualEvaluation.csproj" />
+    <ProjectReference Include="..\..\tools\Trazio.AsistenteReunion.TranscriptEvaluation\Trazio.AsistenteReunion.TranscriptEvaluation.csproj" />
   </ItemGroup>
 
 </Project>

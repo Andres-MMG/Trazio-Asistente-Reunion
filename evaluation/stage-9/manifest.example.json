@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "meaningErrorKindsVersion": "stage9-meaning-errors-v1",
+  "consent": {
+    "consentId": "EJEMPLO-NO-VALIDO",
+    "scope": "stage-9-offline-transcription-evaluation",
+    "grantedAtUtc": "2026-01-01T00:00:00Z",
+    "expiresAtUtc": "2026-01-02T00:00:00Z",
+    "evidenceRelativePath": "consentimiento-ejemplo.txt",
+    "evidenceSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "clips": [
+    {
+      "clipId": "fragmento-ficticio-1",
+      "audioRelativePath": "audio/fragmento-ficticio-1.wav",
+      "audioSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "consentReference": "EJEMPLO-NO-VALIDO",
+      "approvedReferenceText": "Texto ficticio, no derivado de una reunión.",
+      "referenceApprovedBy": "revisor-ficticio",
+      "referenceApprovedAtUtc": "2026-01-01T01:00:00Z",
+      "tags": ["conversacion", "negacion"]
+    }
+  ],
+  "configurations": [
+    {
+      "configurationId": "whisper-ficticio",
+      "transcriptionKind": "acoustic",
+      "modelId": "modelo-ficticio",
+      "modelSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "settingsSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "hardwareId": "equipo-ficticio"
+    }
+  ],
+  "hypotheses": [
+    {
+      "clipId": "fragmento-ficticio-1",
+      "configurationId": "whisper-ficticio",
+      "text": "Hipótesis ficticia.",
+      "latencyMs": 100,
+      "peakWorkingSetBytes": 1048576,
+      "meaningReview": {
+        "changedMeaning": true,
+        "errorKinds": ["negation"],
+        "reviewedBy": "revisor-ficticio",
+        "reviewedAtUtc": "2026-01-01T01:00:00Z"
+      }
+    }
+  ]
+}
