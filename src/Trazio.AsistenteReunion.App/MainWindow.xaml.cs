@@ -163,6 +163,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         LocalDisplayNameBox.Text = _settings.LocalDisplayName ?? string.Empty;
         LocalOrganizationBox.Text = _settings.LocalOrganization ?? string.Empty;
         ConfirmLocalProfileCheck.IsChecked = _settings.LocalProfileConfirmed;
+        LoadExternalAiSettingsUi();
         TitleBox.Text = DefaultSessionTitle();
         var storage = StorageLocationFacts.Current();
         StoragePathText.Text = storage.DataDirectory;
@@ -4383,18 +4384,92 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         }
     }
 
-    private AppSettings ReadSettings() => new(
-        MicrophoneBox.SelectedValue as string,
-        OutputBox.SelectedValue as string,
-        ModelPathBox.Text.Trim(),
-        (LanguageBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "es",
-        MicrophoneCheck.IsChecked == true,
-        OutputCheck.IsChecked == true,
-        AudioRetentionPolicy.Required,
-        SelectedAudioBudget(),
-        LocalDisplayNameBox.Text.Trim(),
-        string.IsNullOrWhiteSpace(LocalOrganizationBox.Text) ? null : LocalOrganizationBox.Text.Trim(),
-        ConfirmLocalProfileCheck.IsChecked == true);
+    private void LoadExternalAiSettingsUi()
+    {
+        var provider = _settings.ExternalAiProvider;
+        ExternalAiEndpointBox.Text = provider?.Endpoint ?? string.Empty;
+        ExternalAiModelBox.Text = provider?.Model ?? string.Empty;
+        ExternalAiApiKeyBox.Clear();
+        UpdateExternalAiSettingsStatus();
+    }
+
+    private void UpdateExternalAiSettingsStatus()
+    {
+        var provider = _settings.ExternalAiProvider;
+        DeleteExternalAiApiKeyButton.IsEnabled = provider?.HasApiKey == true;
+        ExternalAiStatusText.Text = provider switch
+        {
+            null => "API externa no configurada. No se enviarán datos fuera del equipo.",
+            { IsLoopback: false, HasApiKey: false } =>
+                "URL y modelo guardados, pero falta la clave API. La configuración no está lista y no se enviarán datos.",
+            { IsLoopback: true } =>
+                "Configuración local guardada. Guardarla no inicia conexiones ni envía transcripciones.",
+            _ => "Configuración remota protegida y lista para una futura activación. Guardarla no envía transcripciones."
+        };
+    }
+
+    private async void SaveExternalAiSettings_Click(object sender, RoutedEventArgs e)
+    {
+        if (_closing) return;
+        try
+        {
+            var apiKey = ExternalAiProviderPolicy.ResolveApiKey(
+                _settings.ExternalAiProvider,
+                ExternalAiApiKeyBox.Password);
+            var provider = ExternalAiProviderPolicy.Create(
+                ExternalAiEndpointBox.Text,
+                ExternalAiModelBox.Text,
+                apiKey);
+            _settings = _settings with { ExternalAiProvider = provider };
+            await _settingsStore.SaveAsync(_settings, _lifetime.Token);
+            LoadExternalAiSettingsUi();
+            StatusText.Text = "Configuración de inteligencia externa guardada. No se enviaron datos.";
+        }
+        catch (Exception ex)
+        {
+            ShowError("No se pudo guardar la configuración externa", ex.Message);
+        }
+    }
+
+    private async void DeleteExternalAiApiKey_Click(object sender, RoutedEventArgs e)
+    {
+        var provider = _settings.ExternalAiProvider;
+        if (_closing || provider?.HasApiKey != true) return;
+        if (MessageBox.Show(
+                this,
+                "La clave API guardada se eliminará de este equipo. La URL y el modelo permanecerán visibles para que puedas reemplazarla después. ¿Deseas continuar?",
+                "Eliminar clave API",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.No) != MessageBoxResult.Yes)
+            return;
+        try
+        {
+            _settings = _settings with { ExternalAiProvider = provider with { ApiKey = null } };
+            await _settingsStore.SaveAsync(_settings, _lifetime.Token);
+            ExternalAiApiKeyBox.Clear();
+            UpdateExternalAiSettingsStatus();
+            StatusText.Text = "Clave API eliminada. No se enviaron datos.";
+        }
+        catch (Exception ex)
+        {
+            ShowError("No se pudo eliminar la clave API", ex.Message);
+        }
+    }
+    private AppSettings ReadSettings() => _settings with
+    {
+        MicrophoneDeviceId = MicrophoneBox.SelectedValue as string,
+        OutputDeviceId = OutputBox.SelectedValue as string,
+        ModelPath = ModelPathBox.Text.Trim(),
+        Language = (LanguageBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "es",
+        CaptureMicrophone = MicrophoneCheck.IsChecked == true,
+        CaptureSystemOutput = OutputCheck.IsChecked == true,
+        KeepEncryptedAudio = AudioRetentionPolicy.Required,
+        AudioStorageBudgetGb = SelectedAudioBudget(),
+        LocalDisplayName = LocalDisplayNameBox.Text.Trim(),
+        LocalOrganization = string.IsNullOrWhiteSpace(LocalOrganizationBox.Text) ? null : LocalOrganizationBox.Text.Trim(),
+        LocalProfileConfirmed = ConfirmLocalProfileCheck.IsChecked == true
+    };
 
     private void SelectLanguage(string language)
     {

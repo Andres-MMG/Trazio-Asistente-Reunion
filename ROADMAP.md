@@ -30,7 +30,7 @@ Este es el plan canónico de etapas. **La beta 14/secuencia 15 publica las anota
 | 6 | Revisión, corrección, glosario de procedencia y retranscripción versionada | Línea base funcional implementada — validación física pendiente |
 | 7 | Fuente de reunión y atribución de hablantes | 7.1a/7.2a y la infraestructura de 7.2b publicadas desde beta 6 y vigentes en beta 12; evaluador/corpus sintético presentes solo en fuente — perfiles de producción no validados, sin identificación de hablantes y con validación física pendiente; 7.2c+ planificadas |
 | 8 | Búsqueda, revisión por lotes, glosario global y productividad | En curso — 8.1 a 8.6 están publicadas; 8.6 agrega notas, decisiones y seguimientos cifrados por segmento. La validación física y la revisión avanzada de hablantes siguen pendientes |
-| 9 | Inteligencia de reuniones opcional | Planificada |
+| 9 | Inteligencia de reuniones opcional | En curso — 9.1 configura de forma segura un proveedor externo; todavía no envía transcripciones ni genera resúmenes |
 | 10 | Integración organizacional/con plataforma opcional | Futura |
 | 11 | Cuentas conectadas, calendarios y automatización de reuniones | Futura |
 | 12 | Entrenamiento opcional de modelos con correcciones aprobadas | Futura — etapa final |
@@ -229,6 +229,19 @@ La evidencia automatizada de 8.1a cubre límites de navegación, listas reemplaz
 8.6 añade segment_annotations, enlazada por claves foráneas a sesión y segmento. El texto usa AES-256-GCM y falla cerrado ante corrupción; tipo, estado, relaciones e instantes permanecen como metadatos estructurales. Las operaciones no navegan, reproducen, corrigen, retranscriben ni exportan. Borrar la reunión elimina sus anotaciones por cascada.
 
 ## Etapa 9 — Inteligencia de reuniones opcional
+
+### 9.1 — Configuración segura del proveedor (implementada en fuente)
+
+- Pestaña **Inteligencia** para guardar la URL exacta de chat completions, el modelo y una clave API sin volver a mostrarla.
+- La configuración completa queda protegida por Windows DPAPI para el usuario actual. Una API remota exige HTTPS; HTTP solo se acepta para `localhost` o loopback.
+- Guardar, reemplazar o eliminar la clave no realiza conexiones ni envía texto, audio o metadatos de reuniones.
+- Esta rebanada prepara el límite de configuración; todavía no existe cliente de red, resumen, traducción ni clasificación externa.
+
+### Siguientes rebanadas
+
+- Antes de cada operación externa, mostrar exactamente qué texto saldrá del equipo, el proveedor/modelo y pedir confirmación específica.
+- Ejecutar solicitudes acotadas mediante una abstracción compatible con proveedores externos o un servicio autoalojado equivalente; registrar procedencia sin guardar la clave en registros.
+
 
 - Resúmenes opcionales de reuniones mediante una API LLM externa inicialmente, con dirección del proveedor y clave API configurables; después podría reemplazarse por un servicio compatible autoalojado.
 - Explorar un modelo generativo que proponga preguntas candidatas sustentadas en evidencia y Jev que devuelva juicios tipados; validar y acotar esas preguntas en el código de la aplicación. Ninguna de las dos integraciones está implementada actualmente.

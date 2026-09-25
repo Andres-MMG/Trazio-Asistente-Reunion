@@ -42,7 +42,8 @@ public sealed record AppSettings(
     int AudioStorageBudgetGb = 1,
     string? LocalDisplayName = null,
     string? LocalOrganization = null,
-    bool LocalProfileConfirmed = false);
+    bool LocalProfileConfirmed = false,
+    ExternalAiProviderSettings? ExternalAiProvider = null);
 
 public static class AudioRetentionPolicy
 {

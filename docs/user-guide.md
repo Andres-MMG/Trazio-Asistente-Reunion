@@ -38,6 +38,16 @@ En beta 10, los perfiles de producción de Google Meet y Microsoft Teams todaví
 
 La revisión, longitud y SHA-256 fijados se documentan en [autenticidad del modelo](security.md#autenticidad-del-modelo).
 
+## Preparar inteligencia externa — etapa 9.1
+
+1. Abre la pestaña **Inteligencia**.
+2. Ingresa la URL exacta de chat completions y el nombre del modelo.
+3. Para un proveedor remoto usa HTTPS e ingresa una clave API. Para un servicio local en este equipo puede usarse HTTP con `localhost`, `127.0.0.1` o `::1`.
+4. Pulsa **Guardar configuración**. La clave queda protegida para tu usuario de Windows y no volverá a mostrarse.
+5. Para reemplazarla, escribe una nueva clave y guarda. Para conservarla, deja el campo vacío. **Eliminar clave guardada** borra solo el secreto después de confirmar.
+
+Guardar estos datos **no prueba la conexión ni envía ninguna reunión**. En 9.1 todavía no hay resumen, traducción, clasificación ni llamada externa. Una etapa posterior mostrará el texto exacto que saldrá del equipo y pedirá confirmación para cada operación.
+
 ## Escuchar la fuente correcta en beta 10
 
 Abre **Historial**, selecciona una reunión guardada y usa **Reproductor de la reunión**:

@@ -18,6 +18,12 @@ El tag de beta 14 resuelve a `5acd1def87056941e1678247deea53b0d741919b`. El ZIP 
 
 La verificación de beta 14 aprobó Release serial/paralelo **657/657**, la suite enfocada de 8.6 **12/12**, los contratos de versión e instalador **8/8**, el harness desechable **14/14** y la compilación con **0 advertencias y 0 errores**. El layout final contiene **495** archivos, con `ProductVersion` `0.2.0-beta.14+5acd1def87056941e1678247deea53b0d741919b`, incluye el ensamblado puro `VisualAnalysis` y excluye la CLI offline `VisualEvaluation`, corpus/golden y directorios `tools`/`evaluation`; mantiene exactamente cinco capacidades. Beta 13 y versiones anteriores quedan como evidencia histórica.
 
+### Etapa 9.1 en fuente
+
+La pestaña **Inteligencia** permite preparar un proveedor compatible con una URL exacta, un modelo y una clave API. La configuración se protege con DPAPI para el usuario actual, la clave no se vuelve a mostrar y los destinos remotos exigen HTTPS; HTTP queda limitado a loopback para servicios autoalojados en el mismo equipo.
+
+Esta rebanada **no contiene un cliente de red**: guardar, reemplazar o eliminar la clave no envía transcripciones, audio ni metadatos. El consentimiento por operación, la vista previa exacta del texto saliente y cualquier resumen o clasificación pertenecen a la siguiente rebanada.
+
 ## Elige el siguiente paso
 
 | Quiero… | Consulta |

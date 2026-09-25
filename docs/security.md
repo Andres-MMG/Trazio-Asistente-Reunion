@@ -53,6 +53,14 @@ El malware del mismo usuario, administradores con acceso efectivo a su entorno, 
 
 Esta beta no ofrece respaldo/restauración portátil con contraseña, recuperación organizacional de claves, flujo de rotación de claves, auditoría externa de seguridad ni afirmación formal de cumplimiento. Perder el contexto de descifrado del usuario de Windows o `master.key` puede volver ilegible el contenido histórico. No elimines/recrees la clave para “reparar” datos cifrados existentes.
 
+## Configuración de proveedor externo 9.1
+
+- La URL, el modelo y la clave se guardan dentro de `settings.dat`, cuyo contenido completo está protegido por Windows DPAPI `CurrentUser`.
+- La clave se introduce mediante un campo de contraseña y nunca se vuelve a mostrar. Dejar el campo vacío conserva la clave anterior; eliminarla requiere confirmación explícita.
+- Un proveedor remoto exige HTTPS y una clave. HTTP se admite solo para `localhost` o una dirección loopback del mismo equipo; se rechazan URL con credenciales, consulta o fragmento.
+- Guardar esta configuración no abre conexiones ni envía transcripciones, audio o metadatos. La rebanada 9.1 no incluye cliente HTTP.
+- DPAPI no protege contra procesos maliciosos que ya ejecutan código como el mismo usuario de Windows. Tampoco convierte una futura API externa en privada: antes de habilitarla será obligatorio mostrar el contenido saliente y pedir consentimiento por operación.
+
 ## Red y autenticidad del modelo
 
 El flujo de inferencia distribuido no tiene alternativa en la nube y no envía audio/transcripciones de reuniones a un proveedor. La configuración del modelo requiere una acción deliberada del usuario; realiza una descarga HTTPS del modelo, no una subida de transcripción. Como en cualquier descarga, el servicio de alojamiento puede observar metadatos de red/solicitud. El inicio de la aplicación no es una operación de descarga en segundo plano.

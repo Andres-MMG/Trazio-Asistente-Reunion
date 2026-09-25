@@ -698,6 +698,42 @@
                     </DockPanel>
                 </Border>
             </TabItem>
+            <TabItem x:Name="IntelligenceTabItem" Header="Inteligencia">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Border Margin="14" Background="White" CornerRadius="6" Padding="18" BorderBrush="#DDE2EA" BorderThickness="1">
+                        <StackPanel MaxWidth="760" HorizontalAlignment="Left">
+                            <TextBlock Text="Inteligencia externa opcional" FontSize="20" FontWeight="SemiBold"/>
+                            <TextBlock Margin="0,6,0,14" Foreground="#556070" TextWrapping="Wrap"
+                                       Text="Prepara una API compatible con OpenAI para una etapa posterior. Guardar esta configuración no envía transcripciones ni realiza conexiones externas."/>
+                            <Border Background="#FFF7E6" BorderBrush="#E3B341" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,0,0,14">
+                                <TextBlock TextWrapping="Wrap" Text="Antes de cualquier envío, Trazio mostrará exactamente qué texto saldrá del equipo y pedirá confirmación para esa operación. Esa función todavía no está activada en esta rebanada."/>
+                            </Border>
+                            <TextBlock Text="URL exacta de chat completions" FontWeight="SemiBold"/>
+                            <TextBox x:Name="ExternalAiEndpointBox" Margin="0,4,0,4" MinWidth="560"
+                                     ToolTip="Ejemplo: https://proveedor.example/v1/chat/completions"
+                                     automation:AutomationProperties.Name="URL de la API de inteligencia externa"/>
+                            <TextBlock Foreground="#556070" TextWrapping="Wrap" Margin="0,0,0,10"
+                                       Text="Las API remotas requieren HTTPS. HTTP solo se admite para localhost o direcciones loopback de este equipo."/>
+                            <TextBlock Text="Modelo" FontWeight="SemiBold"/>
+                            <TextBox x:Name="ExternalAiModelBox" Margin="0,4,0,10" MaxLength="128"
+                                     automation:AutomationProperties.Name="Modelo de inteligencia externa"/>
+                            <TextBlock Text="Clave API" FontWeight="SemiBold"/>
+                            <PasswordBox x:Name="ExternalAiApiKeyBox" Margin="0,4,0,4" MaxLength="4096"
+                                         automation:AutomationProperties.Name="Nueva clave de la API de inteligencia externa"/>
+                            <TextBlock Foreground="#556070" TextWrapping="Wrap" Margin="0,0,0,12"
+                                       Text="Por seguridad, una clave guardada nunca vuelve a mostrarse. Deja este campo vacío para conservarla."/>
+                            <TextBlock x:Name="ExternalAiStatusText" Text="API externa no configurada." Foreground="#334155" TextWrapping="Wrap" Margin="0,0,0,12"
+                                       automation:AutomationProperties.LiveSetting="Polite"/>
+                            <WrapPanel>
+                                <Button x:Name="SaveExternalAiSettingsButton" Content="Guardar configuración" Click="SaveExternalAiSettings_Click" Margin="0,0,8,0"
+                                        automation:AutomationProperties.Name="Guardar configuración de inteligencia externa"/>
+                                <Button x:Name="DeleteExternalAiApiKeyButton" Content="Eliminar clave guardada" Click="DeleteExternalAiApiKey_Click" Foreground="#A12626"
+                                        automation:AutomationProperties.Name="Eliminar la clave guardada de inteligencia externa"/>
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+                </ScrollViewer>
+            </TabItem>
         </TabControl>
         <StatusBar Grid.Row="2" Margin="0,12,0,0"><StatusBarItem><TextBlock x:Name="StatusText" Text="Listo" automation:AutomationProperties.LiveSetting="Polite"/></StatusBarItem></StatusBar>
     </Grid>

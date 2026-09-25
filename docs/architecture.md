@@ -87,6 +87,14 @@ Antes de iniciar, [MainWindow](../src/Trazio.AsistenteReunion.App/MainWindow.xam
 
 [SegmentAnnotationPresentation](../src/Trazio.AsistenteReunion.App/SegmentAnnotationPresentation.cs) mantiene estas acciones dentro de Historial. Crear usa un diálogo modal para no mezclarse con el borrador de corrección; completar/reabrir valida el estado esperado; eliminar exige confirmación. Cargar una sesión autentica todas sus anotaciones y una fila corrupta aborta la carga completa. No existe IA, inferencia, red, exportación automática ni modificación de transcripción o audio.
 
+### Límite de configuración de inteligencia externa 9.1
+
+[ExternalAiProviderSettings](../src/Trazio.AsistenteReunion.Core/ExternalAiProviderSettings.cs) concentra la validación de URL, modelo y secreto. Solo acepta URL HTTP/HTTPS absolutas sin usuario, consulta ni fragmento; los destinos remotos requieren HTTPS y una clave, mientras que HTTP sin clave solo se admite en loopback para un servicio local. Los tamaños y caracteres de control se validan antes de persistir.
+
+[MainWindow](../src/Trazio.AsistenteReunion.App/MainWindow.xaml.cs) guarda la configuración completa mediante el `SettingsStore` ya protegido con DPAPI `CurrentUser`. La clave se recibe en un `PasswordBox`, nunca se repuebla y un campo vacío conserva el secreto existente. El usuario puede eliminar solamente la clave después de confirmar.
+
+No hay dependencia HTTP, cliente de proveedor ni llamada externa en esta rebanada. La futura ejecución deberá ser una frontera separada: construir un payload acotado, mostrar el texto exacto que saldrá, obtener consentimiento para esa operación y registrar proveedor/modelo sin registrar el secreto. La grabación, la transcripción local y la revisión deben seguir funcionando aunque el proveedor no esté configurado o falle.
+
 ### Límite de selección de ventana
 
 [MeetingWindowSelection](../src/Trazio.AsistenteReunion.App/MeetingWindowSelection.cs) separa clasificación, estado de presentación y el límite Win32. El catálogo enumera ventanas superiores visibles solo al pulsar **Actualizar lista**; excluye la propia aplicación, títulos vacíos, tool windows y ventanas cloaked. El acceso al nombre del proceso puede fallar sin descartar el candidato.

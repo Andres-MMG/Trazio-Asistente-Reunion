@@ -78,6 +78,12 @@ La rebanada 8.6 está publicada en beta 14/secuencia 15. La suite enfocada de pe
 
 No se afirma un estado de CI. Los registros automatizados públicos no están versionados en este repositorio; mantén la evidencia futura sin datos sensibles y vinculada a una matriz de commit/modelo/dispositivo.
 
+### Base 9.1 de proveedor externo — implementada en fuente
+
+La comprobación automatizada actual aprobó **14/14** pruebas enfocadas de política, persistencia DPAPI y contrato de interfaz. El conjunto Release completo aprobó **671/671** tanto en serie como con paralelismo predeterminado, y la solución compiló con **0 advertencias y 0 errores**.
+
+Estas pruebas acreditan validación de HTTPS/loopback, rechazo de URL inseguras, clave remota obligatoria, conservación deliberada del secreto, cifrado del archivo de configuración y ausencia contractual de envío al guardar. No prueban un proveedor real porque esta rebanada no incorpora cliente HTTP. También queda pendiente abrir físicamente la pestaña, navegarla por teclado y lector de pantalla, y comprobar guardar/reemplazar/eliminar en una instalación real.
+
 ## Conjunto de pruebas automatizadas
 
 El comando habitual de desarrollo es:
