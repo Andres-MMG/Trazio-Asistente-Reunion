@@ -49,6 +49,8 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     private AudioSourceKind _historyTrackSource = AudioSourceKind.Microphone;
     private string? _historyTrackSessionId;
     private readonly DispatcherTimer _playbackTimer;
+    private readonly DispatcherTimer _audioLevelTimer;
+    private readonly AudioLevelSnapshot _audioLevelSnapshot = new();
     private readonly IMeetingWindowCatalog _meetingWindowCatalog;
     private readonly MeetingWindowSelectionController _meetingWindowSelection;
     private readonly DispatcherTimer _meetingWindowMonitorTimer;
@@ -89,6 +91,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     private AudioArchiveStore? _audioArchive;
     private HistoryRetranscriptionService? _retranscription;
     private readonly OwnedCancellationOperationCoordinator _historyRetranscriptionOperation = new();
+    private string? _qwenIntervalSegmentId;
     private readonly OwnedCancellationOperationCoordinator _glossaryWorkspaceOperation = new();
     private readonly OwnedCancellationOperationCoordinator _pendingReviewOperation = new();
     private readonly OwnedCancellationOperationCoordinator _historyNavigationOperation = new();
@@ -133,9 +136,18 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         GlossarySuggestionsList.ItemsSource = _glossarySuggestions;
         GlossaryWorkspaceList.ItemsSource = _glossaryWorkspaceRows;
         SegmentAnnotationsList.ItemsSource = _segmentAnnotationRows;
+        InitializeRefinementUi();
         AudioWaveformItems.ItemsSource = _waveformBars;
         _playbackTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _playbackTimer.Tick += PlaybackTimer_Tick;
+        _audioLevelTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+        _audioLevelTimer.Tick += (_, _) =>
+        {
+            var levels = _audioLevelSnapshot.Read();
+            MicrophoneLevel.Value = _recording && !_recordingPaused ? levels.Microphone : 0;
+            OutputLevel.Value = _recording && !_recordingPaused ? levels.Output : 0;
+        };
+        _audioLevelTimer.Start();
         _meetingWindowCatalog = new Win32MeetingWindowCatalog();
         _meetingWindowSelection = new MeetingWindowSelectionController(_meetingWindowCatalog);
         _meetingWindowMonitorTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
@@ -164,6 +176,9 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         LocalOrganizationBox.Text = _settings.LocalOrganization ?? string.Empty;
         ConfirmLocalProfileCheck.IsChecked = _settings.LocalProfileConfirmed;
         LoadExternalAiSettingsUi();
+        LoadLocalAsrSettingsUi();
+        LoadLocalLayaSettingsUi();
+        LoadJevSettingsUi();
         TitleBox.Text = DefaultSessionTitle();
         var storage = StorageLocationFacts.Current();
         StoragePathText.Text = storage.DataDirectory;
@@ -1088,6 +1103,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
 
         if (!ReferenceEquals(MainTabs.SelectedItem, HistoryTabItem))
         {
+            _refinementOperation.Cancel();
             await CancelHistoryNavigationAsync();
             await CancelPendingReviewLoadAsync();
             _playbackSpeedChanges.InvalidatePlaybackIntent();
@@ -1933,11 +1949,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     {
         var coordinator = new RecordingCoordinator(_capture, _store!, new PendingAudioQueue(), audioArchiveStore: _audioArchive);
         coordinator.StatusChanged += (_, status) => Dispatcher.Invoke(() => StatusText.Text = status);
-        coordinator.LevelChanged += (_, level) => Dispatcher.Invoke(() =>
-        {
-            if (level.Source == AudioSourceKind.Microphone) MicrophoneLevel.Value = level.Peak;
-            else OutputLevel.Value = level.Peak;
-        });
+        coordinator.LevelChanged += (_, level) => _audioLevelSnapshot.Publish(level);
         coordinator.SegmentReady += (_, segment) => Dispatcher.Invoke(() =>
         {
             _liveRows.Add(new(segment));
@@ -1978,6 +1990,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     {
         if (navigationTicket is not null && !IsCurrentHistorySearchNavigation(navigationTicket)) return;
         CancelHistoryRetranscription();
+        _refinementOperation.Cancel();
         _historyRevisionLoads.Invalidate();
         await SupersedePlaybackAsync();
         if (navigationTicket is not null && !IsCurrentHistorySearchNavigation(navigationTicket)) return;
@@ -2308,8 +2321,16 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
     {
         if (_suppressHistorySegmentSelectionChanged) return;
         if (RestoreCorrectionDraftSegmentSelectionIfNeeded()) return;
-        UpdateSelectedSegmentEditor();
         var selected = SelectedHistorySegment();
+        if (!_suppressHistorySegmentPlayback && _qwenIntervalSegmentId is not null &&
+            selected?.Segment.Id != _qwenIntervalSegmentId)
+        {
+            CancelHistoryRetranscription();
+            _qwenIntervalSegmentId = null;
+            var session = SelectedHistorySession();
+            if (session is not null) _historyLoads.Begin(session.Id);
+        }
+        UpdateSelectedSegmentEditor();
         if (_suppressHistorySegmentPlayback || selected is null || _historyPlaying) return;
         if (_historyTrackSessionId == selected.Segment.SessionId && _historyTrackSource == selected.Segment.Source)
             SetPlaybackPosition(selected.Segment.Start);
@@ -2379,6 +2400,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
             UpdateSelectedSegmentAnnotations(null);
             UpdateSegmentReviewStatus();
             UpdateHistoryControls();
+            QueueRefinementPanelRefresh();
             return;
         }
         if (modelRevision)
@@ -2409,6 +2431,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         UpdateSelectedSegmentAnnotations(selected);
         UpdateSegmentReviewStatus();
         UpdateHistoryControls();
+        QueueRefinementPanelRefresh();
     }
 
     private void UpdateSelectedSegmentAnnotations(HistorySegmentItem? selected)
@@ -3353,7 +3376,8 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         var session = SelectedHistorySession();
         if (session is null || _retranscription is null || _store is null) return;
         HistoryLoadTicket ticket;
-        try { ticket = _historyLoads.Capture(session.Id); } catch (OperationCanceledException) { return; }
+        try { ticket = _historyLoads.Capture(session.Id); }
+        catch (OperationCanceledException) { return; }
         var eligibility = HistoryRetranscriptionPresenter.Create(
             session.State,
             _historyState.HasSelectedSourceAudio && _historySelectedSourceAudioComplete,
@@ -3366,13 +3390,11 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
             ShowError("No se pudo retranscribir", "Selecciona primero un archivo de modelo Whisper GGML existente.");
             return;
         }
-
         if (!_historyRetranscriptionOperation.TryBegin([_lifetime.Token, ticket.CancellationToken], out var operation))
         {
             StatusText.Text = "Ya hay una retranscripción en curso.";
             return;
         }
-
         var source = SelectedHistorySource();
         var editorTicket = _correctionDraftNavigation.CaptureOperation();
         UpdateHistoryControls();
@@ -3384,40 +3406,31 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
             if (!_historyRetranscriptionOperation.IsCurrent(operation) ||
                 !_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id))
                 return;
-
             var confirmedPlan = ConfirmGlossaryPrompt(glossaryPlan);
             if (confirmedPlan is null)
             {
                 StatusText.Text = "No se inició la retranscripción; el audio y las transcripciones no cambiaron.";
                 return;
             }
-
             StatusText.Text = confirmedPlan.HasPrompt
-                ? $"Retranscribiendo con {confirmedPlan.Included.Count} términos confirmados del diccionario…"
-                : "Retranscribiendo el audio cifrado conservado sin aplicar el diccionario…";
+                ? $"Retranscribiendo con Whisper y {confirmedPlan.Included.Count} términos confirmados del diccionario…"
+                : "Retranscribiendo con Whisper local sin aplicar el diccionario…";
+
             var editorOperation = await _correctionDraftNavigation.RunAsync(
                 editorTicket,
                 cancellationToken => _retranscription.RunAsync(
-                    session,
-                    source,
-                    modelPath,
-                    _settings.Language,
-                    confirmedPlan,
-                    cancellationToken),
+                    session, source, modelPath, _settings.Language, confirmedPlan, cancellationToken),
                 operation.CancellationToken);
             var revision = editorOperation.Value;
             if (!_historyRetranscriptionOperation.IsCurrent(operation) ||
                 !_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id))
                 return;
-            var editorIsCurrent = CanPublishCorrectionEditor(editorTicket);
-            if (!editorOperation.CanReplaceEditor || !editorIsCurrent)
+            if (!editorOperation.CanReplaceEditor || !CanPublishCorrectionEditor(editorTicket))
             {
                 StatusText.Text = "La retranscripción terminó, pero los cambios escritos después siguen sin guardar; no se reemplazó el editor.";
                 return;
             }
-
-            var published = await LoadHistoryReviewAsync(session, ticket, editorTicket: editorTicket);
-            if (!published) return;
+            if (!await LoadHistoryReviewAsync(session, ticket, editorTicket: editorTicket)) return;
             if (!_historyRetranscriptionOperation.IsCurrent(operation) ||
                 !_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id))
                 return;
@@ -3425,8 +3438,8 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
                 .OfType<HistoryRevisionItem>()
                 .FirstOrDefault(item => item.Revision.Id == revision.Id);
             StatusText.Text = confirmedPlan.HasPrompt
-                ? "La retranscripción se completó como una versión separada con diccionario confirmado."
-                : "La retranscripción se completó como una versión separada del modelo, sin diccionario.";
+                ? "Whisper completó una versión separada con diccionario confirmado."
+                : "Whisper completó una versión separada sin diccionario.";
         }
         catch (OperationCanceledException)
         {
@@ -3440,6 +3453,127 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         }
         finally
         {
+            if (_historyRetranscriptionOperation.Complete(operation)) UpdateHistoryControls();
+        }
+    }
+
+    private async void QwenSegmentRetranscribe_Click(object sender, RoutedEventArgs e)
+    {
+        if (BlockCorrectionDraftNavigation()) return;
+        var session = SelectedHistorySession();
+        var selected = SelectedHistorySegment();
+        if (session is null || selected is null || _store is null || _audioArchive is null) return;
+        if (HistoryRevisionSelector.SelectedItem is HistoryRevisionItem ||
+            selected.Segment.SessionId != session.Id ||
+            selected.Segment.Source != SelectedHistorySource())
+        {
+            StatusText.Text = "Selecciona un fragmento de la transcripción original y su fuente de audio.";
+            return;
+        }
+        if (selected.Segment.End <= selected.Segment.Start ||
+            selected.Segment.End - selected.Segment.Start > TimeSpan.FromSeconds(60))
+        {
+            StatusText.Text = "Qwen3-ASR admite fragmentos de hasta 60 segundos.";
+            return;
+        }
+        var local = _settings.SecondaryLocalAsr;
+        if (local is null)
+        {
+            StatusText.Text = "Configura primero llama.cpp y Qwen3-ASR en la pestaña Inteligencia.";
+            return;
+        }
+        HistoryLoadTicket ticket;
+        try { ticket = _historyLoads.Capture(session.Id); }
+        catch (OperationCanceledException) { return; }
+        var segment = selected.Segment;
+        HistoryRetranscriptionService retranscription;
+        try
+        {
+            var runtime = LlamaCppAsrRuntimeOptions.Create(
+                local.LlamaServerPath, local.MultimodalProjectorPath);
+            retranscription = new HistoryRetranscriptionService(
+                _store, _audioArchive, new LlamaCppAsrTransportFactory(runtime,
+                    async (preview, cancellationToken) =>
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        return await Dispatcher.InvokeAsync(() =>
+                        {
+                            if (_closing || cancellationToken.IsCancellationRequested ||
+                                !_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id) ||
+                                SelectedHistorySegment()?.Segment.Id != segment.Id ||
+                                SelectedHistorySource() != segment.Source ||
+                                HistoryRevisionSelector.SelectedItem is HistoryRevisionItem ||
+                                _settings.SecondaryLocalAsr != local)
+                                return false;
+                            var dialog = new LocalAsrExecutionConsentDialog(
+                                preview, segment.Source, segment.Start, segment.End) { Owner = this };
+                            var accepted = dialog.ShowDialog() == true;
+                            return accepted && !cancellationToken.IsCancellationRequested && !_closing &&
+                                   _historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id) &&
+                                   SelectedHistorySegment()?.Segment.Id == segment.Id &&
+                                   SelectedHistorySource() == segment.Source &&
+                                   HistoryRevisionSelector.SelectedItem is not HistoryRevisionItem &&
+                                   _settings.SecondaryLocalAsr == local;
+                        });
+                    }));
+        }
+        catch (Exception ex)
+        {
+            ShowError("No se pudo iniciar Qwen3-ASR", ex.Message);
+            return;
+        }
+        if (!_historyRetranscriptionOperation.TryBegin(
+                [_lifetime.Token, ticket.CancellationToken], out var operation))
+        {
+            StatusText.Text = "Ya hay una retranscripción en curso.";
+            return;
+        }
+        var editorTicket = _correctionDraftNavigation.CaptureOperation();
+        _qwenIntervalSegmentId = segment.Id;
+        UpdateHistoryControls();
+        try
+        {
+            StatusText.Text = "Retranscribiendo únicamente el fragmento seleccionado con Qwen3-ASR local…";
+            var editorOperation = await _correctionDraftNavigation.RunAsync(
+                editorTicket,
+                cancellationToken => retranscription.RunSelectedSegmentAsync(
+                    session, segment, local.QwenModelPath, _settings.Language, cancellationToken),
+                operation.CancellationToken);
+            var revision = editorOperation.Value;
+            if (!_historyRetranscriptionOperation.IsCurrent(operation) ||
+                !_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id) ||
+                SelectedHistorySegment()?.Segment.Id != segment.Id ||
+                SelectedHistorySource() != segment.Source)
+                return;
+            if (!editorOperation.CanReplaceEditor || !CanPublishCorrectionEditor(editorTicket))
+            {
+                StatusText.Text = "La segunda transcripción se guardó, pero el editor actual tiene cambios pendientes.";
+                return;
+            }
+            if (!await LoadHistoryReviewAsync(session, ticket, segment.Id, editorTicket: editorTicket)) return;
+            if (!_historyRetranscriptionOperation.IsCurrent(operation) ||
+                !_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id) ||
+                SelectedHistorySegment()?.Segment.Id != segment.Id)
+                return;
+            _qwenIntervalSegmentId = null;
+            HistoryRevisionSelector.SelectedItem = HistoryRevisionSelector.Items
+                .OfType<HistoryRevisionItem>()
+                .FirstOrDefault(item => item.Revision.Id == revision.Id);
+            StatusText.Text = "Qwen3-ASR guardó una versión parcial separada; el texto original y sus correcciones siguen intactos.";
+        }
+        catch (OperationCanceledException)
+        {
+            if (_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id))
+                StatusText.Text = "Retranscripción del fragmento cancelada; el original no cambió.";
+        }
+        catch (Exception ex)
+        {
+            if (_historyLoads.IsCurrent(ticket, SelectedHistorySession()?.Id))
+                ShowError("No se pudo retranscribir el fragmento", ex.Message);
+        }
+        finally
+        {
+            if (_qwenIntervalSegmentId == segment.Id) _qwenIntervalSegmentId = null;
             if (_historyRetranscriptionOperation.Complete(operation)) UpdateHistoryControls();
         }
     }
@@ -4270,8 +4404,19 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
             _historyState.HasSelectedSourceAudio && _historySelectedSourceAudioComplete,
             _historyRetranscriptionOperation.IsRunning);
         RetranscribeButton.IsEnabled = !playbackBlocked && !hasUnsavedDraft && retranscription.CanStart && !playbackActive;
+        QwenSegmentRetranscribeButton.IsEnabled = !playbackBlocked && !hasUnsavedDraft &&
+            !_historyRetranscriptionOperation.IsRunning && !playbackActive &&
+            _settings.SecondaryLocalAsr is not null &&
+            SelectedHistorySession()?.State is SessionState.Completed or SessionState.Interrupted &&
+            _historyState.HasSelectedSourceAudio &&
+            selected is not null && !viewingModelRevision &&
+            selected.Segment.Source == SelectedHistorySource() &&
+            selected.Segment.End > selected.Segment.Start &&
+            selected.Segment.End - selected.Segment.Start <= TimeSpan.FromSeconds(60);
         CancelRetranscriptionButton.IsEnabled = !playbackBlocked && retranscription.CanCancel;
         RetranscribeButton.ToolTip = retranscription.Guidance;
+        QwenSegmentRetranscribeButton.ToolTip =
+            "Procesa solamente el audio cifrado del fragmento original seleccionado (máximo 60 segundos). Si falta audio, no inicia una versión.";
         CancelRetranscriptionButton.ToolTip = retranscription.Guidance;
 
         var playbackSource = _activePlaybackSource ?? _historyTrackSource;
@@ -4296,6 +4441,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         UpdateStorageControls();
         UpdateHistorySearchControls();
         UpdatePendingReviewControls();
+        UpdateRefinementControls();
     }
 
     private void UpdatePendingReviewControls()
@@ -4342,6 +4488,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         _historyRevisionLoads.Invalidate();
         await CancelPendingReviewLoadAsync();
         await _glossaryWorkspaceOperation.CancelAndWaitAsync();
+        await _refinementOperation.CancelAndWaitAsync();
         _glossaryWorkspaceEntries = [];
         _glossaryWorkspaceRows.Clear();
         await _historySearchActivity.BlockAndDrainAsync();
@@ -4370,6 +4517,9 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
                     _pendingReviewTransition.Dispose();
                     _historyRetranscriptionOperation.Dispose();
                     _glossaryWorkspaceOperation.Dispose();
+                    _refinementOperation.Dispose();
+                    _refinementGenerator.Dispose();
+                    _jevEvaluator.Dispose();
                     _protector?.Dispose();
                 });
         }
@@ -4377,10 +4527,109 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
         finally
         {
             _meetingWindowMonitorTimer.Stop();
+            _audioLevelTimer.Stop();
             _meetingWindowSelection.FinishSession();
             InvalidateVisualAuthorization();
             _closingConfirmed = true;
             Close();
+        }
+    }
+
+    private void LoadLocalAsrSettingsUi()
+    {
+        var local = _settings.SecondaryLocalAsr;
+        LlamaServerPathBox.Text = local?.LlamaServerPath ?? string.Empty;
+        QwenModelPathBox.Text = local?.QwenModelPath ?? string.Empty;
+        QwenProjectorPathBox.Text = local?.MultimodalProjectorPath ?? string.Empty;
+        LocalAsrStatusText.Text = local is null
+            ? "Qwen3-ASR local no configurado. Whisper seguirá disponible."
+            : "Qwen3-ASR configurado. Antes de ejecutarlo se pedirá autorización para el programa y el fragmento.";
+    }
+
+    private async void SaveLocalAsrSettings_Click(object sender, RoutedEventArgs e)
+    {
+        if (_closing) return;
+        try
+        {
+            var local = LocalAsrSettingsPolicy.Create(
+                LlamaServerPathBox.Text,
+                QwenModelPathBox.Text,
+                QwenProjectorPathBox.Text);
+            LocalAsrExecutionGuard.ValidateLocalFile(local.LlamaServerPath);
+            LocalAsrExecutionGuard.ValidateLocalFile(local.QwenModelPath);
+            LocalAsrExecutionGuard.ValidateLocalFile(local.MultimodalProjectorPath);
+            _settings = _settings with { SecondaryLocalAsr = local };
+            await _settingsStore.SaveAsync(_settings, _lifetime.Token);
+            LoadLocalAsrSettingsUi();
+            StatusText.Text = "Configuración Qwen3-ASR guardada. No se ejecutó ningún programa ni se procesó audio.";
+        }
+        catch (Exception ex)
+        {
+            ShowError("No se pudo guardar Qwen3-ASR local", ex.Message);
+        }
+    }
+
+    private void BrowseLlamaServer_Click(object sender, RoutedEventArgs e) =>
+        BrowseLocalAsrFile(LlamaServerPathBox, "Ejecutable llama-server|llama-server.exe|Ejecutables|*.exe");
+
+    private void BrowseQwenModel_Click(object sender, RoutedEventArgs e) =>
+        BrowseLocalAsrFile(QwenModelPathBox, "Modelos GGUF|*.gguf");
+
+    private void BrowseQwenProjector_Click(object sender, RoutedEventArgs e) =>
+        BrowseLocalAsrFile(QwenProjectorPathBox, "Proyectores GGUF|mmproj*.gguf|Modelos GGUF|*.gguf");
+
+    private void BrowseLocalAsrFile(TextBox target, string filter)
+    {
+        var dialog = new OpenFileDialog
+        {
+            CheckFileExists = true,
+            Multiselect = false,
+            Filter = filter,
+            FileName = target.Text
+        };
+        if (dialog.ShowDialog(this) == true) target.Text = dialog.FileName;
+    }
+    private void LoadLocalLayaSettingsUi()
+    {
+        var local = _settings.LocalLaya;
+        LayaNodePathBox.Text = local?.NodeExecutablePath ?? string.Empty;
+        LayaSidecarDirectoryBox.Text = local?.SidecarDirectory ?? string.Empty;
+        LayaModelDirectoryBox.Text = local?.ModelDirectory ?? string.Empty;
+        LayaModelVersionBox.Text = local?.ModelVersion ?? string.Empty;
+        try
+        {
+            if (local is null) throw new InvalidOperationException();
+            LocalLayaSettingsPolicy.ValidateInstalled(local);
+            LayaLocalStatusText.Text = "Laya local listo para una evaluación manual.";
+        }
+        catch (Exception)
+        {
+            LayaLocalStatusText.Text = local is null
+                ? "Laya local no configurado. No se iniciará ni descargará ningún modelo."
+                : "Faltan dependencias o archivos del modelo. Instala Node, el sidecar y el paquete Laya completos para habilitar la evaluación.";
+        }
+        UpdateRefinementControls();
+    }
+
+    private async void SaveLayaSettings_Click(object sender, RoutedEventArgs e)
+    {
+        if (_closing) return;
+        try
+        {
+            var local = LocalLayaSettingsPolicy.Create(
+                LayaNodePathBox.Text, LayaSidecarDirectoryBox.Text,
+                LayaModelDirectoryBox.Text, LayaModelVersionBox.Text);
+            _settings = _settings with { LocalLaya = local };
+            await _settingsStore.SaveAsync(_settings, _lifetime.Token);
+            LoadLocalLayaSettingsUi();
+            _jevLocalFailure = null;
+            _jevFailureBatchId = null;
+            UpdateRefinementControls();
+            StatusText.Text = "Configuración local de Laya guardada. No se inició ningún proceso ni se envió texto.";
+        }
+        catch (Exception ex)
+        {
+            ShowError("No se pudo guardar Laya local", ex.Message);
         }
     }
 
@@ -4423,6 +4672,7 @@ public partial class MainWindow : Window, IVisualCaptureStateSink
             _settings = _settings with { ExternalAiProvider = provider };
             await _settingsStore.SaveAsync(_settings, _lifetime.Token);
             LoadExternalAiSettingsUi();
+        LoadLocalAsrSettingsUi();
             StatusText.Text = "Configuración de inteligencia externa guardada. No se enviaron datos.";
         }
         catch (Exception ex)

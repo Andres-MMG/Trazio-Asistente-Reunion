@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Diagnostics;
 using Trazio.AsistenteReunion.App;
 using Trazio.AsistenteReunion.Core;
 
@@ -229,6 +230,170 @@ public sealed class RecordingCoordinatorTests : IAsyncLifetime
     }
 
     [Fact]
+    public void CapturePacketContinuity_LongSilentGapRotatesOnlyWithoutPartialAudio()
+    {
+        const int bytesPerSecond = 32_000;
+        Assert.Equal(CaptureGapAction.Continue,
+            CapturePacketContinuity.Decide(TimeSpan.FromMilliseconds(1008), 32_000, 32_000, bytesPerSecond, 0));
+        Assert.Equal(CaptureGapAction.Rotate,
+            CapturePacketContinuity.Decide(TimeSpan.FromSeconds(61), 32_000, 32_000, bytesPerSecond, 0));
+        Assert.Equal(CaptureGapAction.Fail,
+            CapturePacketContinuity.Decide(TimeSpan.FromSeconds(61), 16_000, 16_000, bytesPerSecond, 16_000));
+        Assert.Equal(CaptureGapAction.Continue,
+            CapturePacketContinuity.Decide(TimeSpan.FromMilliseconds(508), 16_000, 16_000, bytesPerSecond, 16_000));
+        Assert.Equal(CaptureGapAction.Continue,
+            CapturePacketContinuity.Decide(TimeSpan.FromMilliseconds(108), 3_200, 3_200, bytesPerSecond, 0));
+        Assert.Equal(CaptureGapAction.Continue,
+            CapturePacketContinuity.Decide(TimeSpan.FromMilliseconds(92), 3_200, 3_200, bytesPerSecond, 0));
+        Assert.Equal(CaptureGapAction.Rotate,
+            CapturePacketContinuity.Decide(TimeSpan.FromMilliseconds(400), 3_200, 3_200, bytesPerSecond, 0));
+        Assert.Equal(CaptureGapAction.Fail,
+            CapturePacketContinuity.Decide(TimeSpan.FromMilliseconds(400), 3_200, 3_200, bytesPerSecond, 1_600));
+        Assert.Equal(CaptureGapAction.Rotate,
+            CapturePacketContinuity.Decide(TimeSpan.FromMilliseconds(400), 32_000, 3_200, bytesPerSecond, 0));
+    }
+
+    [Fact]
+    public async Task StampedPcm_PublishedAfterNewCaptureRun_PreservesOriginalTimeAndRun()
+    {
+        var start = new DateTimeOffset(2026, 9, 24, 9, 0, 0, TimeSpan.Zero);
+        var time = new ManualTimeProvider(start);
+        var capture = new FakeAudioCapture();
+        var archive = new AudioArchiveStore(Path.Combine(_directory, "stamped-audio"), _store, _protector);
+        await using var coordinator = new RecordingCoordinator(
+            capture, _store, new PendingAudioQueue(), new FakeTransportFactory(), archive, time);
+        await coordinator.StartAsync("Stamped PCM", Settings() with { KeepEncryptedAudio = true });
+
+        time.AdvanceTimestamp(TimeSpan.FromSeconds(1));
+        capture.EmitStamped(AudioSourceKind.Microphone, new byte[32_000], "old-run", 0,
+            Stopwatch.GetTimestamp() - Stopwatch.Frequency);
+        time.AdvanceTimestamp(TimeSpan.FromSeconds(1));
+        capture.EmitStamped(AudioSourceKind.Microphone, new byte[32_000], "new-run", 16_000,
+            Stopwatch.GetTimestamp() - Stopwatch.Frequency);
+        await coordinator.StopAsync();
+
+        var session = Assert.Single(await _store.ListSessionsAsync());
+        var chunks = await _store.GetArchivedAudioAsync(session.Id, AudioSourceKind.Microphone);
+        Assert.Equal(2, chunks.Count);
+        Assert.Equal("old-run", chunks[0].CaptureRunId);
+        Assert.Equal("new-run", chunks[1].CaptureRunId);
+        Assert.InRange(chunks[0].StartedAt - start, TimeSpan.Zero, TimeSpan.FromMilliseconds(40));
+        Assert.InRange(chunks[1].StartedAt - start, TimeSpan.FromMilliseconds(960), TimeSpan.FromMilliseconds(1_040));
+    }
+
+    [Fact]
+    public async Task CallbackJitter_LaterWhisperWindowAndArchiveShareSampleClock()
+    {
+        var start = new DateTimeOffset(2026, 9, 24, 10, 0, 0, TimeSpan.Zero);
+        var time = new ManualTimeProvider(start);
+        var capture = new FakeAudioCapture();
+        var archive = new AudioArchiveStore(Path.Combine(_directory, "audio"), _store, _protector);
+        var factory = new FakeTransportFactory { SegmentStartMilliseconds = 1_000 };
+        await using var coordinator = new RecordingCoordinator(
+            capture, _store, new PendingAudioQueue(), factory, archive, time);
+        await coordinator.StartAsync("Clock", Settings() with { KeepEncryptedAudio = true });
+        var previousTicks = 0L;
+        for (var second = 0; second < 16; second++)
+        {
+            var targetTicks = TimeSpan.FromSeconds(second).Ticks +
+                (second == 0 ? 0 : second % 2 == 0 ? TimeSpan.FromMilliseconds(-6).Ticks : TimeSpan.FromMilliseconds(8).Ticks);
+            time.AdvanceTimestamp(TimeSpan.FromTicks(targetTicks - previousTicks));
+            previousTicks = targetTicks;
+            capture.EmitWithMetadata(AudioSourceKind.Microphone, new byte[32_000], "run-a", second * 16_000L);
+            await Task.Delay(25);
+        }
+        await coordinator.StopAsync();
+
+        var session = Assert.Single(await _store.ListSessionsAsync());
+        var segments = await _store.GetSegmentsAsync(session.Id);
+        Assert.Contains(segments, item => item.Start == TimeSpan.FromSeconds(15));
+        var chunk = Assert.Single(await _store.GetArchivedAudioAsync(session.Id, AudioSourceKind.Microphone));
+        Assert.Equal(start, chunk.StartedAt);
+        Assert.Equal(TimeSpan.FromSeconds(16), chunk.Duration);
+        Assert.Equal(0, chunk.ContinuityEpoch);
+    }
+
+    [Fact]
+    public async Task LoopbackSilence_SplitsWhisperAndArchiveWithoutAssigningOldAudioToNewTime()
+    {
+        var start = new DateTimeOffset(2026, 9, 24, 11, 0, 0, TimeSpan.Zero);
+        var time = new ManualTimeProvider(start);
+        var capture = new FakeAudioCapture();
+        var archive = new AudioArchiveStore(Path.Combine(_directory, "audio"), _store, _protector);
+        var factory = new FakeTransportFactory();
+        await using var coordinator = new RecordingCoordinator(
+            capture, _store, new PendingAudioQueue(), factory, archive, time);
+        await coordinator.StartAsync("Silence", Settings() with { CaptureSystemOutput = true, KeepEncryptedAudio = true });
+        capture.EmitWithMetadata(AudioSourceKind.SystemOutput, Enumerable.Repeat((byte)0x11, 32_000).ToArray(), "run-a", 0);
+        time.AdvanceTimestamp(TimeSpan.FromSeconds(61));
+        capture.EmitWithMetadata(AudioSourceKind.SystemOutput, Enumerable.Repeat((byte)0x22, 32_000).ToArray(), "run-a", 16_000);
+        await coordinator.StopAsync();
+
+        var session = Assert.Single(await _store.ListSessionsAsync());
+        var chunks = await _store.GetArchivedAudioAsync(session.Id, AudioSourceKind.SystemOutput);
+        Assert.Equal(2, chunks.Count);
+        Assert.Equal(start, chunks[0].StartedAt);
+        Assert.Equal(start.AddSeconds(61), chunks[1].StartedAt);
+        Assert.NotEqual(chunks[0].ContinuityEpoch, chunks[1].ContinuityEpoch);
+        var segments = await _store.GetSegmentsAsync(session.Id);
+        Assert.Contains(segments, item => item.Start == TimeSpan.Zero);
+        Assert.Contains(segments, item => item.Start == TimeSpan.FromSeconds(61));
+        Assert.Equal(2, factory.Transports.Single().TranscribedPcm.Count);
+        var later = await RetainedAudioInterval.ReadExactAsync(archive, session,
+            AudioSourceKind.SystemOutput, chunks, TimeSpan.FromSeconds(61), TimeSpan.FromSeconds(62), CancellationToken.None);
+        Assert.All(later, value => Assert.Equal((byte)0x22, value));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => RetainedAudioInterval.ReadExactAsync(archive, session,
+            AudioSourceKind.SystemOutput, chunks, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task RecoveryWithoutSampleProvenance_NeverCombinesChunksAcrossUnknownGap()
+    {
+        var start = DateTimeOffset.UtcNow.AddMinutes(-2);
+        var session = new MeetingSession("recover-gap", "Recover", start, start.AddSeconds(62), SessionState.Interrupted);
+        await _store.CreateSessionAsync(session);
+        var first = AudioChunk.Create(session.Id, AudioSourceKind.SystemOutput, 0, start, new byte[32_000]);
+        var later = AudioChunk.Create(session.Id, AudioSourceKind.SystemOutput, 1, start.AddSeconds(61), new byte[32_000]);
+        await _store.SavePendingAsync(first, DateTimeOffset.UtcNow.AddHours(1));
+        await _store.SavePendingAsync(later, DateTimeOffset.UtcNow.AddHours(1));
+        var capture = new FakeAudioCapture();
+        var factory = new FakeTransportFactory();
+        await using var coordinator = new RecordingCoordinator(capture, _store, new PendingAudioQueue(), factory);
+        await coordinator.RecoverAsync(new SessionSummary(session.Id, session.Title, session.StartedAt,
+            session.EndedAt, session.State), Settings(), [first, later]);
+
+        Assert.Equal(2, factory.Transports.Single().TranscribedPcm.Count);
+        var segments = await _store.GetSegmentsAsync(session.Id);
+        Assert.Contains(segments, item => item.Start == TimeSpan.Zero);
+        Assert.Contains(segments, item => item.Start == TimeSpan.FromSeconds(61));
+    }
+
+    [Fact]
+    public async Task PauseResume_FlushesArchivedPartialChunkAndChangesAdmissionEpoch()
+    {
+        var capture = new FakeAudioCapture();
+        var archive = new AudioArchiveStore(Path.Combine(_directory, "audio"), _store, _protector);
+        await using var coordinator = new RecordingCoordinator(
+            capture, _store, new PendingAudioQueue(), new FakeTransportFactory(), archive);
+        await coordinator.StartAsync("Epoch", Settings() with { KeepEncryptedAudio = true });
+        capture.EmitWithMetadata(AudioSourceKind.Microphone, new byte[32_000], "run-a", 0);
+        coordinator.Pause();
+        capture.EmitWithMetadata(AudioSourceKind.Microphone, new byte[32_000], "run-a", 16_000);
+        coordinator.Resume();
+        capture.EmitWithMetadata(AudioSourceKind.Microphone, new byte[32_000], "run-a", 32_000);
+        await coordinator.StopAsync();
+
+        var session = Assert.Single(await _store.ListSessionsAsync());
+        var chunks = await _store.GetArchivedAudioAsync(session.Id, AudioSourceKind.Microphone);
+        Assert.Equal(2, chunks.Count);
+        Assert.Equal(0, chunks[0].ContinuityEpoch);
+        Assert.Equal(2, chunks[1].ContinuityEpoch);
+        Assert.Equal(32_000, chunks[1].FirstSourceSample);
+        Assert.Equal(TimeSpan.FromSeconds(1), chunks[0].Duration);
+        Assert.Equal(TimeSpan.FromSeconds(1), chunks[1].Duration);
+    }
+
+    [Fact]
     public async Task PauseResume_PreservesTimelineContinuityAndIgnoresPausedAudio()
     {
         var time = new ManualTimeProvider(new DateTimeOffset(2026, 9, 23, 20, 0, 0, TimeSpan.Zero));
@@ -341,23 +506,30 @@ public sealed class RecordingCoordinatorTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task CaptureFailure_RevokesActiveTimelineContext()
+    public async Task CaptureFailure_RevokesTimelineDisablesResumeAndPreservesAudioAsInterrupted()
     {
         var capture = new FakeAudioCapture();
+        var archive = new AudioArchiveStore(Path.Combine(_directory, "audio"), _store, _protector);
         await using var coordinator = new RecordingCoordinator(
-            capture,
-            _store,
-            new PendingAudioQueue(),
-            new FakeTransportFactory(),
-            timeProvider: new ManualTimeProvider(DateTimeOffset.UtcNow));
-        await coordinator.StartAsync("Capture failure", Settings());
+            capture, _store, new PendingAudioQueue(), new FakeTransportFactory(), archive,
+            new ManualTimeProvider(DateTimeOffset.UtcNow));
+        var statuses = new List<string>();
+        coordinator.StatusChanged += (_, status) => statuses.Add(status);
+        await coordinator.StartAsync("Capture failure", Settings() with { KeepEncryptedAudio = true });
         var context = Assert.IsType<SessionTimelineContext>(coordinator.ActiveTimelineContext);
+        capture.EmitWithMetadata(AudioSourceKind.Microphone, new byte[32_000], "run-a", 0);
+        capture.Fail("partial audio cannot be dated");
+        var statusAfterFailure = statuses[^1];
 
-        capture.Fail("device unavailable");
+        coordinator.Resume();
 
         Assert.Null(coordinator.ActiveTimelineContext);
         Assert.False(context.TryGetCurrentOffset(out _));
-        await coordinator.StopAsync();
+        Assert.Equal(statusAfterFailure, statuses[^1]);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.StopAsync());
+        var session = Assert.Single(await _store.ListSessionsAsync());
+        Assert.Equal(SessionState.Interrupted, session.State);
+        Assert.Single(await _store.GetArchivedAudioAsync(session.Id, AudioSourceKind.Microphone));
     }
 
     [Fact]
@@ -525,6 +697,10 @@ public sealed class RecordingCoordinatorTests : IAsyncLifetime
         }
 
         public void Emit(AudioSourceKind source, byte[] pcm) => _secondCaptured?.Invoke(this, new(source, pcm, 0.5f));
+        public void EmitWithMetadata(AudioSourceKind source, byte[] pcm, string runId, long firstSourceSample) =>
+            _secondCaptured?.Invoke(this, new(source, pcm, 0.5f, runId, firstSourceSample));
+        public void EmitStamped(AudioSourceKind source, byte[] pcm, string runId, long firstSourceSample, long capturedTimestamp) =>
+            _secondCaptured?.Invoke(this, new(source, pcm, 0.5f, runId, firstSourceSample, capturedTimestamp));
         public EventHandler<CapturedSecond> SnapshotHandler() => _secondCaptured ?? throw new InvalidOperationException("No capture handler is registered.");
         public EventHandler<string> SnapshotFailureHandler() => _captureFailed ?? throw new InvalidOperationException("No failure handler is registered.");
         public void Fail(string error) => _captureFailed?.Invoke(this, error);
@@ -536,12 +712,17 @@ public sealed class RecordingCoordinatorTests : IAsyncLifetime
     {
         public int StartFailuresRemaining { get; set; }
         public bool ThrowOnTranscribe { get; set; }
+        public long SegmentStartMilliseconds { get; set; }
         public List<FakeTransport> Transports { get; } = [];
 
         public Task<ITranscriptionTransport> StartAsync(string modelPath, string language, CancellationToken cancellationToken)
         {
             if (StartFailuresRemaining-- > 0) throw new InvalidOperationException("Simulated worker startup failure.");
-            var transport = new FakeTransport { ThrowOnTranscribe = ThrowOnTranscribe };
+            var transport = new FakeTransport
+            {
+                ThrowOnTranscribe = ThrowOnTranscribe,
+                SegmentStartMilliseconds = SegmentStartMilliseconds
+            };
             Transports.Add(transport);
             return Task.FromResult<ITranscriptionTransport>(transport);
         }
@@ -553,6 +734,7 @@ public sealed class RecordingCoordinatorTests : IAsyncLifetime
         public int TranscriptionCount { get; private set; }
         public bool Disposed { get; private set; }
         public bool ThrowOnTranscribe { get; init; }
+        public long SegmentStartMilliseconds { get; init; }
         public List<byte[]> TranscribedPcm { get; } = [];
 
         public Task<WorkerResponse> TranscribeAsync(string workId, byte[] pcm16, CancellationToken cancellationToken)
@@ -560,7 +742,7 @@ public sealed class RecordingCoordinatorTests : IAsyncLifetime
             TranscriptionCount++;
             if (ThrowOnTranscribe) throw new InvalidOperationException("Simulated inference failure.");
             TranscribedPcm.Add([.. pcm16]);
-            IReadOnlyList<WorkerSegmentDto> segments = [new(0, 900, "tail text")];
+            IReadOnlyList<WorkerSegmentDto> segments = [new(SegmentStartMilliseconds, SegmentStartMilliseconds + 900, "tail text")];
             return Task.FromResult(new WorkerResponse(true, WorkId: workId, Segments: segments));
         }
 

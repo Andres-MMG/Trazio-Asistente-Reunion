@@ -88,6 +88,20 @@ La comprobación automatizada actual aprobó **14/14** pruebas enfocadas de pol�
 
 Estas pruebas acreditan validación de HTTPS/loopback, rechazo de URL inseguras, clave remota obligatoria, conservación deliberada del secreto, cifrado del archivo de configuración y ausencia contractual de envío al guardar. No prueban un proveedor real porque esta rebanada no incorpora cliente HTTP. También queda pendiente abrir físicamente la pestaña, navegarla por teclado y lector de pantalla, y comprobar guardar/reemplazar/eliminar en una instalación real.
 
+## Piloto de transcripción mejorada en fuente
+
+**No pertenece a beta 15:** 9.2–9.6 son cambios experimentales locales sin ZIP/Setup nuevo validado. Las cifras de 671/671, hashes y recursos anteriores corresponden solo a la publicación beta 15; no constituyen verificación de este código posterior. No hay corpus real consentido, inferencia física de Laya/Qwen/Jev, ejecución productiva de Setup ni prueba de reuniones de dos o cinco horas para el piloto.
+
+La [guía 9.2](../evaluation/stage-9/README.md) define manifiestos privados, consentimiento, referencia humana y matriz completa de los mismos fragmentos para Whisper, Whisper refinado y Whisper + Qwen. El arnés mide WER/CER sobre hipótesis suministradas y registra latencia/memoria también suministradas. Los cambios de significado son juicios humanos separados, no una deducción del WER ni de la preferencia de Laya. El ejemplo incluido es sintético y no puede acreditar precisión.
+
+Antes de considerar una publicación hay que ejecutar, registrar y revisar:
+
+1. Pruebas de solución desde fuente: `dotnet test .\Trazio.AsistenteReunion.slnx -c Release`; pruebas del sidecar: `node --test .\tools\Trazio.Laya.Sidecar\server.test.mjs`. La compilación debe terminar sin errores. Verificar los cambios finales, no reutilizar resultados de un estado anterior del árbol.
+2. Con modelos y dependencias instalados aparte, ensayar Laya y Qwen sobre audio **consentido**, incluidos cancelación, indisponibilidad, memoria insuficiente, respuestas inválidas, contexto excesivo, segmentos duplicados, huecos y revisión/rechazo. Confirmar que Jev no se llama por baja confianza y que cada salida remota requiere aprobación del JSON exacto.
+3. Inspección física de fuente, reproductor, diferencia accesible, consentimiento y continuidad en dos y cinco horas, sin pérdida de original/audio/correcciones. Probar una instalación/actualización real en otra cuenta o equipo, con el Setup específico del piloto, antes de declarar aptitud para producción.
+
+Ni las pruebas sintéticas ni el build demuestran que un proceso local aportado por el usuario no acceda a la red. El sidecar Node, llama.cpp y los modelos no están empaquetados/autenticados como dependencias de beta 15. Consulta [seguridad](security.md#piloto-experimental-de-la-etapa-9) y la [guía del piloto](stage-9-transcription-pilot.md).
+
 ## Conjunto de pruebas automatizadas
 
 El comando habitual de desarrollo es:

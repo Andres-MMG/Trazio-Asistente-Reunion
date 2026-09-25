@@ -27,7 +27,8 @@ public sealed record SessionSummary(
 
 public sealed record ArchivedAudioChunk(
     string Id, string SessionId, AudioSourceKind Source, long Sequence,
-    DateTimeOffset StartedAt, TimeSpan Duration, string RelativePath, long EncryptedBytes);
+    DateTimeOffset StartedAt, TimeSpan Duration, string RelativePath, long EncryptedBytes,
+    string? CaptureRunId = null, long? ContinuityEpoch = null, long? FirstSourceSample = null);
 
 public sealed record AudioArchiveSummary(AudioSourceKind Source, int ChunkCount, TimeSpan Duration, long EncryptedBytes);
 
@@ -43,7 +44,10 @@ public sealed record AppSettings(
     string? LocalDisplayName = null,
     string? LocalOrganization = null,
     bool LocalProfileConfirmed = false,
-    ExternalAiProviderSettings? ExternalAiProvider = null);
+    ExternalAiProviderSettings? ExternalAiProvider = null,
+    LocalAsrSettings? SecondaryLocalAsr = null,
+    LocalLayaSettings? LocalLaya = null,
+    JevFallbackSettings? JevFallback = null);
 
 public static class AudioRetentionPolicy
 {

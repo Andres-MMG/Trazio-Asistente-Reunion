@@ -32,13 +32,42 @@ public sealed partial class SqliteSessionStore
             CREATE INDEX IF NOT EXISTS ix_model_revision_segments ON transcript_model_revision_segments(revision_id,sequence);
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
+        await EnsureColumnAsync(connection, "transcript_model_revisions", "scope_segment_id", "TEXT NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "transcript_model_revisions", "scope_start_ms", "INTEGER NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "transcript_model_revisions", "scope_end_ms", "INTEGER NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "transcript_model_revisions", "scope_start_ticks", "INTEGER NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "transcript_model_revisions", "scope_end_ticks", "INTEGER NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "transcript_model_revisions", "producer_identity", "TEXT NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "transcript_model_revision_segments", "start_ticks", "INTEGER NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "transcript_model_revision_segments", "end_ticks", "INTEGER NULL", cancellationToken);
         await RecoverStaleModelRevisionsAsync(connection, cancellationToken);
     }
 
     public Task<TranscriptModelRevision> StartModelRevisionAsync(string sessionId, AudioSourceKind source, string modelIdentity, string? modelHash, string language, CancellationToken cancellationToken = default) =>
         StartModelRevisionAsync(sessionId, source, modelIdentity, modelHash, language, GlossaryPromptPlan.NoGlossaryVersion, cancellationToken);
 
-    public async Task<TranscriptModelRevision> StartModelRevisionAsync(string sessionId, AudioSourceKind source, string modelIdentity, string? modelHash, string language, string glossaryPromptVersion, CancellationToken cancellationToken = default)
+    public Task<TranscriptModelRevision> StartModelRevisionAsync(string sessionId, AudioSourceKind source, string modelIdentity, string? modelHash, string language, string glossaryPromptVersion, CancellationToken cancellationToken = default) =>
+        StartModelRevisionCoreAsync(sessionId, source, modelIdentity, modelHash, language, glossaryPromptVersion, null, null, cancellationToken);
+
+    public Task<TranscriptModelRevision> StartSegmentModelRevisionAsync(
+        string sessionId, AudioSourceKind source, TranscriptModelRevisionScope scope,
+        string modelIdentity, string? modelHash, string language,
+        CancellationToken cancellationToken = default) =>
+        StartModelRevisionCoreAsync(sessionId, source, modelIdentity, modelHash, language,
+            GlossaryPromptPlan.NoGlossaryVersion, scope, null, cancellationToken);
+
+    public Task<TranscriptModelRevision> StartQwenSegmentModelRevisionAsync(
+        string sessionId, AudioSourceKind source, TranscriptModelRevisionScope scope,
+        string modelIdentity, string? modelHash, string language,
+        CancellationToken cancellationToken = default) =>
+        StartModelRevisionCoreAsync(sessionId, source, modelIdentity, modelHash, language,
+            GlossaryPromptPlan.NoGlossaryVersion, scope,
+            ModelRevisionProducer.Qwen3AsrLlamaCppV1, cancellationToken);
+
+    private async Task<TranscriptModelRevision> StartModelRevisionCoreAsync(
+        string sessionId, AudioSourceKind source, string modelIdentity, string? modelHash,
+        string language, string glossaryPromptVersion, TranscriptModelRevisionScope? scope,
+        string? producerIdentity, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(modelIdentity) || string.IsNullOrWhiteSpace(language)) throw new ArgumentException("Se requieren la identidad del modelo y el idioma.");
         if (string.IsNullOrWhiteSpace(glossaryPromptVersion) || glossaryPromptVersion.Length > 160) throw new ArgumentException("La versión del prompt del diccionario no es válida.", nameof(glossaryPromptVersion));
@@ -49,22 +78,46 @@ public sealed partial class SqliteSessionStore
         var state = await session.ExecuteScalarAsync(cancellationToken);
         if (state is null) throw new InvalidOperationException("La sesión guardada ya no existe.");
         if ((SessionState)Convert.ToInt32(state) is SessionState.Recording or SessionState.Paused) throw new InvalidOperationException("Detén la sesión activa antes de retranscribirla.");
+        if (scope is not null)
+        {
+            if (string.IsNullOrWhiteSpace(scope.SegmentId) || scope.Start < TimeSpan.Zero ||
+                scope.End <= scope.Start || scope.End - scope.Start > TimeSpan.FromSeconds(60))
+                throw new ArgumentException("El intervalo del segmento no es válido.", nameof(scope));
+            await using var segmentLookup = connection.CreateCommand();
+            segmentLookup.CommandText = "SELECT session_id,source,COALESCE(start_ticks,start_ms*10000),COALESCE(end_ticks,end_ms*10000) FROM segments WHERE id=$id";
+            segmentLookup.Parameters.AddWithValue("$id", scope.SegmentId);
+            await using var segmentReader = await segmentLookup.ExecuteReaderAsync(cancellationToken);
+            if (!await segmentReader.ReadAsync(cancellationToken) ||
+                segmentReader.GetString(0) != sessionId ||
+                (AudioSourceKind)segmentReader.GetInt32(1) != source ||
+                segmentReader.GetInt64(2) != scope.Start.Ticks ||
+                segmentReader.GetInt64(3) != scope.End.Ticks)
+                throw new InvalidOperationException("El segmento original ya no coincide con el intervalo solicitado.");
+        }
         await using var running = connection.CreateCommand();
         running.CommandText = "SELECT COUNT(*) FROM transcript_model_revisions WHERE session_id=$session AND source=$source AND status=$running";
         running.Parameters.AddWithValue("$session", sessionId); running.Parameters.AddWithValue("$source", (int)source); running.Parameters.AddWithValue("$running", (int)ModelRevisionStatus.Running);
         if (Convert.ToInt32(await running.ExecuteScalarAsync(cancellationToken)) > 0) throw new InvalidOperationException("Ya hay una retranscripción en curso para esta sesión y fuente.");
-        var revision = new TranscriptModelRevision(Guid.NewGuid().ToString("N"), sessionId, source, ModelRevisionStatus.Running, modelIdentity.Trim(), modelHash, language, DateTimeOffset.UtcNow, null, null, null, glossaryPromptVersion.Trim());
+        var revision = new TranscriptModelRevision(Guid.NewGuid().ToString("N"), sessionId, source, ModelRevisionStatus.Running, modelIdentity.Trim(), modelHash, language, DateTimeOffset.UtcNow, null, null, null, glossaryPromptVersion.Trim(), scope, producerIdentity);
         var model = protector.Protect(Encoding.UTF8.GetBytes(revision.ModelIdentity), $"model-revision:{revision.Id}:model");
         var hash = ProtectRevisionOptional(revision.ModelHash, $"model-revision:{revision.Id}:hash");
         var glossary = protector.Protect(Encoding.UTF8.GetBytes(revision.GlossaryPromptVersion), $"model-revision:{revision.Id}:glossary");
         await using var insert = connection.CreateCommand();
         insert.CommandText = """
-            INSERT INTO transcript_model_revisions(id,session_id,source,status,model_nonce,model_cipher,model_tag,model_hash_nonce,model_hash_cipher,model_hash_tag,language,started_at,glossary_version_nonce,glossary_version_cipher,glossary_version_tag)
-            VALUES($id,$session,$source,$status,$mn,$mc,$mt,$hn,$hc,$ht,$language,$started,$gn,$gc,$gt)
+            INSERT INTO transcript_model_revisions(id,session_id,source,status,model_nonce,model_cipher,model_tag,model_hash_nonce,model_hash_cipher,model_hash_tag,language,started_at,glossary_version_nonce,glossary_version_cipher,glossary_version_tag,
+              scope_segment_id,scope_start_ms,scope_end_ms,scope_start_ticks,scope_end_ticks,producer_identity)
+            VALUES($id,$session,$source,$status,$mn,$mc,$mt,$hn,$hc,$ht,$language,$started,$gn,$gc,$gt,
+              $scope_segment,$scope_start,$scope_end,$scope_start_ticks,$scope_end_ticks,$producer_identity)
             """;
         insert.Parameters.AddWithValue("$id", revision.Id); insert.Parameters.AddWithValue("$session", sessionId); insert.Parameters.AddWithValue("$source", (int)source); insert.Parameters.AddWithValue("$status", (int)revision.Status);
         AddRevisionPayload(insert,"m",model); AddRevisionOptionalPayload(insert,"h",hash); AddRevisionPayload(insert,"g",glossary);
         insert.Parameters.AddWithValue("$language", language); insert.Parameters.AddWithValue("$started", revision.StartedAt.ToString("O"));
+        insert.Parameters.AddWithValue("$scope_segment", (object?)scope?.SegmentId ?? DBNull.Value);
+        insert.Parameters.AddWithValue("$scope_start", scope is null ? DBNull.Value : (object)(long)scope.Start.TotalMilliseconds);
+        insert.Parameters.AddWithValue("$scope_end", scope is null ? DBNull.Value : (object)(long)scope.End.TotalMilliseconds);
+        insert.Parameters.AddWithValue("$scope_start_ticks", scope is null ? DBNull.Value : scope.Start.Ticks);
+        insert.Parameters.AddWithValue("$scope_end_ticks", scope is null ? DBNull.Value : scope.End.Ticks);
+        insert.Parameters.AddWithValue("$producer_identity", (object?)producerIdentity ?? DBNull.Value);
         try { await insert.ExecuteNonQueryAsync(cancellationToken); }
         catch (SqliteException ex) when (ex.SqliteErrorCode == 19)
         { throw new InvalidOperationException("Ya hay una retranscripción en curso para esta sesión y fuente.", ex); }
@@ -95,8 +148,8 @@ public sealed partial class SqliteSessionStore
         var text = protector.Protect(Encoding.UTF8.GetBytes(segment.Text), $"model-revision-segment:{segment.Id}:text");
         await using var connection = await OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = "INSERT INTO transcript_model_revision_segments(id,revision_id,sequence,start_ms,end_ms,text_nonce,text_cipher,text_tag) VALUES($id,$revision,$sequence,$start,$end,$n,$c,$t)";
-        command.Parameters.AddWithValue("$id",segment.Id); command.Parameters.AddWithValue("$revision",segment.RevisionId); command.Parameters.AddWithValue("$sequence",segment.Sequence); command.Parameters.AddWithValue("$start",(long)segment.Start.TotalMilliseconds); command.Parameters.AddWithValue("$end",(long)segment.End.TotalMilliseconds); AddPayload(command,text);
+        command.CommandText = "INSERT INTO transcript_model_revision_segments(id,revision_id,sequence,start_ms,end_ms,text_nonce,text_cipher,text_tag,start_ticks,end_ticks) VALUES($id,$revision,$sequence,$start,$end,$n,$c,$t,$start_ticks,$end_ticks)";
+        command.Parameters.AddWithValue("$id",segment.Id); command.Parameters.AddWithValue("$revision",segment.RevisionId); command.Parameters.AddWithValue("$sequence",segment.Sequence); command.Parameters.AddWithValue("$start",(long)segment.Start.TotalMilliseconds); command.Parameters.AddWithValue("$end",(long)segment.End.TotalMilliseconds); command.Parameters.AddWithValue("$start_ticks",segment.Start.Ticks); command.Parameters.AddWithValue("$end_ticks",segment.End.Ticks); AddPayload(command,text);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -116,16 +169,21 @@ public sealed partial class SqliteSessionStore
         var result = new List<TranscriptModelRevision>();
         await using var connection = await OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT id,source,status,model_nonce,model_cipher,model_tag,model_hash_nonce,model_hash_cipher,model_hash_tag,language,started_at,ended_at,processing_ms,error_nonce,error_cipher,error_tag,glossary_version_nonce,glossary_version_cipher,glossary_version_tag FROM transcript_model_revisions WHERE session_id=$session" + (source is null ? "" : " AND source=$source") + (successfulOnly ? " AND status=$success" : "") + " ORDER BY started_at,id";
+        command.CommandText = "SELECT id,source,status,model_nonce,model_cipher,model_tag,model_hash_nonce,model_hash_cipher,model_hash_tag,language,started_at,ended_at,processing_ms,error_nonce,error_cipher,error_tag,glossary_version_nonce,glossary_version_cipher,glossary_version_tag,scope_segment_id,scope_start_ms,scope_end_ms,scope_start_ticks,scope_end_ticks,producer_identity FROM transcript_model_revisions WHERE session_id=$session" + (source is null ? "" : " AND source=$source") + (successfulOnly ? " AND status=$success" : "") + " ORDER BY started_at,id";
         command.Parameters.AddWithValue("$session",sessionId); if(source is not null) command.Parameters.AddWithValue("$source",(int)source.Value); if(successfulOnly) command.Parameters.AddWithValue("$success",(int)ModelRevisionStatus.Succeeded);
         await using var reader=await command.ExecuteReaderAsync(cancellationToken);
-        while(await reader.ReadAsync(cancellationToken)) { var id=reader.GetString(0); result.Add(new(id,sessionId,(AudioSourceKind)reader.GetInt32(1),(ModelRevisionStatus)reader.GetInt32(2),UnprotectRevisionRequired(reader,3,$"model-revision:{id}:model"),UnprotectRevisionOptional(reader,6,$"model-revision:{id}:hash"),reader.GetString(9),DateTimeOffset.Parse(reader.GetString(10)),reader.IsDBNull(11)?null:DateTimeOffset.Parse(reader.GetString(11)),reader.IsDBNull(12)?null:TimeSpan.FromMilliseconds(reader.GetInt64(12)),UnprotectRevisionOptional(reader,13,$"model-revision:{id}:error"),UnprotectRevisionRequired(reader,16,$"model-revision:{id}:glossary"))); }
+        while(await reader.ReadAsync(cancellationToken)) { var id=reader.GetString(0); result.Add(new(id,sessionId,(AudioSourceKind)reader.GetInt32(1),(ModelRevisionStatus)reader.GetInt32(2),UnprotectRevisionRequired(reader,3,$"model-revision:{id}:model"),UnprotectRevisionOptional(reader,6,$"model-revision:{id}:hash"),reader.GetString(9),DateTimeOffset.Parse(reader.GetString(10)),reader.IsDBNull(11)?null:DateTimeOffset.Parse(reader.GetString(11)),reader.IsDBNull(12)?null:TimeSpan.FromMilliseconds(reader.GetInt64(12)),UnprotectRevisionOptional(reader,13,$"model-revision:{id}:error"),UnprotectRevisionRequired(reader,16,$"model-revision:{id}:glossary"),
+            reader.IsDBNull(19) ? null : new TranscriptModelRevisionScope(
+                reader.GetString(19),
+                reader.IsDBNull(22) ? TimeSpan.FromMilliseconds(reader.GetInt64(20)) : TimeSpan.FromTicks(reader.GetInt64(22)),
+                reader.IsDBNull(23) ? TimeSpan.FromMilliseconds(reader.GetInt64(21)) : TimeSpan.FromTicks(reader.GetInt64(23))),
+            reader.IsDBNull(24) ? null : reader.GetString(24))); }
         return result;
     }
 
     public async Task<IReadOnlyList<TranscriptModelRevisionSegment>> GetModelRevisionSegmentsAsync(string revisionId, CancellationToken cancellationToken = default)
     {
-        var result=new List<TranscriptModelRevisionSegment>(); await using var connection=await OpenAsync(cancellationToken); await using var command = connection.CreateCommand(); command.CommandText="SELECT id,sequence,start_ms,end_ms,text_nonce,text_cipher,text_tag FROM transcript_model_revision_segments WHERE revision_id=$id ORDER BY sequence"; command.Parameters.AddWithValue("$id",revisionId); await using var reader=await command.ExecuteReaderAsync(cancellationToken); while(await reader.ReadAsync(cancellationToken)){var id=reader.GetString(0); result.Add(new(id,revisionId,reader.GetInt64(1),TimeSpan.FromMilliseconds(reader.GetInt64(2)),TimeSpan.FromMilliseconds(reader.GetInt64(3)),UnprotectRevisionRequired(reader,4,$"model-revision-segment:{id}:text")));} return result;
+        var result=new List<TranscriptModelRevisionSegment>(); await using var connection=await OpenAsync(cancellationToken); await using var command = connection.CreateCommand(); command.CommandText="SELECT id,sequence,start_ms,end_ms,text_nonce,text_cipher,text_tag,start_ticks,end_ticks FROM transcript_model_revision_segments WHERE revision_id=$id ORDER BY sequence"; command.Parameters.AddWithValue("$id",revisionId); await using var reader=await command.ExecuteReaderAsync(cancellationToken); while(await reader.ReadAsync(cancellationToken)){var id=reader.GetString(0); result.Add(new(id,revisionId,reader.GetInt64(1),reader.IsDBNull(7)?TimeSpan.FromMilliseconds(reader.GetInt64(2)):TimeSpan.FromTicks(reader.GetInt64(7)),reader.IsDBNull(8)?TimeSpan.FromMilliseconds(reader.GetInt64(3)):TimeSpan.FromTicks(reader.GetInt64(8)),UnprotectRevisionRequired(reader,4,$"model-revision-segment:{id}:text")));} return result;
     }
 
     private async Task RecoverStaleModelRevisionsAsync(SqliteConnection connection, CancellationToken cancellationToken)

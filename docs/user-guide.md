@@ -2,11 +2,11 @@
 
 **Comienza con una prueba breve y no sensible.** Trazio es una versión preliminar para Windows 11 x64 con interfaz en español. Necesitas una CPU x64 compatible, un micrófono/dispositivo de salida funcional y espacio en disco para el modelo y el audio cifrado. El ZIP publicado incluye el entorno de ejecución de .NET.
 
-> **Estado de esta guía:** la descarga pública actual es beta 13/secuencia 14. Incluye la aplicación controlada 8.5 del diccionario a retranscripciones y conserva la aprobación múltiple segura 8.4b. La validación audible con hardware real, visual, por teclado y lector de pantalla continúa pendiente.
+> **Estado de esta guía:** la descarga pública actual es beta 15/secuencia 16; incluye la configuración externa 9.1, pero **no** el piloto 9.2–9.6 descrito más abajo. La validación audible con hardware real, visual, por teclado y lector de pantalla continúa pendiente.
 
 ## Primera grabación
 
-1. Descarga el ZIP completo de Windows desde la [versión publicada v0.2.0-beta.13](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.13). Verifica el archivo lateral .sha256: el ZIP debe medir **86,940,830 bytes** y su SHA-256 debe ser a5d8d83d048167e2d9ccfa1ad21ed676278af49bd00253c206bf7bdda8ec5220. Extráelo en una carpeta normal de aplicaciones; no lo ejecutes desde dentro del ZIP.
+1. Descarga el ZIP completo de Windows desde la [versión publicada v0.2.0-beta.15](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.15). Verifica el archivo lateral .sha256: el ZIP debe medir **86,959,816 bytes** y su SHA-256 debe ser 0010af9e97d162835d0b109823fec00035a2013d2cd0ab8ee21fb9d75d7e4e7c. Extráelo en una carpeta normal de aplicaciones; no lo ejecutes desde dentro del ZIP.
 2. Abre `Trazio.AsistenteReunion.exe`. No lo separes del proceso auxiliar ni de las DLL. La beta sin firma puede generar advertencias de reputación de Windows; verifica el origen de la versión y su SHA-256 antes de decidir ejecutarla. No desactives el antivirus globalmente.
 3. En **Sesión en vivo**, acepta o edita **Título de la reunión**. Es un título automático de reunión, no tu nombre; se puede renombrar después en Historial.
 4. En **Perfil local**, confirma **Nombre visible**, ingresa opcionalmente una organización, marca **Confirmo este nombre visible** y **Guardar perfil**. **Tu nombre en esta reunión (opcional)** cambia solo la atribución del micrófono para esta grabación.
@@ -46,7 +46,15 @@ La revisión, longitud y SHA-256 fijados se documentan en [autenticidad del mode
 4. Pulsa **Guardar configuración**. La clave queda protegida para tu usuario de Windows y no volverá a mostrarse.
 5. Para reemplazarla, escribe una nueva clave y guarda. Para conservarla, deja el campo vacío. **Eliminar clave guardada** borra solo el secreto después de confirmar.
 
-Guardar estos datos **no prueba la conexión ni envía ninguna reunión**. En 9.1 todavía no hay resumen, traducción, clasificación ni llamada externa. Una etapa posterior mostrará el texto exacto que saldrá del equipo y pedirá confirmación para cada operación.
+Guardar estos datos **no prueba la conexión ni envía ninguna reunión**. En 9.1 todavía no hay resumen, traducción, clasificación ni llamada externa. El piloto posterior solo en fuente muestra el JSON exacto antes de una operación remota y pide confirmación específica.
+
+## Probar la etapa 9 desde el código fuente (experimental)
+
+La descarga beta 15 **no muestra** propuestas, Laya, Jev ni Qwen-ASR. Para el piloto manual se necesita compilar el código fuente actual y preparar, por separado, los servicios/modelos elegidos. El sidecar Node y llama.cpp no están incluidos en el ZIP/Setup ni certificados por Trazio. Un programa local aportado por el usuario puede acceder a la red y a los datos que procese; usa únicamente audio y texto de prueba con consentimiento.
+
+En Historial, selecciona un **segmento original** y consulta la [guía del piloto](stage-9-transcription-pilot.md) para generar propuestas, volver a escuchar el mismo intervalo con Qwen, comparar con Laya y revisar **Original / Propuesta / Cambios**. Para una API remota, confirma el destino y el JSON exacto antes de cada envío; no aceptes si contiene datos que no deban salir del equipo. Jev es un respaldo manual solo cuando Laya no está instalado o una comprobación nueva determina indisponibilidad/capacidad insuficiente; no se activa por incertidumbre y no evalúa la comparación conjunta con Qwen. Aceptar, corregir o rechazar es siempre una acción humana; escucha el audio si cambian nombres, cifras, fechas o negaciones. El original no se sustituye automáticamente.
+
+Todavía no hay corpus real ni validación física del flujo, de modelos instalados, de dos/cinco horas o de un nuevo instalador.
 
 ## Escuchar la fuente correcta en beta 10
 

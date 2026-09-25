@@ -58,12 +58,20 @@ Esta beta no ofrece respaldo/restauración portátil con contraseña, recuperaci
 - La URL, el modelo y la clave se guardan dentro de `settings.dat`, cuyo contenido completo está protegido por Windows DPAPI `CurrentUser`.
 - La clave se introduce mediante un campo de contraseña y nunca se vuelve a mostrar. Dejar el campo vacío conserva la clave anterior; eliminarla requiere confirmación explícita.
 - Un proveedor remoto exige HTTPS y una clave. HTTP se admite solo para `localhost` o una dirección loopback del mismo equipo; se rechazan URL con credenciales, consulta o fragmento.
-- Guardar esta configuración no abre conexiones ni envía transcripciones, audio o metadatos. La rebanada 9.1 no incluye cliente HTTP.
-- DPAPI no protege contra procesos maliciosos que ya ejecutan código como el mismo usuario de Windows. Tampoco convierte una futura API externa en privada: antes de habilitarla será obligatorio mostrar el contenido saliente y pedir consentimiento por operación.
+- Guardar esta configuración no abre conexiones ni envía transcripciones, audio o metadatos. La rebanada **9.1 publicada en beta 15** no incluye cliente HTTP; el piloto posterior solo en fuente sí incorpora una operación de propuestas con consentimiento independiente.
+- DPAPI no protege contra procesos maliciosos que ya ejecutan código como el mismo usuario de Windows. Tampoco convierte una API externa en privada: en el piloto en fuente se muestra el cuerpo saliente y se pide consentimiento por operación.
+
+## Piloto experimental de la etapa 9
+
+**No está distribuido en beta 15.** En el código fuente, la generación remota y el respaldo Jev tienen credenciales separadas protegidas con DPAPI. Cada operación externa muestra el destino, modelo y cuerpo JSON exacto para autorización específica; cancelar impide esa petición. Guardar claves no transmite contenido. Jev solo se ofrece manualmente después de una comprobación nueva de ausencia, indisponibilidad o capacidad insuficiente de Laya local; una recomendación incierta o un error de contexto/respuesta no habilitan el envío. No hay sustitución automática del texto. Los proveedores remotos pueden conservar el contenido que el usuario autorice; Trazio no controla su política de retención.
+
+Qwen-ASR recibe audio descifrado en memoria **solo después** de autorizar el ejecutable/modelos locales para esa operación. La comunicación de la aplicación con llama-server y con el sidecar Laya usa loopback, token por ejecución, límites de tamaño, comprobaciones de proceso y huellas de archivos. Estas medidas no convierten en confiable un ejecutable, modelo o dependencia aportada por el usuario: node.exe, server.mjs, llama-server.exe y código dependiente pueden leer datos y usar la red por su cuenta. No prometemos aislamiento offline del proceso local, firma, análisis antimalware ni ausencia de exfiltración. **Ninguno de esos componentes se incluye en la beta publicada**; instalar y ejecutar código de terceros requiere revisar su origen y permisos.
+
+El almacenamiento conserva audio cifrado y, en SQLite, originales, propuestas, juicios y decisiones con cifrado de contenido aditivo; identificadores y otros metadatos estructurales no quedan necesariamente ocultos. Exportar TXT/WAV o un manifiesto privado de evaluación crea texto/audio fuera de esa protección. El arnés 9.2 solo analiza archivos proporcionados expresamente, no la base de reuniones, y sus ejemplos no son datos reales. El código no garantiza fidelidad: Laya/Jev evalúan texto, Qwen puede equivocarse al oír, y las alertas de nombres, cifras, fechas y negaciones son heurísticas. Consulta la [guía del piloto](stage-9-transcription-pilot.md).
 
 ## Red y autenticidad del modelo
 
-El flujo de inferencia distribuido no tiene alternativa en la nube y no envía audio/transcripciones de reuniones a un proveedor. La configuración del modelo requiere una acción deliberada del usuario; realiza una descarga HTTPS del modelo, no una subida de transcripción. Como en cualquier descarga, el servicio de alojamiento puede observar metadatos de red/solicitud. El inicio de la aplicación no es una operación de descarga en segundo plano.
+El flujo de inferencia **distribuido en beta 15** no tiene alternativa en la nube y no envía audio/transcripciones de reuniones a un proveedor. La configuración del modelo requiere una acción deliberada del usuario; realiza una descarga HTTPS del modelo, no una subida de transcripción. Como en cualquier descarga, el servicio de alojamiento puede observar metadatos de red/solicitud. El inicio de la aplicación no es una operación de descarga en segundo plano.
 
 ### Autenticidad del modelo
 
@@ -79,7 +87,7 @@ El catálogo de [WhisperModelStore.cs](../src/Trazio.AsistenteReunion.Core/Whisp
 
 Se verifican los archivos de catálogo descargados e incluidos. Un modelo personalizado manual sigue siendo aportado por el usuario; cargarlo correctamente demuestra compatibilidad, no procedencia confiable. El proceso de retranscripción registra un hash del modelo para reproducibilidad, no como certificado general de confianza. La licencia del modelo es independiente de la licencia todavía no seleccionada para el código de la aplicación; conserva los avisos correspondientes.
 
-Las futuras conexiones opcionales a LLM/Jev externos, plataforma/calendarios cambiarán el límite de privacidad. **No son integraciones actuales** y deben requerir consentimiento explícito, protección de credenciales, minimización de datos y comportamiento ante fallos antes de implementarse.
+El piloto 9 en fuente introduce conexiones opcionales a LLM/Jev bajo autorización específica; no forman parte de la beta 15. La plataforma y los calendarios siguen siendo integraciones futuras y deben requerir consentimiento explícito, protección de credenciales, minimización de datos y comportamiento ante fallos antes de implementarse.
 
 La existencia del código 7.2b no sustituye la validación física de WGC/GPU, accesibilidad, Meet/Teams reales ni las pruebas de 2/5 horas. Hasta completarla, los perfiles de producción permanecen `Unvalidated` y no deben habilitarse mediante configuración documental o de empaquetado.
 

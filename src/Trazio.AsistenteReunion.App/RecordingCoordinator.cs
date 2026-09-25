@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Threading.Channels;
 using System.IO;
 using System.Collections.Concurrent;
@@ -19,6 +20,10 @@ public sealed class RecordingCoordinator : IAsyncDisposable
     private readonly TimeProvider _timeProvider;
     private readonly Dictionary<AudioSourceKind, List<AudioChunk>> _windows = [];
     private readonly Dictionary<AudioSourceKind, long> _sequences = [];
+    private readonly Dictionary<AudioSourceKind, SourceSampleClock> _sampleClocks = [];
+    private readonly ConcurrentDictionary<string, CaptureProvenance> _pendingContinuity = [];
+    private readonly Dictionary<AudioSourceKind, bool> _windowHasOverlap = [];
+    private bool _replayingRecovery;
     private readonly SemaphoreSlim _lifecycle = new(1, 1);
     private readonly object _captureGate = new();
     private Channel<CapturedAudioEnvelope>? _ingestion;
@@ -35,6 +40,7 @@ public sealed class RecordingCoordinator : IAsyncDisposable
     private string? _localSpeakerName;
     private bool _accepting;
     private bool _paused;
+    private long _continuityEpoch;
     private bool _drainFailed;
     private int _inFlight;
     private int _workerRestartCount;
@@ -132,7 +138,11 @@ public sealed class RecordingCoordinator : IAsyncDisposable
 
     public void Pause()
     {
-        lock (_captureGate) _paused = true;
+        lock (_captureGate)
+        {
+            if (!_paused) _continuityEpoch++;
+            _paused = true;
+        }
         StatusChanged?.Invoke(this, "Pausada");
     }
 
@@ -141,6 +151,7 @@ public sealed class RecordingCoordinator : IAsyncDisposable
         lock (_captureGate)
         {
             if (_drainFailed) return;
+            if (_paused) _continuityEpoch++;
             _paused = false;
         }
         StatusChanged?.Invoke(this, "Grabando");
@@ -199,8 +210,13 @@ public sealed class RecordingCoordinator : IAsyncDisposable
             try
             {
                 _transport = await _transportFactory.StartAsync(_modelPath!, _language, cancellationToken);
-                foreach (var chunk in pending.OrderBy(c => c.Source).ThenBy(c => c.Sequence))
-                    await AddChunkToWindowAsync(chunk, cancellationToken);
+                _replayingRecovery = true;
+                try
+                {
+                    foreach (var chunk in pending.OrderBy(c => c.Source).ThenBy(c => c.Sequence))
+                        await AddChunkToWindowAsync(chunk, cancellationToken);
+                }
+                finally { _replayingRecovery = false; }
                 await FlushWindowsAsync(cancellationToken);
                 if (_drainFailed) throw new InvalidOperationException("No se completó la recuperación del audio pendiente.");
                 await _store.CompleteSessionAsync(session.Id, SessionState.Interrupted, DateTimeOffset.UtcNow, cancellationToken);
@@ -235,6 +251,8 @@ public sealed class RecordingCoordinator : IAsyncDisposable
         ChannelWriter<CapturedAudioEnvelope>? writer;
         bool admittedAtEntry;
         TimeSpan offset;
+        long observedTimestamp;
+        long continuityEpoch;
         lock (_captureGate)
         {
             context = Volatile.Read(ref _activeTimelineContext)!;
@@ -243,11 +261,28 @@ public sealed class RecordingCoordinator : IAsyncDisposable
                 context.Revision != revision ||
                 !context.TryGetCurrentOffset(out offset))
                 return;
+            observedTimestamp = Stopwatch.GetTimestamp();
             writer = _ingestion?.Writer;
             admittedAtEntry = !_paused && Volatile.Read(ref _accepting);
+            continuityEpoch = _continuityEpoch;
+        }
+        if (captured.CapturedMonotonicTimestamp is long capturedTimestamp)
+        {
+            if (capturedTimestamp > observedTimestamp)
+            {
+                OnCaptureFailed(revision, "La marca temporal del audio no es valida.");
+                return;
+            }
+            offset -= Stopwatch.GetElapsedTime(capturedTimestamp, observedTimestamp);
+            if (offset < -AudioContinuityPolicy.MaximumClockDrift)
+            {
+                OnCaptureFailed(revision, "La marca temporal del audio precede a la sesion.");
+                return;
+            }
+            if (offset < TimeSpan.Zero) offset = TimeSpan.Zero;
         }
 
-        var envelope = new CapturedAudioEnvelope(revision, context.SessionId, offset, captured);
+        var envelope = new CapturedAudioEnvelope(revision, context.SessionId, offset, continuityEpoch, captured);
         LevelChanged?.Invoke(this, captured);
         lock (_captureGate)
         {
@@ -255,11 +290,13 @@ public sealed class RecordingCoordinator : IAsyncDisposable
                 !ReferenceEquals(Volatile.Read(ref _activeTimelineContext), context) ||
                 revision != Volatile.Read(ref _revision) ||
                 _paused ||
+                _continuityEpoch != continuityEpoch ||
                 !Volatile.Read(ref _accepting))
                 return;
             if (writer?.TryWrite(envelope) == true) return;
             Volatile.Write(ref _accepting, false);
             _paused = true;
+            _continuityEpoch++;
             _drainFailed = true;
             RevokeActiveTimelineContextLocked();
         }
@@ -273,11 +310,13 @@ public sealed class RecordingCoordinator : IAsyncDisposable
             if (revision != Volatile.Read(ref _revision)) return;
             Volatile.Write(ref _accepting, false);
             _paused = true;
+            _continuityEpoch++;
+            _drainFailed = true;
             RevokeActiveTimelineContextLocked();
         }
         foreach (var source in Enum.GetValues<AudioSourceKind>())
             PublishDiagnostic(source, error);
-        StatusChanged?.Invoke(this, $"Pausada: el dispositivo de audio se desconectó ({error})");
+        StatusChanged?.Invoke(this, $"Pausada: se interrumpió la captura de audio ({error})");
     }
 
     private async Task IngestAsync(CancellationToken cancellationToken)
@@ -294,20 +333,24 @@ public sealed class RecordingCoordinator : IAsyncDisposable
             var captured = envelope.Captured;
             var sequence = _sequences.GetValueOrDefault(captured.Source);
             _sequences[captured.Source] = sequence + 1;
-            var chunk = AudioChunk.Create(
-                session.Id,
-                captured.Source,
-                sequence,
-                timeline.ToUtc(envelope.Offset),
-                captured.Pcm16);
             try
             {
+                var observedAt = timeline.ToUtc(envelope.Offset);
+                var capturedAt = NormalizeCapturedAt(envelope, observedAt, out var provenance);
+                var chunk = AudioChunk.Create(
+                    session.Id,
+                    captured.Source,
+                    sequence,
+                    capturedAt,
+                    captured.Pcm16);
                 var state = GetDiagnostic(captured.Source);
-                state.LastPcmAt = chunk.CapturedAt;
+                state.LastPcmAt = observedAt;
                 state.CapturedSeconds += captured.Pcm16.Length / 2d / 16_000;
                 if (_audioArchive is not null)
-                    await _audioArchive.AppendAsync(new(captured.Source, captured.Pcm16, chunk.CapturedAt), cancellationToken);
+                    await _audioArchive.AppendAsync(new(captured.Source, captured.Pcm16, chunk.CapturedAt,
+                        captured.CaptureRunId, provenance?.Epoch, captured.FirstSourceSample), cancellationToken);
                 await _store.SavePendingAsync(chunk, DateTimeOffset.UtcNow.AddHours(24), cancellationToken);
+                if (provenance is not null) _pendingContinuity[chunk.Id] = provenance.Value;
                 if (!_pendingQueue.TryEnqueue(chunk))
                 {
                     _drainFailed = true;
@@ -326,6 +369,44 @@ public sealed class RecordingCoordinator : IAsyncDisposable
                 throw;
             }
         }
+    }
+
+    private DateTimeOffset NormalizeCapturedAt(
+        CapturedAudioEnvelope envelope, DateTimeOffset observedAt, out CaptureProvenance? provenance)
+    {
+        var captured = envelope.Captured;
+        provenance = null;
+        if (captured.CaptureRunId is null && captured.FirstSourceSample is null)
+            return observedAt;
+        if (string.IsNullOrWhiteSpace(captured.CaptureRunId) ||
+            captured.FirstSourceSample is null || captured.FirstSourceSample < 0 ||
+            captured.Pcm16.Length == 0 || captured.Pcm16.Length % 2 != 0)
+            throw new InvalidDataException("Los metadatos de captura de audio no son validos.");
+        var firstSample = captured.FirstSourceSample.Value;
+        var sampleCount = captured.Pcm16.Length / 2L;
+        if (_sampleClocks.TryGetValue(captured.Source, out var previous))
+        {
+            if (previous.RunId == captured.CaptureRunId &&
+                previous.AdmissionEpoch == envelope.ContinuityEpoch &&
+                previous.NextSourceSample == firstSample)
+            {
+                var expectedAt = previous.AnchorAt.AddTicks(
+                    checked((firstSample - previous.AnchorSample) * TimeSpan.TicksPerSecond / 16_000));
+                if ((observedAt - expectedAt).Duration() <= AudioContinuityPolicy.MaximumClockDrift)
+                {
+                    previous.NextSourceSample = checked(firstSample + sampleCount);
+                    provenance = new(previous.RunId, previous.EffectiveEpoch);
+                    return expectedAt;
+                }
+            }
+        }
+        var epoch = _sampleClocks.TryGetValue(captured.Source, out previous)
+            ? Math.Max(checked(previous.EffectiveEpoch + 1), envelope.ContinuityEpoch)
+            : envelope.ContinuityEpoch;
+        _sampleClocks[captured.Source] = new(captured.CaptureRunId, envelope.ContinuityEpoch,
+            epoch, firstSample, checked(firstSample + sampleCount), observedAt);
+        provenance = new(captured.CaptureRunId, epoch);
+        return observedAt;
     }
 
     private async Task ConsumePendingAsync(long revision, CancellationToken cancellationToken)
@@ -358,6 +439,20 @@ public sealed class RecordingCoordinator : IAsyncDisposable
     {
         var window = _windows.GetValueOrDefault(chunk.Source);
         if (window is null) _windows[chunk.Source] = window = [];
+        if (_replayingRecovery)
+        {
+            if (window.Count > 0) await ProcessWindowAsync(chunk.Source, window, true, cancellationToken);
+            window.Add(chunk);
+            await ProcessWindowAsync(chunk.Source, window, true, cancellationToken);
+            return;
+        }
+        if (window.Count > 0)
+        {
+            var previousKnown = _pendingContinuity.TryGetValue(window[^1].Id, out var previous);
+            var currentKnown = _pendingContinuity.TryGetValue(chunk.Id, out var current);
+            if (previousKnown != currentKnown || previousKnown && previous != current)
+                await ProcessWindowAsync(chunk.Source, window, true, cancellationToken);
+        }
         window.Add(chunk);
         if (window.Count >= 15) await ProcessWindowAsync(chunk.Source, window, false, cancellationToken);
     }
@@ -377,7 +472,7 @@ public sealed class RecordingCoordinator : IAsyncDisposable
             return;
         }
 
-        var hasOverlap = chunks[0].Sequence > 0;
+        var hasOverlap = _windowHasOverlap.GetValueOrDefault(source);
         foreach (var item in response.Segments ?? [])
         {
             if (string.IsNullOrWhiteSpace(item.Text) || (hasOverlap && item.EndMilliseconds <= 1_000)) continue;
@@ -391,9 +486,18 @@ public sealed class RecordingCoordinator : IAsyncDisposable
         }
 
         var completedChunks = final ? chunks : chunks.Take(chunks.Length - 1);
-        foreach (var chunk in completedChunks) await _store.DeletePendingAsync(chunk.Id, cancellationToken);
+        foreach (var chunk in completedChunks)
+        {
+            await _store.DeletePendingAsync(chunk.Id, cancellationToken);
+            _pendingContinuity.TryRemove(chunk.Id, out _);
+        }
         window.Clear();
-        if (!final) window.Add(chunks[^1]);
+        if (final) _windowHasOverlap.Remove(source);
+        else
+        {
+            window.Add(chunks[^1]);
+            _windowHasOverlap[source] = true;
+        }
     }
 
     private async Task StopAcceptingAndDrainAsync(CancellationToken cancellationToken)
@@ -513,9 +617,14 @@ public sealed class RecordingCoordinator : IAsyncDisposable
             _sessionTimeline = null;
         }
         _windows.Clear();
+        _windowHasOverlap.Clear();
+        _sampleClocks.Clear();
+        _pendingContinuity.Clear();
+        _replayingRecovery = false;
         _sequences.Clear();
         _drainFailed = false;
         _paused = false;
+        _continuityEpoch = 0;
         _workerRestartCount = 0;
         _inFlight = 0;
         _audioBudgetBytes = 0;
@@ -559,6 +668,7 @@ public sealed class RecordingCoordinator : IAsyncDisposable
                 return;
             Volatile.Write(ref _accepting, false);
             _paused = true;
+            _continuityEpoch++;
             RevokeActiveTimelineContextLocked();
         }
     }
@@ -608,10 +718,25 @@ public sealed class RecordingCoordinator : IAsyncDisposable
         public string? Error { get; set; }
     }
 
+    private readonly record struct CaptureProvenance(string RunId, long Epoch);
+
+    private sealed class SourceSampleClock(
+        string runId, long admissionEpoch, long effectiveEpoch,
+        long anchorSample, long nextSourceSample, DateTimeOffset anchorAt)
+    {
+        public string RunId { get; } = runId;
+        public long AdmissionEpoch { get; } = admissionEpoch;
+        public long EffectiveEpoch { get; } = effectiveEpoch;
+        public long AnchorSample { get; } = anchorSample;
+        public long NextSourceSample { get; set; } = nextSourceSample;
+        public DateTimeOffset AnchorAt { get; } = anchorAt;
+    }
+
     private readonly record struct CapturedAudioEnvelope(
         long Revision,
         string SessionId,
         TimeSpan Offset,
+        long ContinuityEpoch,
         CapturedSecond Captured);
 
     private static void ValidateSettings(AppSettings settings)

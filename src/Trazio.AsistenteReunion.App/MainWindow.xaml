@@ -347,7 +347,9 @@
                                 </DockPanel>
                                 <WrapPanel>
                                     <ComboBox x:Name="HistoryRevisionSelector" Width="210" SelectedIndex="0" SelectionChanged="HistoryRevisionSelector_SelectionChanged" automation:AutomationProperties.Name="Versión de la transcripción"><ComboBoxItem Content="Original · revisión humana" Tag="Original"/></ComboBox>
-                                    <Button x:Name="RetranscribeButton" Content="Retranscribir audio" IsEnabled="False" Click="Retranscribe_Click"/>
+                                    <Button x:Name="RetranscribeButton" Content="Retranscribir pista con Whisper" IsEnabled="False" Click="Retranscribe_Click"/>
+                                    <Button x:Name="QwenSegmentRetranscribeButton" Content="Retranscribir fragmento con Qwen3-ASR" IsEnabled="False" Click="QwenSegmentRetranscribe_Click"
+                                            automation:AutomationProperties.Name="Retranscribir el fragmento original seleccionado con Qwen3-ASR"/>
                                     <Button x:Name="CancelRetranscriptionButton" Content="Cancelar retranscripción" IsEnabled="False" Click="CancelRetranscription_Click"/>
                                 </WrapPanel>
                                 <TextBlock x:Name="HistoryActionGuidance" Text="Selecciona una sesión para habilitar las acciones disponibles." Foreground="#556070" TextWrapping="Wrap" Margin="0,5,0,0" automation:AutomationProperties.LiveSetting="Polite"/>
@@ -487,7 +489,86 @@
                                                     ToolTip="Restaura el texto guardado del segmento sin modificar el historial."
                                                     automation:AutomationProperties.Name="Descartar cambios sin guardar del texto corregido"/>
                                         </WrapPanel>
-                                        <Expander Header="Cambiar estado de revisión" Margin="0,5,0,0"
+                                        <Expander x:Name="RefinementPanel" Header="Original / Propuestas / Cambios · experimental" Margin="0,10,0,0" IsExpanded="False"
+                                                  automation:AutomationProperties.Name="Refinamiento experimental de la transcripción">
+                                            <Border Background="#F8FAFC" BorderBrush="#DDE2EA" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,6,0,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="El audio y el original no cambian al generar propuestas. Escucha el fragmento antes de aceptar una corrección." TextWrapping="Wrap" Foreground="#556070"/>
+                                                    <WrapPanel Margin="0,8,0,5">
+                                                        <Button x:Name="GenerateRefinementButton" Content="Generar propuestas" Click="GenerateRefinement_Click" IsEnabled="False" Margin="0,0,7,0"
+                                                                automation:AutomationProperties.Name="Generar propuestas experimentales para el segmento seleccionado"/>
+                                                        <Button x:Name="CancelRefinementButton" Content="Cancelar análisis" Click="CancelRefinement_Click" IsEnabled="False" Margin="0,0,7,0"/>
+                                                        <Button x:Name="PlayRefinementAudioButton" Content="Escuchar fragmento" Click="PlayRefinementAudio_Click" IsEnabled="False"/>
+                                                    </WrapPanel>
+                                                    <TextBlock x:Name="RefinementStatusText" Text="Selecciona un segmento de la transcripción original." TextWrapping="Wrap" Foreground="#556070"
+                                                               automation:AutomationProperties.LiveSetting="Polite"/>
+                                                    <TextBlock Text="Análisis guardados" FontWeight="SemiBold" Margin="0,8,0,2"/>
+                                                    <ComboBox x:Name="RefinementBatchSelector" SelectionChanged="RefinementBatchSelector_SelectionChanged" IsEnabled="False"
+                                                              automation:AutomationProperties.Name="Análisis de refinamiento guardados">
+                                                        <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis"/></DataTemplate></ComboBox.ItemTemplate>
+                                                    </ComboBox>
+                                                    <ListBox x:Name="RefinementProposalsList" MaxHeight="105" Margin="0,6,0,0" IsEnabled="False" SelectionChanged="RefinementProposalsList_SelectionChanged"
+                                                             automation:AutomationProperties.Name="Propuestas guardadas para el segmento">
+                                                        <ListBox.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <StackPanel Margin="3,4">
+                                                                    <WrapPanel><TextBlock Text="{Binding Label}" FontWeight="SemiBold" Foreground="#246BCE"/><TextBlock Text=" · "/><TextBlock Text="{Binding Status}" Foreground="#556070"/></WrapPanel>
+                                                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap" MaxHeight="37" TextTrimming="CharacterEllipsis"/>
+                                                                </StackPanel>
+                                                            </DataTemplate>
+                                                        </ListBox.ItemTemplate>
+                                                    </ListBox>
+                                                    <TextBlock Text="Segunda observación acústica (Qwen3-ASR configurado · opcional)" FontWeight="SemiBold" Margin="0,8,0,2"/>
+                                                    <ComboBox x:Name="JointQwenRevisionSelector" IsEnabled="False" SelectionChanged="JointQwenRevisionSelector_SelectionChanged"
+                                                              automation:AutomationProperties.Name="Segunda transcripción Qwen del mismo fragmento">
+                                                        <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis"/></DataTemplate></ComboBox.ItemTemplate>
+                                                    </ComboBox>
+                                                    <TextBlock Text="Déjalo sin seleccionar para evaluar solo propuestas. La huella identifica los archivos configurados, no certifica su autenticidad como Qwen. Whisper y la segunda transcripción son observaciones, no texto aprobado; Laya no escucha el audio." Foreground="#556070" TextWrapping="Wrap"/>
+                                                    <WrapPanel Margin="0,8,0,4">
+                                                        <Button x:Name="EvaluateWithLayaButton" Content="Evaluar con Laya" Click="EvaluateWithLaya_Click" IsEnabled="False" Margin="0,0,8,0"
+                                                                automation:AutomationProperties.Name="Evaluar propuestas guardadas con Laya local"/>
+                                                        <Button x:Name="EvaluateWithJevButton" Content="Evaluar con Jev (respaldo)" Click="EvaluateWithJev_Click" IsEnabled="False" Margin="0,0,8,0"
+                                                                automation:AutomationProperties.Name="Evaluar propuestas con Jev externo solo si Laya no está disponible"/>
+                                                        <TextBlock Text="Ninguna evaluación acepta propuestas automáticamente." Foreground="#556070" VerticalAlignment="Center"/>
+                                                    </WrapPanel>
+                                                    <TextBlock x:Name="LayaEvaluationHistoryText" Text="Sin evaluaciones guardadas." TextWrapping="Wrap" Foreground="#334155"
+                                                               automation:AutomationProperties.Name="Historial de evaluaciones Laya o Jev y probabilidades"
+                                                               automation:AutomationProperties.LiveSetting="Polite"/>
+                                                    <TextBlock x:Name="RefinementSensitiveWarningText" Text="Selecciona una propuesta para revisar posibles cambios sensibles." TextWrapping="Wrap" Foreground="#713F12" Margin="0,8,0,2"
+                                                               automation:AutomationProperties.Name="{Binding Text, RelativeSource={RelativeSource Self}}"
+                                                               automation:AutomationProperties.LiveSetting="Polite"/>
+                                                    <TextBlock Text="Original · las palabras resaltadas cambiaron" FontWeight="SemiBold" Margin="0,8,0,2"/>
+                                                    <ItemsControl x:Name="RefinementOriginalDiff" automation:AutomationProperties.Name="Texto original con palabras modificadas">
+                                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate><TextBlock Text="{Binding Text}" ToolTip="{Binding AccessibleDescription}" automation:AutomationProperties.Name="{Binding AccessibleDescription}">
+                                                                <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Foreground" Value="#1F2937"/><Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsChanged}" Value="True"><Setter Property="Background" Value="#FDE68A"/><Setter Property="FontWeight" Value="SemiBold"/></DataTrigger>
+                                                                    <DataTrigger Binding="{Binding IsSensitive}" Value="True"><Setter Property="Background" Value="#FECACA"/><Setter Property="TextDecorations" Value="Underline"/></DataTrigger>
+                                                                </Style.Triggers></Style></TextBlock.Style>
+                                                            </TextBlock></DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    <TextBlock Text="Propuesta · las palabras resaltadas son nuevas o distintas" FontWeight="SemiBold" Margin="0,7,0,2"/>
+                                                    <ItemsControl x:Name="RefinementProposalDiff" automation:AutomationProperties.Name="Propuesta con palabras modificadas">
+                                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate><TextBlock Text="{Binding Text}" ToolTip="{Binding AccessibleDescription}" automation:AutomationProperties.Name="{Binding AccessibleDescription}">
+                                                                <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Foreground" Value="#1F2937"/><Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsChanged}" Value="True"><Setter Property="Background" Value="#BFDBFE"/><Setter Property="FontWeight" Value="SemiBold"/></DataTrigger>
+                                                                    <DataTrigger Binding="{Binding IsSensitive}" Value="True"><Setter Property="Background" Value="#FECACA"/><Setter Property="TextDecorations" Value="Underline"/></DataTrigger>
+                                                                </Style.Triggers></Style></TextBlock.Style>
+                                                            </TextBlock></DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    <WrapPanel Margin="0,10,0,0">
+                                                        <Button x:Name="AcceptRefinementButton" Content="Aceptar como corrección" Click="AcceptRefinement_Click" IsEnabled="False" Margin="0,0,8,0"
+                                                                ToolTip="Guarda la propuesta elegida como corrección humana sin borrar el original."/>
+                                                        <Button x:Name="RejectRefinementButton" Content="Rechazar propuesta" Click="RejectRefinement_Click" IsEnabled="False"/>
+                                                    </WrapPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </Expander>                                        <Expander Header="Cambiar estado de revisión" Margin="0,5,0,0"
                                                   automation:AutomationProperties.Name="Cambiar estado de revisión del segmento">
                                             <WrapPanel Margin="4,4,4,0">
                                                 <Button x:Name="ReopenSegmentReviewButton" Content="Volver a pendiente" Click="ReopenSegmentReview_Click" IsEnabled="False"
@@ -702,6 +783,49 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <Border Margin="14" Background="White" CornerRadius="6" Padding="18" BorderBrush="#DDE2EA" BorderThickness="1">
                         <StackPanel MaxWidth="760" HorizontalAlignment="Left">
+                            <TextBlock Text="Segunda transcripción local" FontSize="20" FontWeight="SemiBold"/>
+                            <TextBlock Margin="0,6,0,14" Foreground="#556070" TextWrapping="Wrap"
+                                       Text="Configura Qwen3-ASR con llama.cpp para generar una segunda versión local y separada. Trazio nunca reemplaza la transcripción original automáticamente."/>
+                            <TextBlock Text="Ejecutable llama-server" FontWeight="SemiBold"/>
+                            <DockPanel Margin="0,4,0,8">
+                                <Button DockPanel.Dock="Right" Content="Examinar…" Click="BrowseLlamaServer_Click" Margin="8,0,0,0"/>
+                                <TextBox x:Name="LlamaServerPathBox" MinWidth="560" automation:AutomationProperties.Name="Ruta de llama-server"/>
+                            </DockPanel>
+                            <TextBlock Text="Modelo Qwen3-ASR GGUF" FontWeight="SemiBold"/>
+                            <DockPanel Margin="0,4,0,8">
+                                <Button DockPanel.Dock="Right" Content="Examinar…" Click="BrowseQwenModel_Click" Margin="8,0,0,0"/>
+                                <TextBox x:Name="QwenModelPathBox" MinWidth="560" automation:AutomationProperties.Name="Ruta del modelo Qwen3-ASR"/>
+                            </DockPanel>
+                            <TextBlock Text="Proyector multimodal mmproj" FontWeight="SemiBold"/>
+                            <DockPanel Margin="0,4,0,8">
+                                <Button DockPanel.Dock="Right" Content="Examinar…" Click="BrowseQwenProjector_Click" Margin="8,0,0,0"/>
+                                <TextBox x:Name="QwenProjectorPathBox" MinWidth="560" automation:AutomationProperties.Name="Ruta del proyector multimodal Qwen3-ASR"/>
+                            </DockPanel>
+                            <TextBlock x:Name="LocalAsrStatusText" Text="Qwen3-ASR local no configurado." Foreground="#334155" TextWrapping="Wrap" Margin="0,0,0,10" automation:AutomationProperties.LiveSetting="Polite"/>
+                            <Button x:Name="SaveLocalAsrSettingsButton" Content="Guardar motor local" Click="SaveLocalAsrSettings_Click" HorizontalAlignment="Left" Margin="0,0,0,20"/>
+                            <Separator Margin="0,0,0,18"/>
+                            <TextBlock Text="Evaluación Laya local · experimental" FontSize="20" FontWeight="SemiBold"/>
+                            <TextBlock Margin="0,6,0,14" Foreground="#556070" TextWrapping="Wrap"
+                                       Text="Laya compara propuestas ya guardadas. Trazio no instala el modelo. Node, el sidecar y sus dependencias son código ejecutable externo: podrían leer texto y conectarse a Internet. Revisa sus rutas antes de autorizar cada evaluación."/>
+                            <TextBlock Text="Ejecutable node.exe" FontWeight="SemiBold"/>
+                            <TextBox x:Name="LayaNodePathBox" Margin="0,4,0,8" MinWidth="560" automation:AutomationProperties.Name="Ruta absoluta de node.exe para Laya"/>
+                            <TextBlock Text="Carpeta del sidecar Laya" FontWeight="SemiBold"/>
+                            <TextBox x:Name="LayaSidecarDirectoryBox" Margin="0,4,0,8" MinWidth="560" automation:AutomationProperties.Name="Carpeta absoluta del sidecar Laya"/>
+                            <TextBlock Text="Carpeta del modelo Laya" FontWeight="SemiBold"/>
+                            <TextBox x:Name="LayaModelDirectoryBox" Margin="0,4,0,8" MinWidth="560" automation:AutomationProperties.Name="Carpeta absoluta del modelo Laya"/>
+                            <TextBlock Text="Versión exacta del modelo" FontWeight="SemiBold"/>
+                            <TextBox x:Name="LayaModelVersionBox" Margin="0,4,0,8" MinWidth="560" MaxLength="120" automation:AutomationProperties.Name="Versión exacta del modelo Laya"/>
+                            <TextBlock x:Name="LayaLocalStatusText" Text="Laya local no configurado." Foreground="#334155" TextWrapping="Wrap" Margin="0,0,0,10"
+                                       automation:AutomationProperties.LiveSetting="Polite"/>
+                            <Button x:Name="SaveLayaSettingsButton" Content="Guardar Laya local" Click="SaveLayaSettings_Click" HorizontalAlignment="Left" Margin="0,0,0,20"/>
+                            <Separator Margin="0,0,0,18"/>
+                            <TextBlock Text="Jev externo · respaldo manual" FontSize="20" FontWeight="SemiBold"/>
+                            <TextBlock Margin="0,6,0,10" Foreground="#556070" TextWrapping="Wrap" Text="Jev solo se habilita si Laya no está instalado o falla por indisponibilidad o capacidad local. Una evaluación incierta, un contexto excesivo o un error de respuesta no autorizan este respaldo. Antes de cada envío se muestra el JSON exacto y se solicita autorización."/>
+                            <TextBlock Text="Clave API de Jev (independiente)" FontWeight="SemiBold"/>
+                            <PasswordBox x:Name="JevApiKeyBox" Margin="0,4,0,5" MaxLength="4096" automation:AutomationProperties.Name="Nueva clave API de Jev"/>
+                            <TextBlock x:Name="JevSettingsStatusText" Text="Jev no configurado." Foreground="#334155" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                            <WrapPanel Margin="0,0,0,18"><Button x:Name="SaveJevSettingsButton" Content="Guardar clave Jev" Click="SaveJevSettings_Click" Margin="0,0,8,0"/><Button x:Name="DeleteJevApiKeyButton" Content="Eliminar clave Jev" Click="DeleteJevApiKey_Click" Foreground="#A12626"/></WrapPanel>
+<Separator Margin="0,0,0,18"/>
                             <TextBlock Text="Inteligencia externa opcional" FontSize="20" FontWeight="SemiBold"/>
                             <TextBlock Margin="0,6,0,14" Foreground="#556070" TextWrapping="Wrap"
                                        Text="Prepara una API compatible con OpenAI para una etapa posterior. Guardar esta configuración no envía transcripciones ni realiza conexiones externas."/>

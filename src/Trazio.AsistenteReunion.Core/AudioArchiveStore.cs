@@ -92,7 +92,8 @@ public sealed class AudioArchiveStore(string rootDirectory, SqliteSessionStore d
 
     internal async Task<ArchivedAudioChunk> CommitAsync(
         string sessionId, AudioSourceKind source, long sequence, DateTimeOffset startedAt, byte[] pcm16,
-        long byteBudget, CancellationToken cancellationToken)
+        long byteBudget, CancellationToken cancellationToken, string? captureRunId = null,
+        long? continuityEpoch = null, long? firstSourceSample = null)
     {
         var id = $"{sessionId}:{source}:archive:{sequence}";
         var relativePath = Path.Combine(sessionId, source.ToString(), $"{sequence:D8}.wav.aes");
@@ -113,7 +114,8 @@ public sealed class AudioArchiveStore(string rootDirectory, SqliteSessionStore d
             }
             File.Move(temporary, finalPath, false);
             var chunk = new ArchivedAudioChunk(id, sessionId, source, sequence, startedAt,
-                TimeSpan.FromSeconds(pcm16.Length / 2d / 16_000), relativePath, encrypted.LongLength);
+                TimeSpan.FromSeconds(pcm16.Length / 2d / 16_000), relativePath, encrypted.LongLength,
+                captureRunId, continuityEpoch, firstSourceSample);
             try { await database.SaveArchivedAudioAsync(chunk, cancellationToken); }
             catch { TryDelete(finalPath); throw; }
             await PruneCoreAsync(byteBudget, cancellationToken);
@@ -185,6 +187,12 @@ public sealed class AudioArchiveStore(string rootDirectory, SqliteSessionStore d
     }
 }
 
+public static class AudioContinuityPolicy
+{
+    // This is a conservative software tolerance, not a hardware-calibrated WASAPI guarantee.
+    public static readonly TimeSpan MaximumClockDrift = TimeSpan.FromMilliseconds(40);
+}
+
 public sealed class AudioArchiveSession : IAsyncDisposable
 {
     public const int ChunkSeconds = 30;
@@ -208,18 +216,58 @@ public sealed class AudioArchiveSession : IAsyncDisposable
     public async Task AppendAsync(CapturedAudioData captured, CancellationToken cancellationToken = default)
     {
         if (_completed) throw new InvalidOperationException("La sesión del archivo de audio está cerrada.");
+        if (captured.Pcm16.Length == 0 || captured.Pcm16.Length % 2 != 0)
+            throw new InvalidDataException("El audio PCM16 no está completo.");
+        var hasMetadata = captured.CaptureRunId is not null &&
+            captured.ContinuityEpoch is not null && captured.FirstSourceSample is not null;
+        if (hasMetadata != (captured.CaptureRunId is not null ||
+            captured.ContinuityEpoch is not null || captured.FirstSourceSample is not null) ||
+            hasMetadata && (string.IsNullOrWhiteSpace(captured.CaptureRunId) ||
+                            captured.ContinuityEpoch < 0 || captured.FirstSourceSample < 0))
+            throw new InvalidDataException("Los metadatos de continuidad del audio no son válidos.");
         if (!_buffers.TryGetValue(captured.Source, out var buffer))
             _buffers[captured.Source] = buffer = new(captured.CapturedAt);
+        if (hasMetadata && buffer.HasAnchor &&
+            buffer.CaptureRunId == captured.CaptureRunId &&
+            buffer.ContinuityEpoch == captured.ContinuityEpoch &&
+            buffer.NextSourceSample == captured.FirstSourceSample)
+        {
+            var expectedAt = buffer.AnchorAt.AddTicks(checked(
+                (captured.FirstSourceSample!.Value - buffer.AnchorSourceSample!.Value) *
+                TimeSpan.TicksPerSecond / 16_000));
+            if ((captured.CapturedAt - expectedAt).Duration() > AudioContinuityPolicy.MaximumClockDrift)
+                throw new InvalidDataException("El audio archivado presenta un hueco temporal sin cambio de época.");
+        }
+        if (!buffer.HasAnchor || buffer.CaptureRunId != captured.CaptureRunId ||
+            buffer.ContinuityEpoch != captured.ContinuityEpoch ||
+            hasMetadata && buffer.NextSourceSample != captured.FirstSourceSample)
+        {
+            if (buffer.Stream.Length > 0)
+                await FlushAsync(captured.Source, buffer, cancellationToken);
+            buffer.CaptureRunId = captured.CaptureRunId;
+            buffer.ContinuityEpoch = captured.ContinuityEpoch;
+            buffer.AnchorSourceSample = captured.FirstSourceSample;
+            buffer.AnchorAt = captured.CapturedAt;
+            buffer.HasAnchor = true;
+        }
         var offset = 0;
         while (offset < captured.Pcm16.Length)
         {
             if (buffer.Stream.Length == 0)
-                buffer.StartedAt = captured.CapturedAt.AddSeconds(offset / (double)BytesPerSecond);
+            {
+                buffer.FirstSourceSample = hasMetadata ? checked(captured.FirstSourceSample!.Value + offset / 2L) : null;
+                buffer.StartedAt = hasMetadata
+                    ? buffer.AnchorAt.AddTicks(checked((buffer.FirstSourceSample!.Value - buffer.AnchorSourceSample!.Value) * TimeSpan.TicksPerSecond / 16_000))
+                    : captured.CapturedAt.AddSeconds(offset / (double)BytesPerSecond);
+            }
             var take = Math.Min(ChunkSeconds * BytesPerSecond - buffer.Stream.LengthAsInt(), captured.Pcm16.Length - offset);
             buffer.Stream.Write(captured.Pcm16, offset, take);
             offset += take;
-            if (buffer.Stream.Length == ChunkSeconds * BytesPerSecond) await FlushAsync(captured.Source, buffer, cancellationToken);
+            if (buffer.Stream.Length == ChunkSeconds * BytesPerSecond)
+                await FlushAsync(captured.Source, buffer, cancellationToken);
         }
+        buffer.NextSourceSample = hasMetadata
+            ? checked(captured.FirstSourceSample!.Value + captured.Pcm16.Length / 2L) : null;
     }
 
     public async Task CompleteAsync(CancellationToken cancellationToken = default)
@@ -235,7 +283,8 @@ public sealed class AudioArchiveSession : IAsyncDisposable
         var pcm = buffer.Stream.ToArray();
         buffer.Stream.SetLength(0);
         var startedAt = buffer.StartedAt;
-        var chunk = await _store.CommitAsync(_sessionId, source, buffer.Sequence++, startedAt, pcm, _byteBudget, cancellationToken);
+        var chunk = await _store.CommitAsync(_sessionId, source, buffer.Sequence++, startedAt, pcm,
+            _byteBudget, cancellationToken, buffer.CaptureRunId, buffer.ContinuityEpoch, buffer.FirstSourceSample);
         CryptographicOperations.ZeroMemory(pcm);
         ChunkCommitted?.Invoke(this, chunk);
     }
@@ -256,10 +305,18 @@ public sealed class AudioArchiveSession : IAsyncDisposable
         public MemoryStream Stream { get; } = new(ChunkSeconds * BytesPerSecond);
         public DateTimeOffset StartedAt { get; set; } = startedAt;
         public long Sequence { get; set; }
+        public bool HasAnchor { get; set; }
+        public DateTimeOffset AnchorAt { get; set; }
+        public string? CaptureRunId { get; set; }
+        public long? ContinuityEpoch { get; set; }
+        public long? AnchorSourceSample { get; set; }
+        public long? FirstSourceSample { get; set; }
+        public long? NextSourceSample { get; set; }
     }
 }
 
-public sealed record CapturedAudioData(AudioSourceKind Source, byte[] Pcm16, DateTimeOffset CapturedAt);
+public sealed record CapturedAudioData(AudioSourceKind Source, byte[] Pcm16, DateTimeOffset CapturedAt,
+    string? CaptureRunId = null, long? ContinuityEpoch = null, long? FirstSourceSample = null);
 
 file static class AudioArchiveExtensions
 {

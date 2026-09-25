@@ -24,6 +24,10 @@ La pestaña **Inteligencia** permite preparar un proveedor compatible con una UR
 
 Esta rebanada **no contiene un cliente de red**: guardar, reemplazar o eliminar la clave no envía transcripciones, audio ni metadatos. El consentimiento por operación, la vista previa exacta del texto saliente y cualquier resumen o clasificación pertenecen a la siguiente rebanada.
 
+### Etapa 9.2–9.6 en fuente, no en beta 15
+
+El código actual incluye un **piloto experimental manual** de evaluación offline de transcripciones, propuestas conservadoras, Laya local, respaldo Jev consentido, segunda transcripción Qwen3-ASR de un intervalo y revisión humana. No hay corpus real consentido, medición de precisión sobre reuniones reales, inferencia física verificada de esos modelos ni un paquete/Setup nuevo. El piloto no genera automáticamente resúmenes, compromisos, traducciones o temas, ni sustituye una transcripción aprobada. Consulta la [guía de la etapa 9](stage-9-transcription-pilot.md).
+
 ## Elige el siguiente paso
 
 | Quiero… | Consulta |
@@ -35,6 +39,7 @@ Esta rebanada **no contiene un cliente de red**: guardar, reemplazar o eliminar 
 | Compilar, empaquetar o contribuir | [Guía de desarrollo](development.md) |
 | Entender el cifrado, las exportaciones y los límites de recuperación | [Seguridad y privacidad](security.md) |
 | Reproducir comprobaciones o validar una versión | [Guía de validación](validation.md) |
+| Probar la etapa 9 desde código fuente sin datos reales | [Guía del piloto de transcripción](stage-9-transcription-pilot.md) |
 
 ## Interpretar el estado con honestidad
 
@@ -45,4 +50,4 @@ Esta rebanada **no contiene un cliente de red**: guardar, reemplazar o eliminar 
 
 La [hoja de ruta](../ROADMAP.md) es el plan canónico de etapas. Las versiones de dependencias provienen de los archivos de proyecto; los metadatos de versión provienen de [Directory.Build.props](../Directory.Build.props). El [registro de validación](validation.md#evidencia-actual) separa la evidencia automatizada de las comprobaciones de hardware y larga duración pendientes.
 
-Última revisión de la documentación contra la fuente y la publicación: **2026-09-24**. Versión pública actual: v0.2.0-beta.15, secuencia 16; beta 14 y versiones anteriores quedan como evidencia histórica. 7.2b requiere un consentimiento separado de un solo uso y contiene sondeo agregado WGC/D3D11 acotado, evidencia cifrada de cobertura/actividad y presentación fail-closed solo para SystemOutput; no modifica transcripción, SpeakerName ni exportaciones. Los perfiles Meet/Teams permanecen Unvalidated, se abstienen y muestran **No disponible**. La validación física audible, WGC/GPU/interfaz/accesibilidad/Meet/Teams/2 h/5 h, la firma, la ejecución productiva del Setup, la cancelación humana, otra máquina o cuenta y 7.2c–7.2e siguen pendientes.
+Última revisión de la documentación contra la fuente y la publicación: **2026-09-25**. Versión pública actual: v0.2.0-beta.15, secuencia 16; beta 14 y versiones anteriores quedan como evidencia histórica. 7.2b requiere un consentimiento separado de un solo uso y contiene sondeo agregado WGC/D3D11 acotado, evidencia cifrada de cobertura/actividad y presentación fail-closed solo para SystemOutput; no modifica transcripción, SpeakerName ni exportaciones. Los perfiles Meet/Teams permanecen Unvalidated, se abstienen y muestran **No disponible**. La validación física audible, WGC/GPU/interfaz/accesibilidad/Meet/Teams/2 h/5 h, la firma, la ejecución productiva del Setup, la cancelación humana, otra máquina o cuenta y 7.2c–7.2e siguen pendientes.

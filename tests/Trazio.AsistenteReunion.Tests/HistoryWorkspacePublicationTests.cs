@@ -28,7 +28,7 @@ public sealed class HistoryWorkspacePublicationTests
         Assert.Contains("Agregar términos seleccionados", compiledApplication);
         Assert.Contains("Almacenamiento local", compiledApplication);
         Assert.Contains("Original · revisión humana", compiledApplication);
-        Assert.Contains("Retranscribir audio", compiledApplication);
+        Assert.Contains("Retranscribir fragmento con Qwen3-ASR", compiledApplication);
         Assert.Contains("Cancelar retranscripción", compiledApplication);
         Assert.Contains("Tu nombre en esta reunión (opcional)", compiledApplication);
         Assert.Contains("Guardar título", compiledApplication);

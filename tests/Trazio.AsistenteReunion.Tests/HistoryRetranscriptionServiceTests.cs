@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
+using Microsoft.Data.Sqlite;
 using Trazio.AsistenteReunion.App;
 using Trazio.AsistenteReunion.Core;
 
@@ -41,6 +42,7 @@ public sealed class HistoryRetranscriptionServiceTests : IAsyncLifetime
         var segments = await _store.GetModelRevisionSegmentsAsync(revision.Id);
         Assert.Equal(ModelRevisionStatus.Succeeded, Assert.Single(revisions).Status);
         Assert.Equal("FAKE-VERIFIED-HASH", revision.ModelHash);
+        Assert.Null(revision.Scope);
         Assert.Equal([0, 1], transport.Transport!.Calls);
         Assert.Equal(2, segments.Count);
         Assert.Equal(TimeSpan.Zero, segments[0].Start);
@@ -48,6 +50,180 @@ public sealed class HistoryRetranscriptionServiceTests : IAsyncLifetime
         Assert.Equal("immutable original", Assert.Single(await _store.GetSegmentsAsync(session.Id)).Text);
         Assert.DoesNotContain("generated-0", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(Path.Combine(_root, "test.db"))));
         Assert.Empty(Directory.GetFiles(_root, "*.wav", SearchOption.AllDirectories));
+    }
+
+    [Fact]
+    public async Task RunSelectedSegmentAsync_CrossesTwoEncryptedChunksAndStoresPartialScope()
+    {
+        var session = await CreateSessionAsync(SessionState.Completed);
+        var source = AudioSourceKind.Microphone;
+        await using (var writer = _archive.CreateSession(session.Id, long.MaxValue))
+        {
+            await writer.AppendAsync(new(source, Enumerable.Repeat((byte)0x11, 30 * 32_000).ToArray(), session.StartedAt));
+            await writer.AppendAsync(new(source, Enumerable.Repeat((byte)0x22, 30 * 32_000).ToArray(), session.StartedAt.AddSeconds(30)));
+            await writer.CompleteAsync();
+        }
+        var original = new TranscriptSegment("selected-original", session.Id, source, 0,
+            TimeSpan.FromSeconds(29), TimeSpan.FromSeconds(31), "texto aprobado", DateTimeOffset.UtcNow);
+        await _store.SaveSegmentAsync(original);
+        var factory = new IntervalTransportFactory();
+        var service = new HistoryRetranscriptionService(_store, _archive, factory);
+
+        var revision = await service.RunSelectedSegmentAsync(ToSummary(session), original, _model, "es");
+        await _store.InitializeAsync();
+        var restored = Assert.Single(await _store.ListModelRevisionsAsync(session.Id, source, true));
+        var segment = Assert.Single(await _store.GetModelRevisionSegmentsAsync(revision.Id));
+
+        Assert.Equal(new TranscriptModelRevisionScope(original.Id, original.Start, original.End), restored.Scope);
+        Assert.Equal("FAKE-INTERVAL-HASH", restored.ModelHash);
+        Assert.Equal(ModelRevisionProducer.Qwen3AsrLlamaCppV1, restored.ProducerIdentity);
+        Assert.Equal(2 * 32_000, factory.Pcm!.Length);
+        Assert.All(factory.Pcm.AsSpan(0, 32_000).ToArray(), value => Assert.Equal(0x11, value));
+        Assert.All(factory.Pcm.AsSpan(32_000).ToArray(), value => Assert.Equal(0x22, value));
+        Assert.Equal(original.Start, segment.Start);
+        Assert.Equal(original.Start + TimeSpan.FromMilliseconds(500), segment.End);
+        Assert.Equal("texto aprobado", Assert.Single(await _store.GetSegmentsAsync(session.Id)).Text);
+    }
+
+    [Fact]
+    public async Task RunSelectedSegmentAsync_DeniedQwenConsent_NeverDecryptsAudioOrStartsProcess()
+    {
+        var session = await CreateSessionAsync(SessionState.Completed);
+        await WriteAudioAsync(session, AudioSourceKind.Microphone, 1);
+        var original = new TranscriptSegment("consent-denied", session.Id, AudioSourceKind.Microphone,
+            0, TimeSpan.Zero, TimeSpan.FromSeconds(1), "texto original", DateTimeOffset.UtcNow);
+        await _store.SaveSegmentAsync(original);
+        var executable = Path.Combine(_root, "llama-server.exe");
+        var projector = Path.Combine(_root, "mmproj.gguf");
+        await File.WriteAllBytesAsync(executable, [1, 2, 3]);
+        await File.WriteAllBytesAsync(projector, [4, 5, 6]);
+        var counter = new CountingProtector(_protector);
+        var readArchive = new AudioArchiveStore(Path.Combine(_root, "audio"), _store, counter);
+        var consentCalls = 0;
+        var factory = new LlamaCppAsrTransportFactory(
+            LlamaCppAsrRuntimeOptions.Create(executable, projector),
+            (_, _) => { consentCalls++; return Task.FromResult(false); });
+        var service = new HistoryRetranscriptionService(_store, readArchive, factory);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            service.RunSelectedSegmentAsync(ToSummary(session), original, _model, "es"));
+
+        Assert.Equal(1, consentCalls);
+        Assert.Equal(0, counter.UnprotectCalls);
+        Assert.Empty(await _store.ListModelRevisionsAsync(session.Id));
+    }
+
+    [Fact]
+    public async Task RunSelectedSegmentAsync_SelectionCancelledDuringConsent_NeverDecryptsAudioOrStartsProcess()
+    {
+        var session = await CreateSessionAsync(SessionState.Completed);
+        await WriteAudioAsync(session, AudioSourceKind.Microphone, 1);
+        var original = new TranscriptSegment("selection-stale", session.Id, AudioSourceKind.Microphone,
+            0, TimeSpan.Zero, TimeSpan.FromSeconds(1), "texto original", DateTimeOffset.UtcNow);
+        await _store.SaveSegmentAsync(original);
+        var executable = Path.Combine(_root, "llama-server.exe");
+        var projector = Path.Combine(_root, "mmproj.gguf");
+        await File.WriteAllBytesAsync(executable, [1, 2, 3]);
+        await File.WriteAllBytesAsync(projector, [4, 5, 6]);
+        var counter = new CountingProtector(_protector);
+        var readArchive = new AudioArchiveStore(Path.Combine(_root, "audio"), _store, counter);
+        using var cancellation = new CancellationTokenSource();
+        var factory = new LlamaCppAsrTransportFactory(
+            LlamaCppAsrRuntimeOptions.Create(executable, projector),
+            (_, _) => { cancellation.Cancel(); return Task.FromResult(true); });
+        var service = new HistoryRetranscriptionService(_store, readArchive, factory);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            service.RunSelectedSegmentAsync(ToSummary(session), original, _model, "es", cancellation.Token));
+
+        Assert.Equal(0, counter.UnprotectCalls);
+        Assert.Empty(await _store.ListModelRevisionsAsync(session.Id));
+    }
+
+    [Fact]
+    public async Task LegacySegmentWithoutTicks_UsesStoredMillisecondsWithoutReinterpretation()
+    {
+        var session = await CreateSessionAsync(SessionState.Completed);
+        var original = new TranscriptSegment("legacy-ms", session.Id, AudioSourceKind.Microphone,
+            0, TimeSpan.FromMilliseconds(1001), TimeSpan.FromMilliseconds(2001),
+            "texto legado", DateTimeOffset.UtcNow);
+        await _store.SaveSegmentAsync(original);
+        await using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+            { DataSource = Path.Combine(_root, "test.db"), Pooling = false }.ToString()))
+        {
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = "UPDATE segments SET start_ticks=NULL,end_ticks=NULL WHERE id=$id";
+            command.Parameters.AddWithValue("$id", original.Id);
+            await command.ExecuteNonQueryAsync();
+        }
+        var restored = Assert.Single(await _store.GetSegmentsAsync(session.Id));
+        Assert.Equal(original.Start, restored.Start);
+        Assert.Equal(original.End, restored.End);
+        var revision = await _store.StartSegmentModelRevisionAsync(session.Id,
+            AudioSourceKind.Microphone, new TranscriptModelRevisionScope(restored.Id, restored.Start, restored.End),
+            "legacy-model", null, "es");
+        Assert.Equal(original.Start, Assert.Single(await _store.ListModelRevisionsAsync(session.Id)).Scope!.Start);
+        Assert.Equal(original.End, revision.Scope!.End);
+    }
+
+    [Fact]
+    public async Task RunSelectedSegmentAsync_SubMillisecondArchiveAnchorRoundTripsExactScope()
+    {
+        var session = await CreateSessionAsync(SessionState.Completed);
+        var offset = TimeSpan.FromTicks(10_008_000);
+        await using (var writer = _archive.CreateSession(session.Id, long.MaxValue))
+        {
+            await writer.AppendAsync(new(AudioSourceKind.Microphone, new byte[32_000],
+                session.StartedAt.Add(offset), "run-a", 0, 0));
+            await writer.CompleteAsync();
+        }
+        var original = new TranscriptSegment("submillisecond-original", session.Id,
+            AudioSourceKind.Microphone, 0, offset, offset + TimeSpan.FromSeconds(1),
+            "texto original", DateTimeOffset.UtcNow);
+        await _store.SaveSegmentAsync(original);
+        await _store.InitializeAsync();
+        var restoredOriginal = Assert.Single(await _store.GetSegmentsAsync(session.Id));
+        Assert.Equal(original.Start, restoredOriginal.Start);
+        Assert.Equal(original.End, restoredOriginal.End);
+        var factory = new IntervalTransportFactory();
+        var service = new HistoryRetranscriptionService(_store, _archive, factory);
+
+        var revision = await service.RunSelectedSegmentAsync(ToSummary(session), restoredOriginal, _model, "es");
+
+        var restoredRevision = Assert.Single(await _store.ListModelRevisionsAsync(session.Id));
+        var revised = Assert.Single(await _store.GetModelRevisionSegmentsAsync(revision.Id));
+        Assert.Equal(new TranscriptModelRevisionScope(original.Id, original.Start, original.End), restoredRevision.Scope);
+        Assert.Equal(ModelRevisionProducer.Qwen3AsrLlamaCppV1, restoredRevision.ProducerIdentity);
+        Assert.Equal(original.Start, revised.Start);
+        Assert.Equal(original.Start + TimeSpan.FromMilliseconds(500), revised.End);
+        Assert.Equal(32_000, factory.Pcm!.Length);
+        Assert.Equal("texto original", Assert.Single(await _store.GetSegmentsAsync(session.Id)).Text);
+    }
+
+    [Fact]
+    public async Task RunSelectedSegmentAsync_GapOrMissingAudioFailsBeforeStartingRevision()
+    {
+        var session = await CreateSessionAsync(SessionState.Completed);
+        var source = AudioSourceKind.SystemOutput;
+        await using (var writer = _archive.CreateSession(session.Id, long.MaxValue))
+        {
+            await writer.AppendAsync(new(source, new byte[30 * 32_000], session.StartedAt));
+            await writer.AppendAsync(new(source, new byte[30 * 32_000], session.StartedAt.AddSeconds(31)));
+            await writer.CompleteAsync();
+        }
+        var original = new TranscriptSegment("gap-original", session.Id, source, 0,
+            TimeSpan.FromSeconds(29), TimeSpan.FromSeconds(32), "texto aprobado", DateTimeOffset.UtcNow);
+        await _store.SaveSegmentAsync(original);
+        var factory = new IntervalTransportFactory();
+        var service = new HistoryRetranscriptionService(_store, _archive, factory);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.RunSelectedSegmentAsync(ToSummary(session), original, _model, "es"));
+
+        Assert.Null(factory.Pcm);
+        Assert.Empty(await _store.ListModelRevisionsAsync(session.Id));
+        Assert.Equal("texto aprobado", Assert.Single(await _store.GetSegmentsAsync(session.Id)).Text);
     }
 
     [Fact]
@@ -277,6 +453,38 @@ public sealed class HistoryRetranscriptionServiceTests : IAsyncLifetime
     }
 
     private static SessionSummary ToSummary(MeetingSession session) => new(session.Id, session.Title, session.StartedAt, session.EndedAt, session.State, session.LocalSpeakerName);
+
+    private sealed class CountingProtector(IContentProtector inner) : IContentProtector
+    {
+        public int UnprotectCalls { get; private set; }
+        public EncryptedPayload Protect(ReadOnlySpan<byte> plaintext, string associatedData) =>
+            inner.Protect(plaintext, associatedData);
+        public byte[] Unprotect(EncryptedPayload payload, string associatedData)
+        {
+            UnprotectCalls++;
+            return inner.Unprotect(payload, associatedData);
+        }
+    }
+
+    private sealed class IntervalTransportFactory : ITranscriptionTransportFactory
+    {
+        public byte[]? Pcm { get; private set; }
+        public Task<ITranscriptionTransport> StartAsync(string modelPath, string language, CancellationToken cancellationToken) =>
+            Task.FromResult<ITranscriptionTransport>(new IntervalTransport(this));
+
+        private sealed class IntervalTransport(IntervalTransportFactory owner) : ITranscriptionTransport
+        {
+            public string? VerifiedModelHash => "FAKE-INTERVAL-HASH";
+            public Task<WorkerResponse> TranscribeAsync(string workId, byte[] pcm16, CancellationToken cancellationToken)
+            {
+                owner.Pcm = pcm16.ToArray();
+                return Task.FromResult(new WorkerResponse(true, WorkId: workId,
+                    Segments: [new(0, 500, "segunda versión")]));
+            }
+            public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        }
+    }
 
     private sealed class ProductionPipeTimeoutTransportFactory : ITranscriptionTransportFactory
     {

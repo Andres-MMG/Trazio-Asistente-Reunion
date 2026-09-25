@@ -1,13 +1,13 @@
 # Trazio Asistente Reunión — Hoja de ruta del producto
 
-- Fecha del estado: 2026-09-24
+- Fecha del estado: 2026-09-25
 - Madurez actual: MVP funcional avanzado / versión preliminar pública
 - Versión publicada actual: [0.2.0-beta.15](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.15), secuencia de instalador **16**
 - Versión anterior: `0.2.0-beta.14`, secuencia de instalador **15**; se conserva como evidencia histórica
 - Versión anterior adicional: `0.2.0-beta.9`, secuencia de instalador **10**; se conserva como evidencia histórica
 - Antecedente adicional: `0.2.0-beta.8`, secuencia de instalador **9**
 
-Este es el plan canónico de etapas. **La beta 15/secuencia 16 publica la configuración segura 9.1 del proveedor externo, todavía sin llamadas de red ni envío de transcripciones.** El ZIP y el Setup están verificados; el Setup permanece sin firma y no se ejecutó con identidad productiva. El paquete conserva exactamente cinco capacidades. Siguen pendientes cancelación humana, validación física audible y de accesibilidad, WGC/GPU, Meet/Teams reales, 2/5 horas, otra máquina o cuenta y autoactualización. La etapa 6 tiene una línea base funcional; 7.1a, 7.2a y la infraestructura de 7.2b están publicadas, todavía pendientes de validación física. No existe identificación de hablantes.
+Este es el plan canónico de etapas. **La beta 15/secuencia 16 publica solo la configuración segura 9.1 del proveedor externo, sin llamadas de red ni envío de transcripciones.** Las rebanadas 9.2–9.6 son un piloto experimental solo en el código fuente actual; no existe una nueva versión publicada. El ZIP y el Setup están verificados; el Setup permanece sin firma y no se ejecutó con identidad productiva. El paquete conserva exactamente cinco capacidades. Siguen pendientes cancelación humana, validación física audible y de accesibilidad, WGC/GPU, Meet/Teams reales, 2/5 horas, otra máquina o cuenta y autoactualización. La etapa 6 tiene una línea base funcional; 7.1a, 7.2a y la infraestructura de 7.2b están publicadas, todavía pendientes de validación física. No existe identificación de hablantes.
 
 ## Principios del producto
 
@@ -30,7 +30,7 @@ Este es el plan canónico de etapas. **La beta 15/secuencia 16 publica la config
 | 6 | Revisión, corrección, glosario de procedencia y retranscripción versionada | Línea base funcional implementada — validación física pendiente |
 | 7 | Fuente de reunión y atribución de hablantes | 7.1a/7.2a y la infraestructura de 7.2b publicadas desde beta 6 y vigentes en beta 12; evaluador/corpus sintético presentes solo en fuente — perfiles de producción no validados, sin identificación de hablantes y con validación física pendiente; 7.2c+ planificadas |
 | 8 | Búsqueda, revisión por lotes, glosario global y productividad | En curso — 8.1 a 8.6 están publicadas; 8.6 agrega notas, decisiones y seguimientos cifrados por segmento. La validación física y la revisión avanzada de hablantes siguen pendientes |
-| 9 | Inteligencia de reuniones opcional | En curso — 9.1 está publicada en beta 15 con configuración segura; todavía no envía transcripciones ni genera resúmenes |
+| 9 | Inteligencia de reuniones opcional | En curso — 9.1 publicada en beta 15; 9.2–9.6 en fuente como piloto manual no publicado ni validado con modelos reales. Resúmenes, compromisos, traducción y temas pendientes |
 | 10 | Integración organizacional/con plataforma opcional | Futura |
 | 11 | Cuentas conectadas, calendarios y automatización de reuniones | Futura |
 | 12 | Entrenamiento opcional de modelos con correcciones aprobadas | Futura — etapa final |
@@ -237,19 +237,23 @@ La evidencia automatizada de 8.1a cubre límites de navegación, listas reemplaz
 - Guardar, reemplazar o eliminar la clave no realiza conexiones ni envía texto, audio o metadatos de reuniones.
 - Esta rebanada prepara el límite de configuración; todavía no existe cliente de red, resumen, traducción ni clasificación externa.
 
-### Siguientes rebanadas
+### 9.2–9.6 — Piloto manual en código fuente (no publicado)
 
-- Antes de cada operación externa, mostrar exactamente qué texto saldrá del equipo, el proveedor/modelo y pedir confirmación específica.
-- Ejecutar solicitudes acotadas mediante una abstracción compatible con proveedores externos o un servicio autoalojado equivalente; registrar procedencia sin guardar la clave en registros.
+| Rebanada | Implementación en fuente | Límite antes de publicar |
+|---|---|---|
+| 9.2, evaluación | Arnés offline para manifiestos privados y comparación de WER/CER, errores de significado humanos, latencia y memoria sobre los mismos audios | No hay corpus real consentido ni mediciones reales de precisión. El arnés no ejecuta modelos ni lee reuniones de Trazio automáticamente |
+| 9.3, propuestas | Generador configurable compatible con chat completions, local o remoto, hasta dos propuestas conservadoras o ninguna; contexto y diccionario acotados; versiones cifradas ligadas al original | Para destino remoto se confirma el JSON exacto por operación. Una propuesta no es transcripción acústica ni se aplica sola |
+| 9.4, evaluación | Sidecar Laya local y juicios cifrados de preservación de significado, hechos no respaldados y preferencia; incluye mantener original/revisión humana. Respaldo Jev manual con clave distinta y nueva comprobación de Laya | Jev solo procede ante ausencia, indisponibilidad o capacidad local insuficiente; requiere consentimiento del JSON exacto. Incertidumbre de Laya no es motivo de respaldo. Las probabilidades no garantizan fidelidad acústica |
+| 9.5, segunda escucha | Qwen3-ASR mediante llama.cpp sobre un intervalo seleccionado del audio original, revisión separada y procedencia cifrada; comparación conjunta Laya v2 de Whisper/Qwen/propuestas | Sin tercer transcriptor. Sidecar, ejecutable y modelos no están incluidos en la beta. La detección de huecos nuevos usa metadatos de muestra/época y tolerancia provisional de 40 ms, no garantía física |
+| 9.6, revisión | Vista manual Original / Propuesta / Cambios, escucha del fragmento y decisiones de aceptar/rechazar; alertas heurísticas de nombres, cifras, fechas y negaciones | Falta validación física audible, accesibilidad y corpus. Nunca reemplazar automáticamente texto aprobado durante el piloto |
 
+No se ha ejecutado inferencia real de Laya, Qwen ni Jev con modelos/servicio instalados, ni se ha verificado un nuevo paquete/Setup. La grabación debe seguir operando si el análisis se cancela o falla. Consulta la [guía del piloto](docs/stage-9-transcription-pilot.md) y los [límites de validación](docs/validation.md#piloto-de-transcripcion-mejorada-en-fuente).
 
-- Resúmenes opcionales de reuniones mediante una API LLM externa inicialmente, con dirección del proveedor y clave API configurables; después podría reemplazarse por un servicio compatible autoalojado.
-- Explorar un modelo generativo que proponga preguntas candidatas sustentadas en evidencia y Jev que devuelva juicios tipados; validar y acotar esas preguntas en el código de la aplicación. Ninguna de las dos integraciones está implementada actualmente.
-- Exigir activación explícita antes de que el contenido de la transcripción salga del equipo; proteger credenciales y registrar la procedencia del proveedor/modelo. La grabación y revisión locales deben continuar sin esta integración.
-- Decisiones, compromisos y acciones pendientes.
-- Traducción opcional.
-- Segmentación por temas.
-- Todo contenido generado debe enlazar a la evidencia de la transcripción y permanecer claramente marcado como generado por máquina.
+### Después del piloto
+
+- Medir Whisper, Whisper refinado y Whisper + Qwen sobre los **mismos fragmentos consentidos**; distinguir legibilidad de errores de significado antes de decidir automatización o tercer transcriptor.
+- Retomar resúmenes, compromisos, traducción y temas con activación explícita, versión seleccionada y vínculos a evidencia. El contenido generado debe identificarse como tal y no alterar el original.
+
 
 ## Etapa 10 — Integración organizacional/con plataforma opcional
 

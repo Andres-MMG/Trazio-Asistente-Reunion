@@ -60,6 +60,26 @@ public sealed class TranscriptPresentationTests
     }
 
     [Fact]
+    public void HistoryRevisionItem_DistinguishesPartialIntervalFromFullTrack()
+    {
+        var full = new TranscriptModelRevision(
+            "full", "session", AudioSourceKind.Microphone, ModelRevisionStatus.Succeeded,
+            "Whisper", "hash", "es", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            TimeSpan.FromSeconds(1), null, GlossaryPromptPlan.NoGlossaryVersion);
+        var partial = full with
+        {
+            Id = "partial",
+            ModelIdentity = "Qwen3-ASR",
+            Scope = new TranscriptModelRevisionScope(
+                "original", TimeSpan.FromSeconds(29), TimeSpan.FromSeconds(31))
+        };
+
+        Assert.Contains("pista completa", new HistoryRevisionItem(full).Label, StringComparison.Ordinal);
+        Assert.Contains("fragmento 00:00:29–00:00:31",
+            new HistoryRevisionItem(partial).Label, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void HistorySegmentItem_IneligibleSession_DoesNotClaimOriginalIsPendingReview()
     {
         var segment = new TranscriptSegment(

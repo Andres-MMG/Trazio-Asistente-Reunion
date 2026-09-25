@@ -44,9 +44,16 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
         await EnsureColumnAsync(connection, "segments", "speaker_nonce", "BLOB NULL", cancellationToken);
         await EnsureColumnAsync(connection, "segments", "speaker_cipher", "BLOB NULL", cancellationToken);
         await EnsureColumnAsync(connection, "segments", "speaker_tag", "BLOB NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "segments", "start_ticks", "INTEGER NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "segments", "end_ticks", "INTEGER NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "archived_audio", "capture_run_id", "TEXT NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "archived_audio", "continuity_epoch", "INTEGER NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "archived_audio", "first_source_sample", "INTEGER NULL", cancellationToken);
         await InitializeReviewSchemaAsync(connection, cancellationToken);
         await InitializeBatchReviewSchemaAsync(connection, cancellationToken);
         await InitializeModelRevisionSchemaAsync(connection, cancellationToken);
+        await InitializeTranscriptRefinementSchemaAsync(connection, cancellationToken);
+        await InitializeTranscriptRefinementEvaluationSchemaAsync(connection, cancellationToken);
         await InitializeAnonymousVisualEvidenceSchemaAsync(connection, cancellationToken);
         await InitializeSegmentAnnotationSchemaAsync(connection, cancellationToken);
     }
@@ -103,8 +110,8 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
         await using var connection = await OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-          INSERT OR IGNORE INTO segments(id,session_id,source,sequence,start_ms,end_ms,text_nonce,text_cipher,text_tag,created_at,speaker_nonce,speaker_cipher,speaker_tag)
-          VALUES($id,$session,$source,$sequence,$start,$end,$n,$c,$t,$created,$sn,$sc,$st)
+          INSERT OR IGNORE INTO segments(id,session_id,source,sequence,start_ms,end_ms,text_nonce,text_cipher,text_tag,created_at,speaker_nonce,speaker_cipher,speaker_tag,start_ticks,end_ticks)
+          VALUES($id,$session,$source,$sequence,$start,$end,$n,$c,$t,$created,$sn,$sc,$st,$startTicks,$endTicks)
           """;
         command.Parameters.AddWithValue("$id", segment.Id);
         command.Parameters.AddWithValue("$session", segment.SessionId);
@@ -112,6 +119,8 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
         command.Parameters.AddWithValue("$sequence", segment.Sequence);
         command.Parameters.AddWithValue("$start", (long)segment.Start.TotalMilliseconds);
         command.Parameters.AddWithValue("$end", (long)segment.End.TotalMilliseconds);
+        command.Parameters.AddWithValue("$startTicks", segment.Start.Ticks);
+        command.Parameters.AddWithValue("$endTicks", segment.End.Ticks);
         AddPayload(command, encrypted);
         AddOptionalPayload(command, speaker);
         command.Parameters.AddWithValue("$created", segment.CreatedAt.ToString("O"));
@@ -218,7 +227,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
         var result = new List<TranscriptSegment>();
         await using var connection = await OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT id,source,sequence,start_ms,end_ms,text_nonce,text_cipher,text_tag,created_at,speaker_nonce,speaker_cipher,speaker_tag FROM segments WHERE session_id=$session ORDER BY start_ms,source";
+        command.CommandText = "SELECT id,source,sequence,start_ms,end_ms,text_nonce,text_cipher,text_tag,created_at,speaker_nonce,speaker_cipher,speaker_tag,start_ticks,end_ticks FROM segments WHERE session_id=$session ORDER BY COALESCE(start_ticks,start_ms*10000),source";
         command.Parameters.AddWithValue("$session", sessionId);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
@@ -227,7 +236,10 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
             var text = Encoding.UTF8.GetString(protector.Unprotect(ReadPayload(reader, 5), $"segment:{id}:text"));
             var source = (AudioSourceKind)reader.GetInt32(1);
             var speaker = source == AudioSourceKind.Microphone ? UnprotectOptional(reader, 9, $"segment:{id}:speaker") : null;
-            result.Add(new(id, sessionId, source, reader.GetInt64(2), TimeSpan.FromMilliseconds(reader.GetInt64(3)), TimeSpan.FromMilliseconds(reader.GetInt64(4)), text, DateTimeOffset.Parse(reader.GetString(8)), speaker));
+            result.Add(new(id, sessionId, source, reader.GetInt64(2),
+                reader.IsDBNull(12) ? TimeSpan.FromMilliseconds(reader.GetInt64(3)) : TimeSpan.FromTicks(reader.GetInt64(12)),
+                reader.IsDBNull(13) ? TimeSpan.FromMilliseconds(reader.GetInt64(4)) : TimeSpan.FromTicks(reader.GetInt64(13)),
+                text, DateTimeOffset.Parse(reader.GetString(8)), speaker));
         }
         return result;
     }
@@ -246,8 +258,8 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
         await using var connection = await OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            INSERT INTO archived_audio(id,session_id,source,sequence,started_at,duration_ms,relative_path,encrypted_bytes)
-            VALUES($id,$session,$source,$sequence,$started,$duration,$path,$bytes)
+            INSERT INTO archived_audio(id,session_id,source,sequence,started_at,duration_ms,relative_path,encrypted_bytes,capture_run_id,continuity_epoch,first_source_sample)
+            VALUES($id,$session,$source,$sequence,$started,$duration,$path,$bytes,$run,$epoch,$firstSample)
             """;
         command.Parameters.AddWithValue("$id", chunk.Id);
         command.Parameters.AddWithValue("$session", chunk.SessionId);
@@ -257,6 +269,9 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
         command.Parameters.AddWithValue("$duration", (long)chunk.Duration.TotalMilliseconds);
         command.Parameters.AddWithValue("$path", chunk.RelativePath);
         command.Parameters.AddWithValue("$bytes", chunk.EncryptedBytes);
+        command.Parameters.AddWithValue("$run", (object?)chunk.CaptureRunId ?? DBNull.Value);
+        command.Parameters.AddWithValue("$epoch", (object?)chunk.ContinuityEpoch ?? DBNull.Value);
+        command.Parameters.AddWithValue("$firstSample", (object?)chunk.FirstSourceSample ?? DBNull.Value);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -267,7 +282,7 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
         await using var connection = await OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT id,source,sequence,started_at,duration_ms,relative_path,encrypted_bytes
+            SELECT id,source,sequence,started_at,duration_ms,relative_path,encrypted_bytes,capture_run_id,continuity_epoch,first_source_sample
             FROM archived_audio WHERE session_id=$session AND ($source IS NULL OR source=$source)
             ORDER BY source,sequence
             """;
@@ -276,7 +291,10 @@ public sealed partial class SqliteSessionStore(string databasePath, IContentProt
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
             result.Add(new(reader.GetString(0), sessionId, (AudioSourceKind)reader.GetInt32(1), reader.GetInt64(2),
-                DateTimeOffset.Parse(reader.GetString(3)), TimeSpan.FromMilliseconds(reader.GetInt64(4)), reader.GetString(5), reader.GetInt64(6)));
+                DateTimeOffset.Parse(reader.GetString(3)), TimeSpan.FromMilliseconds(reader.GetInt64(4)), reader.GetString(5), reader.GetInt64(6),
+                reader.IsDBNull(7) ? null : reader.GetString(7),
+                reader.IsDBNull(8) ? null : reader.GetInt64(8),
+                reader.IsDBNull(9) ? null : reader.GetInt64(9)));
         return result;
     }
 
