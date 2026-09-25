@@ -2,11 +2,11 @@
 
 **Comienza con una prueba breve y no sensible.** Trazio es una versión preliminar para Windows 11 x64 con interfaz en español. Necesitas una CPU x64 compatible, un micrófono/dispositivo de salida funcional y espacio en disco para el modelo y el audio cifrado. El ZIP publicado incluye el entorno de ejecución de .NET.
 
-> **Estado de esta guía:** la descarga pública actual es beta 12/secuencia 13. Incluye aprobación múltiple segura 8.4b sobre la bandeja individual 8.4a. La validación audible con hardware real, visual, por teclado y lector de pantalla continúa pendiente.
+> **Estado de esta guía:** la descarga pública actual es beta 13/secuencia 14. Incluye la aplicación controlada 8.5 del diccionario a retranscripciones y conserva la aprobación múltiple segura 8.4b. La validación audible con hardware real, visual, por teclado y lector de pantalla continúa pendiente.
 
 ## Primera grabación
 
-1. Descarga el ZIP completo de Windows desde la [versión publicada v0.2.0-beta.12](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.12). Verifica el archivo lateral .sha256: el ZIP debe medir **86,935,470 bytes** y su SHA-256 debe ser 0bb6ebeea882d1d67afc5ceace978578197831ce2ca7fdcd4c5fb5b05464f6d2. Extráelo en una carpeta normal de aplicaciones; no lo ejecutes desde dentro del ZIP.
+1. Descarga el ZIP completo de Windows desde la [versión publicada v0.2.0-beta.13](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.13). Verifica el archivo lateral .sha256: el ZIP debe medir **86,940,830 bytes** y su SHA-256 debe ser a5d8d83d048167e2d9ccfa1ad21ed676278af49bd00253c206bf7bdda8ec5220. Extráelo en una carpeta normal de aplicaciones; no lo ejecutes desde dentro del ZIP.
 2. Abre `Trazio.AsistenteReunion.exe`. No lo separes del proceso auxiliar ni de las DLL. La beta sin firma puede generar advertencias de reputación de Windows; verifica el origen de la versión y su SHA-256 antes de decidir ejecutarla. No desactives el antivirus globalmente.
 3. En **Sesión en vivo**, acepta o edita **Título de la reunión**. Es un título automático de reunión, no tu nombre; se puede renombrar después en Historial.
 4. En **Perfil local**, confirma **Nombre visible**, ingresa opcionalmente una organización, marca **Confirmo este nombre visible** y **Guardar perfil**. **Tu nombre en esta reunión (opcional)** cambia solo la atribución del micrófono para esta grabación.
@@ -83,7 +83,7 @@ La aprobación múltiple no corrige texto, no agrega términos al diccionario, n
 3. Revisa los reemplazos de términos detectados. Por ejemplo, cambiar dos nombres debería proponer `Need → Meet` y `NTeams → Teams`, no toda la oración.
 4. Después de guardar una corrección, selecciona las sugerencias que convenga conservar y agrégalas al diccionario. El texto sin cambios no es una regla útil de glosario.
 
-**Límite actual:** el glosario registra terminología confirmada y su procedencia. Todavía no cambia las instrucciones de Whisper ni reemplaza palabras automáticamente. Guardar correcciones no entrena el modelo de voz. La aplicación futura acotada del glosario pertenece a la etapa 8.7; el entrenamiento, a la etapa 12.
+**Límite actual:** el glosario registra terminología confirmada y su procedencia. En 8.5 puede orientar una retranscripción solo después de confirmación explícita; nunca reemplaza palabras automáticamente. Guardar correcciones no entrena el modelo de voz. El entrenamiento continúa reservado para la etapa 12.
 
 ### Gestionar el diccionario global en beta 10
 
@@ -91,7 +91,7 @@ La beta 10 pública agrega la pestaña **Diccionario**:
 
 1. Usa **Filtrar términos o categoría** para buscar por forma incorrecta, término preferido o categoría. El filtro ignora mayúsculas y tildes, se ejecuta solo en memoria y muestra hasta 120 entradas.
 2. Elige **Todos**, **Activos** o **Inactivos**. Cada duplicado histórico aparece como una fila independiente con un ordinal público; no se muestran IDs internos.
-3. Marca o desmarca **Activa**. El cambio solo prepara esa entrada para una aplicación futura: **no modifica Whisper, no reemplaza texto y no cambia transcripciones existentes**.
+3. Marca o desmarca **Activa**. Una entrada activa queda disponible para la confirmación de 8.5 al retranscribir; **no modifica por sí sola Whisper, no reemplaza texto y no cambia transcripciones existentes**.
 4. Usa **Actualizar** para volver a leer el almacén cifrado. Si una entrada está corrupta, la carga completa se rechaza y no se publica una lista parcial.
 
 Al eliminar una sesión también se eliminan las entradas del diccionario originadas en sus correcciones. Deshacer una corrección, en cambio, conserva sus entradas.
@@ -119,13 +119,15 @@ El archivo usa JSON UTF-8 con esta estructura exacta; los nombres de las propied
 
 Se admiten hasta **5 MiB**, **5.000 entradas** y una profundidad JSON máxima de **8**. `mistakenForm` y `preferredTerm` deben tener entre 1 y 120 caracteres; `category`, entre 1 y 60. Trazio recorta los extremos y normaliza Unicode a NFC, pero rechaza NUL, saltos de línea y otros caracteres de control. Acepta UTF-8 con o sin BOM; la exportación usa UTF-8 sin BOM, saltos LF y orden determinista. Un JSON, encabezado o UTF-8 inválido aborta el archivo completo. Una fila inválida se conserva solo en la vista previa como **Rechazada** y no se escribe.
 
-Las entradas exactamente repetidas, equivalentes al ignorar mayúsculas/diacríticos o en conflicto se omiten sin fusión destructiva. Los grupos existentes quedan señalados para que ajustes **Activa** manualmente. Las entradas importadas sobreviven al borrado de reuniones porque no inventan una corrección de origen. Trazio no guarda la ruta ni el nombre del archivo y no lo envía por red; la vista previa sí existe transitoriamente en RAM, sin promesa de memoria segura. Esta función está publicada en beta 10 y no aplica términos a Whisper.
+Las entradas exactamente repetidas, equivalentes al ignorar mayúsculas/diacríticos o en conflicto se omiten sin fusión destructiva. Los grupos existentes quedan señalados para que ajustes **Activa** manualmente. Las entradas importadas sobreviven al borrado de reuniones porque no inventan una corrección de origen. Trazio no guarda la ruta ni el nombre del archivo y no lo envía por red; la vista previa sí existe transitoriamente en RAM, sin promesa de memoria segura. Esta función está publicada desde beta 10. La aplicación controlada de términos pertenece al flujo de retranscripción 8.5.
 
 ## Retranscribir y comparar versiones
 
 - Selecciona la fuente conservada y usa **Retranscribir audio**. Configura el modelo/idioma deseado en los ajustes de sesión en vivo antes de iniciar la ejecución.
+- Si existen entradas activas y no ambiguas, revisa la vista previa. **Sí** usa hasta 64 términos preferidos para orientar Whisper; **No** retranscribe sin diccionario; **Cancelar** no inicia nada. La opción segura predeterminada es Cancelar. Las formas equivocadas no se envían al modelo.
 - La sesión debe estar detenida. La secuencia de fragmentos conservados debe estar completa desde la secuencia cero; no se pueden retranscribir fuentes parcialmente eliminadas como si no faltara nada.
-- Se crea una nueva revisión de salida del modelo. Se preservan el original y las correcciones humanas. Las ejecuciones fallidas/canceladas no se presentan como resultados exitosos.
+- Se crea una nueva revisión de salida del modelo y su etiqueta indica si usó **diccionario confirmado**. Se preservan el original y las correcciones humanas. Las ejecuciones fallidas/canceladas no se presentan como resultados exitosos.
+- El prompt orienta Whisper, pero no garantiza una corrección. No se sustituye texto automáticamente; compara y escucha el resultado.
 - Abre **Comparar transcripciones**, elige dos versiones elegibles de la misma fuente y compara. Cada fila agrupa el texto por su hora de inicio en un intervalo de 15 segundos; **Escuchar** reproduce el intervalo de la fuente correspondiente.
 - Las diferencias muestran qué cambió, **no qué versión es más precisa**. Escucha antes de aceptar una redacción.
 
@@ -162,7 +164,7 @@ Esto traslada datos para el mismo usuario de Windows. No hace portátiles los da
 
 ## Instalar, reparar o actualizar con Setup
 
-La [versión pública beta 12](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.12) ofrece tanto el ZIP como Trazio-Asistente-Reunion-v0.2.0-beta.12-Setup.exe. El instalador es manual, offline y solo para tu usuario de Windows. El Setup mide **60,094,013 bytes**, su SHA-256 es 54a658f9f92a750840d5621f4120e6bdc601d3a25dfd268b44add421a8a574cb y Authenticode informa NotSigned. Úsalo primero con datos no sensibles y conserva una copia de seguridad.
+La [versión pública beta 13](https://github.com/Andres-MMG/Trazio-Asistente-Reunion/releases/tag/v0.2.0-beta.13) ofrece tanto el ZIP como Trazio-Asistente-Reunion-v0.2.0-beta.13-Setup.exe. El instalador es manual, offline y solo para tu usuario de Windows. El Setup mide **60,084,574 bytes**, su SHA-256 es 405c4292294933628736b060009bd4a321139fec31adc6622540530f8c2d4eec y Authenticode informa NotSigned. Úsalo primero con datos no sensibles y conserva una copia de seguridad.
 
 1. Descarga el `.exe`, su `.sha256` y su `.manifest.json` desde la misma versión oficial. Compara nombre, longitud y SHA-256. Como todavía no hay firma Authenticode, esa comprobación detecta diferencias respecto del sidecar pero no autentica por sí sola al editor.
 2. Finaliza la grabación y cierra Trazio normalmente. No fuerces la aplicación ni su proceso de transcripción, y no vuelvas a abrirlos hasta que Setup termine. La primera actualización desde beta 5 no puede detectar infaliblemente una instancia legacy abierta porque esa versión no creaba el nuevo mutex. Además, una App/Worker nueva podría iniciarse después del chequeo inicial del instalador; mantenerla cerrada evita esa carrera conocida.
@@ -170,7 +172,7 @@ La [versión pública beta 12](https://github.com/Andres-MMG/Trazio-Asistente-Re
 4. Si Trazio o su Worker nuevo ya están activos durante el chequeo inicial, Setup se bloquea y permite reintentar/cancelar; nunca los cierra ni reinicia automáticamente. Ese chequeo no impide que alguien abra Trazio después, por lo que no lo hagas durante la instalación.
 5. Después de completar, abre Trazio y comprueba Historial, modelo y una prueba breve. La definición del desinstalador no incluye la raíz de datos, pero valida primero con datos de prueba antes de confiar una actualización de producción.
 
-Los binarios quedan en una raíz estable con un payload completo por versión. Durante Setup se conserva el payload anterior; si la copia/activación falla o cancelas antes de completar, Inno revierte la transacción. **Ese límite termina al finalizar Setup:** después de abrir una versión nueva no se garantiza compatibilidad de la base al volver atrás. Tampoco hay descarga automática, limpieza automática de payloads antiguos ni firma del editor. Las definiciones publicadas desde beta 6 y vigentes en beta 12/secuencia 13 no leen, copian, migran ni borran la raíz de datos; aun así, no se afirma preservación física de datos arbitrarios sin validación en otra cuenta/equipo. El Setup beta 12 permanece sin firma y no fue ejecutado. La cancelación humana y esa validación física siguen pendientes.
+Los binarios quedan en una raíz estable con un payload completo por versión. Durante Setup se conserva el payload anterior; si la copia/activación falla o cancelas antes de completar, Inno revierte la transacción. **Ese límite termina al finalizar Setup:** después de abrir una versión nueva no se garantiza compatibilidad de la base al volver atrás. Tampoco hay descarga automática, limpieza automática de payloads antiguos ni firma del editor. Las definiciones publicadas desde beta 6 y vigentes en beta 13/secuencia 14 no leen, copian, migran ni borran la raíz de datos; aun así, no se afirma preservación física de datos arbitrarios sin validación en otra cuenta/equipo. El Setup beta 13 permanece sin firma y no fue ejecutado. La cancelación humana y esa validación física siguen pendientes.
 
 ## Actualizar la instalación ZIP
 
